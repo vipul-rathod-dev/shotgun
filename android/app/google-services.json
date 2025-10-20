@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "354278607313",
+    "project_id": "shotgun-48e08",
+    "storage_bucket": "shotgun-48e08.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:354278607313:android:200cf8dee4e41e25b738f0",
+        "android_client_info": {
+          "package_name": "com.example.shotgun"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDk5d6ENQEpzYsOTSsjcwA7ZjmBBQIgWU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
