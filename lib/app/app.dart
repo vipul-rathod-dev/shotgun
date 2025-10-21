@@ -5,7 +5,7 @@ import 'package:shotgun/screens/admin_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory.dart';
 import 'package:shotgun/screens/admin_screens/product_page.dart';
 import 'package:shotgun/screens/staff_screens/staff_page.dart';
-import '../screens/admin_screens/order_page/new_multiproduct_page.dart';
+import '../screens/admin_screens/order_page/add_orders_page.dart';
 import '../screens/login_page.dart';
 import '../screens/register_page.dart';
 
@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
         '/manage-inventory': (context) => const ManageInventoryPage(),
         '/admin/suppliers': (context) => const ManageSuppliersPage(),
         '/admin/orders': (context) => const ManageOrdersPage(),
-        '/admin/orders/new': (context) => const NewMultiProductOrderPage(),
+        '/admin/orders/new': (context) => const AddOrdersPage(),
       },
     );
   }

@@ -1,16 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 import 'package:shotgun/widgets/date_picker_field.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
-class NewMultiProductOrderPage extends StatefulWidget {
-  const NewMultiProductOrderPage({super.key});
+
+class AddOrdersPage extends StatefulWidget {
+  const AddOrdersPage({super.key});
 
   @override
-  State<NewMultiProductOrderPage> createState() => _NewMultiProductOrderPageState();
+  State<AddOrdersPage> createState() => _AddOrdersPageState();
 }
 
-class _NewMultiProductOrderPageState extends State<NewMultiProductOrderPage> {
+class _AddOrdersPageState extends State<AddOrdersPage> {
   final _formKey = GlobalKey<FormState>();
 
   // Stepper State
@@ -108,6 +112,7 @@ class _NewMultiProductOrderPageState extends State<NewMultiProductOrderPage> {
         'shippingDate': Timestamp.fromDate(_shippingDate!),
         'products': finalProducts,
         'timestamp': FieldValue.serverTimestamp(),
+        'orderStatus': 'Yet to Start',
       });
 
       if (mounted) {
@@ -145,6 +150,92 @@ class _NewMultiProductOrderPageState extends State<NewMultiProductOrderPage> {
       }
     }
   }
+
+  // void _shareOrderDetails() {
+  //   final buffer = StringBuffer();
+  //   buffer.writeln('🧾 New Order Summary');
+  //   buffer.writeln('Customer: ${_customerNameController.text.trim()}');
+  //   buffer.writeln('Order Date: ${_orderDate?.toIso8601String().split('T').first}');
+  //   buffer.writeln('Shipping Date: ${_shippingDate?.toIso8601String().split('T').first}');
+  //   buffer.writeln('\n📦 Products:');
+  //   for (var product in _productSelections) {
+  //     final name = product['productName'];
+  //     final qty = product['quantity'];
+  //     buffer.writeln('\n- $name (Qty: $qty)');
+  //     final customizations = _productCustomizations[product['productId']] ?? [];
+  //     for (var c in customizations) {
+  //       buffer.writeln(
+  //         '   • Focus Color: ${c['colorName']} (${c['colorQty']}), '
+  //         'Temple Color: ${c['templeName']} (${c['templeQty']})',
+  //       );
+  //     }
+  //   }
+  //   Share.share(buffer.toString());
+  // }
+
+  Future<void> _generateOrderPdf() async {
+    final pdf = pw.Document();
+
+    final dateFormatter = (DateTime? d) =>
+        d?.toIso8601String().split('T').first ?? '';
+
+    pdf.addPage(
+      pw.MultiPage(
+        build: (context) => [
+          pw.Text('Order Summary', style: pw.TextStyle(fontSize: 24)),
+          pw.SizedBox(height: 16),
+
+          pw.Text('Customer: ${_customerNameController.text.trim()}'),
+          pw.Text('Order Date: ${dateFormatter(_orderDate)}'),
+          pw.Text('Shipping Date: ${dateFormatter(_shippingDate)}'),
+
+          pw.SizedBox(height: 16),
+          pw.Text('Products:', style: pw.TextStyle(fontSize: 18)),
+
+          ..._productSelections.map((product) {
+            final customizations = _productCustomizations[product['productId']] ?? [];
+
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.SizedBox(height: 12),
+                pw.Text(
+                  '${product['productName']} (Qty: ${product['quantity']})',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                if (customizations.isEmpty)
+                  pw.Text('No customizations added.'),
+                if (customizations.isNotEmpty)
+                  pw.TableHelper.fromTextArray(
+                    headers: ['Color', 'Color Qty', 'Temple', 'Temple Qty'],
+                    data: customizations.map((c) => [
+                          c['colorName'] ?? '',
+                          c['colorQty']?.toString() ?? '0',
+                          c['templeName'] ?? '',
+                          c['templeQty']?.toString() ?? '0',
+                        ]).toList(),
+                    cellStyle: const pw.TextStyle(fontSize: 10),
+                    headerStyle: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    headerDecoration:
+                        const pw.BoxDecoration(color: PdfColors.grey300),
+                    cellAlignment: pw.Alignment.centerLeft,
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+
+    // Display share/print dialog
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -459,8 +550,27 @@ class _NewMultiProductOrderPageState extends State<NewMultiProductOrderPage> {
                       Text('Customer: ${_customerNameController.text.trim()}'),
                       Text('Order Date: ${_orderDate?.toIso8601String().split('T').first}'),
                       Text('Shipping Date: ${_shippingDate?.toIso8601String().split('T').first}'),
+                      const SizedBox(height: 12),
+
+                      // Share Button
+                      // Align(
+                      //   alignment: Alignment.centerLeft,
+                      //   child: ElevatedButton.icon(
+                      //     icon: const Icon(Icons.share),
+                      //     label: const Text('Share Order Details'),
+                      //     onPressed: _shareOrderDetails,
+                      //   ),
+                      // ),
+
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: const Text('Export PDF'),
+                        onPressed: _generateOrderPdf,
+                      ),
+
                       const Divider(),
                       const Text('Products:'),
+                      const SizedBox(height: 8),
                       ..._productSelections.map((p) {
                         final customizations = _productCustomizations[p['productId']] ?? [];
 
