@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shotgun/screens/admin_screens/admin_page.dart';
-import 'package:shotgun/screens/admin_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/admin_screens/manage_suppliers.dart';
-import 'package:shotgun/screens/admin_screens/order_page/new_order_page.dart';
+import 'package:shotgun/screens/admin_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory.dart';
 import 'package:shotgun/screens/admin_screens/product_page.dart';
 import 'package:shotgun/screens/staff_screens/staff_page.dart';
+import '../screens/admin_screens/order_page/new_multiproduct_page.dart';
 import '../screens/login_page.dart';
 import '../screens/register_page.dart';
 
