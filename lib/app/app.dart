@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shotgun/screens/admin_screens/admin_page.dart';
+import 'package:shotgun/screens/admin_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/admin_screens/manage_suppliers.dart';
+import 'package:shotgun/screens/admin_screens/order_page/new_order_page.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory.dart';
 import 'package:shotgun/screens/admin_screens/product_page.dart';
 import 'package:shotgun/screens/staff_screens/staff_page.dart';
@@ -24,6 +26,8 @@ class MyApp extends StatelessWidget {
         '/admin/products': (context) => const ManageProductPage(),
         '/manage-inventory': (context) => const ManageInventoryPage(),
         '/admin/suppliers': (context) => const ManageSuppliersPage(),
+        '/admin/orders': (context) => const ManageOrdersPage(),
+        '/admin/orders/new': (context) => const NewMultiProductOrderPage(),
       },
     );
   }

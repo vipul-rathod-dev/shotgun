@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class AdminDashboard extends StatelessWidget {
@@ -5,6 +6,23 @@ class AdminDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dashboardItems = [
+      {
+        'icon': Icons.production_quantity_limits,
+        'title': 'Manage Products',
+        'route': '/admin/products',
+      },
+      {
+        'icon': Icons.people_outline,
+        'title': 'Manage Suppliers',
+        'route': '/admin/suppliers',
+      },
+      {
+        'icon': Icons.bar_chart,
+        'title': 'Manage Orders',
+        'route': '/admin/orders',
+      },
+    ];
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
 
@@ -13,16 +31,24 @@ class AdminDashboard extends StatelessWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.lightBlue),
-              child: Text(
-                'Admin Menu',
-                style: TextStyle(color: Colors.white, fontSize: 24),
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Colors.lightBlue),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Admin Menu', style: TextStyle(color: Colors.white, fontSize: 22)),
+                  const SizedBox(height: 8),
+                  Text(
+                    FirebaseAuth.instance.currentUser?.email ?? '',
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
               ),
             ),
             ListTile(
               leading: const Icon(Icons.inventory_2_outlined),
               title: const Text('Manage Products'),
+              selected: ModalRoute.of(context)?.settings.name == '/admin/products',
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/admin/products');
@@ -34,6 +60,14 @@ class AdminDashboard extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/admin/suppliers');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Manage Orders'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/admin/orders');
               },
             ),
           ],
@@ -50,26 +84,15 @@ class AdminDashboard extends StatelessWidget {
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'logout') {
+                await FirebaseAuth.instance.signOut();
                 Navigator.pushReplacementNamed(context, '/login');
-              } else if (value == 'products') {
-                Navigator.pushNamed(context, '/admin/products');
-              } else if (value == 'suppliers') {
-                Navigator.pushNamed(context, '/admin/suppliers');
               } else if (value == 'settings') {
                 // Navigate to settings
               }
             },
             itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: 'products',
-                child: Text('Manage Products'),
-              ),
-              const PopupMenuItem(
-                value: 'suppliers',
-                child: Text('Manage Suppliers'),
-              ),
               const PopupMenuItem(
                 value: 'settings',
                 child: Text('Settings'),
@@ -103,40 +126,20 @@ class AdminDashboard extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                children: [
-                  _DashboardCard(
-                    icon: Icons.person,
-                    title: "Manage Users",
-                    onTap: () {
-                      // TODO: Navigate to user management page
-                    },
-                  ),
-                  _DashboardCard(
-                    icon: Icons.analytics,
-                    title: "View Reports",
-                    onTap: () {
-                      // TODO: Navigate to reports page
-                    },
-                  ),
-                  _DashboardCard(
-                    icon: Icons.people_outline,
-                    title: "Manage Suppliers",
-                    onTap: () {
-                      Navigator.pushNamed(context, '/admin/suppliers');
-                    },
-                  ),
-                  _DashboardCard(
-                    icon: Icons.settings,
-                    title: "Settings",
-                    onTap: () {
-                      // TODO: Navigate to settings
-                    },
-                  ),
-                ],
+              child: GridView(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 250,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 1,
+                ),
+                children: dashboardItems.map((item) {
+                  return _DashboardCard(
+                    icon: item['icon'] as IconData,
+                    title: item['title'] as String,
+                    onTap: () => Navigator.pushNamed(context, item['route'] as String),
+                  );
+                }).toList(),
               ),
             ),
           ),
