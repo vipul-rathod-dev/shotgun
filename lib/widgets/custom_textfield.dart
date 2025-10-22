@@ -8,6 +8,7 @@ class CustomTextField extends StatefulWidget {
   final TextEditingController controller;
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
+  final void Function(String)? onChanged;
 
   const CustomTextField({
     super.key,
@@ -16,7 +17,8 @@ class CustomTextField extends StatefulWidget {
     required this.controller,
     this.isPassword = false,
     this.validator,
-    this.keyboardType
+    this.keyboardType,
+    this.onChanged,
   });
 
   @override
@@ -34,6 +36,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       style: GoogleFonts.poppins(),
       validator: widget.validator,
       keyboardType: widget.keyboardType,
+      onChanged: widget.onChanged, 
       decoration: InputDecoration(
         labelText: widget.label,
         labelStyle: GoogleFonts.poppins(),
