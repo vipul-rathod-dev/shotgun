@@ -39,7 +39,9 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
     }
 
     // ✅ Move between steps safely
-    if (_currentStep < controller.formKeys.length) {
+    final totalSteps = controller.showColorCustomization ? 5 : 4;
+
+    if (_currentStep < totalSteps - 1) {
       setState(() => _currentStep += 1);
     } else {
       // 🔹 Validate all forms before submission
@@ -82,12 +84,85 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
   Widget build(BuildContext context) {
     final controller = Provider.of<AddOrderController>(context);
 
+    /// 🔹 Dynamically build steps list based on order type
+    final steps = [
+      Step(
+        title: const Text('Customer Details'),
+        isActive: _currentStep >= 0,
+        state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+        // content: CustomerDetailsForm(controller: controller),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomerDetailsForm(controller: controller),
+            const SizedBox(height: 20),
+            // 🔹 New Order Type Dropdown
+            DropdownButtonFormField<String>(
+              value: controller.orderType,
+              decoration: const InputDecoration(
+                labelText: 'Order Type',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(
+                    value: 'Stock', child: Text('Stock Order')),
+                DropdownMenuItem(
+                    value: 'Customized', child: Text('Customized Order')),
+              ],
+              onChanged: (value) {
+                controller.setOrderType(value);
+                // Reset step index if user switches order type mid-way
+                if (!controller.showColorCustomization && _currentStep > 2) {
+                  setState(() => _currentStep = 2);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      Step(
+        title: const Text('Order Details'),
+        isActive: _currentStep >= 1,
+        state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+        content: OrderDetailsForm(controller: controller),
+      ),
+      Step(
+        title: const Text('Products'),
+        isActive: _currentStep >= 2,
+        state: _currentStep > 2 ? StepState.complete : StepState.indexed,
+        content: ProductTable(controller: controller),
+      ),
+      // 🔹 Only show this step if the order type is Customized
+      if (controller.showColorCustomization)
+        Step(
+          title: const Text('Color Customization'),
+          isActive: _currentStep >= 3,
+          state: _currentStep > 3 ? StepState.complete : StepState.indexed,
+          content: ColorTempleRequirements(controller: controller),
+        ),
+      Step(
+        title: const Text('Summary'),
+        isActive: _currentStep >=
+            (controller.showColorCustomization ? 4 : 3),
+        state: _currentStep ==
+                (controller.showColorCustomization ? 4 : 3)
+            ? StepState.editing
+            : StepState.indexed,
+        content: const SummarySection(),
+      ),
+    ];
+
     return Stepper(
+      key: ValueKey(controller.showColorCustomization),
       type: StepperType.vertical,
       currentStep: _currentStep,
       onStepContinue: () => _nextStep(controller),
       onStepCancel: _previousStep,
       controlsBuilder: (context, details) {
+        final isLastStep = controller.showColorCustomization
+            ? _currentStep == 4
+            : _currentStep == 3;
+
         return Padding(
           padding: const EdgeInsets.only(top: 20),
           child: Row(
@@ -97,44 +172,13 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
                 TextButton(onPressed: _previousStep, child: const Text('Back')),
               ElevatedButton(
                 onPressed: () => _nextStep(controller),
-                child: Text(_currentStep == 4 ? 'Finish' : 'Next'),
+                child: Text(isLastStep ? 'Finish' : 'Next'),
               ),
             ],
           ),
         );
       },
-      steps: [
-        Step(
-          title: const Text('Customer Details'),
-          isActive: _currentStep >= 0,
-          state: _currentStep > 0 ? StepState.complete : StepState.indexed,
-          content: CustomerDetailsForm(controller: controller),
-        ),
-        Step(
-          title: const Text('Order Details'),
-          isActive: _currentStep >= 1,
-          state: _currentStep > 1 ? StepState.complete : StepState.indexed,
-          content: OrderDetailsForm(controller: controller),
-        ),
-        Step(
-          title: const Text('Products'),
-          isActive: _currentStep >= 2,
-          state: _currentStep > 2 ? StepState.complete : StepState.indexed,
-          content: ProductTable(controller: controller),
-        ),
-        Step(
-          title: const Text('Color Customization'),
-          isActive: _currentStep >= 3,
-          state: _currentStep > 3 ? StepState.complete : StepState.indexed,
-          content: ColorTempleRequirements(controller: controller),
-        ),
-        Step(
-          title: const Text('Summary'),
-          isActive: _currentStep >= 4,
-          state: _currentStep == 4 ? StepState.editing : StepState.indexed,
-          content: const SummarySection(),
-        ),
-      ],
+      steps: steps,
     );
   }
 }

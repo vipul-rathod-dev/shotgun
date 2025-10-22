@@ -150,7 +150,7 @@ class OrderDetailsPage extends StatelessWidget {
           final totalProducts = items.length;
           final totalQuantity = items.fold<int>(
             0,
-            (sum, item) => sum + ((item['quantity'] ?? 0) as num).toInt(),
+            (sums, item) => (sums + ((item['quantity'] ?? 0) as num).toInt()),
           );
 
           return Scaffold(

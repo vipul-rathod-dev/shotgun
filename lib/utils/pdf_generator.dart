@@ -111,7 +111,7 @@ class PdfGenerator {
                                 _cell('${c['templeQty'] ?? 0}'),
                               ],
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                   ],

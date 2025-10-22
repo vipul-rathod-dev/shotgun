@@ -320,16 +320,7 @@ class _OrderDetailsInsightsPageState extends State<OrderDetailsInsightsPage> wit
                     // ===== Animated Timeline (custom step progress bar with tooltips) =====
                     OrderTimeline(
                       status: data['orderStatus'] ?? 'Received',
-                      statusDates: {
-                        "Received": data['receivedDate']?.toDate(),
-                        "Raw Process": data['rawProcessDate']?.toDate(),
-                        "Color Process": data['colorProcessDate']?.toDate(),
-                        "Quality Check": data['qualityCheckDate']?.toDate(),
-                        "Fitting Process": data['fittingProcessDate']?.toDate(),
-                        "Demo Process": data['demoProcessDate']?.toDate(),
-                        "Packing": data['packingDate']?.toDate(),
-                        "Shipping": data['shippingDate']?.toDate(),
-                      },
+                      orderType: data['orderType'] ?? 'Customized Order',
                     ),
                   ],
                 ),
@@ -515,7 +506,7 @@ class _OrderDetailsInsightsPageState extends State<OrderDetailsInsightsPage> wit
                       ),
                     ),
                   );
-                }).toList(),
+                }),
 
               const SizedBox(height: 80),
             ],

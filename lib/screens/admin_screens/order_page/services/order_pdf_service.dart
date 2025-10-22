@@ -19,7 +19,7 @@ class OrderPdfService {
             pw.Text('Shipping Date: ${order.shippingDate.toLocal()}'),
             pw.SizedBox(height: 20),
             pw.Text('Products:'),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: ['Name', 'Quantity', 'Price'],
               data: order.products
                   .map((p) => [

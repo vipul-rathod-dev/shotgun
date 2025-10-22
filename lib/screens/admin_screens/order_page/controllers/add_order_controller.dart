@@ -15,12 +15,14 @@ class AddOrderController extends ChangeNotifier {
 
   final TextEditingController customerNameController = TextEditingController();
   final TextEditingController customerPhoneController = TextEditingController();
+  final TextEditingController brandNameController = TextEditingController();
 
   bool isEditMode = false;
   String? orderId;
 
   String? customerName;
   String? customerPhone;
+  String? brandName;
   DateTime? orderDate;
   DateTime? shippingDate;
 
@@ -28,6 +30,26 @@ class AddOrderController extends ChangeNotifier {
   Map<String, List<Map<String, dynamic>>> productCustomizations = {};
 
   bool _isInitialized = false;
+
+  String? orderType; // e.g., 'Standard' or 'Customized'
+
+  bool get showColorCustomization => orderType == 'Customized';
+
+  void setOrderType(String? type) {
+    orderType = type;
+    // showColorCustomization is derived → triggers rebuild
+    // ignore: unused_local_variable
+    final wasCustomized = showColorCustomization;
+
+    // If switching to Standard, clear all color-related data
+    if (type == 'Standard') {
+      productCustomizations.clear(); // 🧹 remove old customization data
+    }
+
+    // Force a rebuild so UI (Stepper + Summary) updates properly
+    notifyListeners();
+  }
+
 
   // ────────────────────────────────
   // 🔹 Update Methods
@@ -41,6 +63,12 @@ class AddOrderController extends ChangeNotifier {
   void setCustomerPhone(String phone) {
     customerPhoneController.text = phone;
     customerPhone = phone;
+    notifyListeners();
+  }
+
+  void setBrandName(String name) {
+    brandNameController.text = name;
+    brandName = name;
     notifyListeners();
   }
 
@@ -98,7 +126,7 @@ class AddOrderController extends ChangeNotifier {
   double get total {
     return products.fold<double>(
       0,
-      (sum, p) => sum + ((p['price'] ?? 0) * (p['quantity'] ?? 0)),
+      (sums, p) => sums + ((p['price'] ?? 0) * ((p['quantity'] ?? 0) as num).toInt()),
     );
   }
 
@@ -198,11 +226,13 @@ class AddOrderController extends ChangeNotifier {
         'orderNumber': orderNumber,
         'customerName': customerName,
         'customerPhone': customerPhone,
+        'brandName': brandName,
         'orderDate': Timestamp.fromDate(orderDate!),
         'shippingDate': Timestamp.fromDate(shippingDate!),
         'products': finalProducts,
         'totalAmount': total,
-        'orderStatus': 'Yet to Start',
+        'orderType': orderType,
+        'orderStatus': 'Received',
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -213,6 +243,8 @@ class AddOrderController extends ChangeNotifier {
       productCustomizations.clear();
       customerName = null;
       customerPhone = null;
+      brandName = null;
+      orderType = null;
       orderDate = null;
       shippingDate = null;
       notifyListeners();
@@ -236,9 +268,11 @@ class AddOrderController extends ChangeNotifier {
     final data = doc.data()!;
     customerNameController.text = data['customerName'] ?? '';
     customerPhoneController.text = data['customerPhone'] ?? '';
+    brandNameController.text = data['brandName'] ?? '';
     customerName = data['customerName'] ?? '';
     customerPhone = data['customerPhone'] ?? '';
-
+    brandName = data['brandName'] ?? '';
+    orderType = data['orderType'] ?? 'Stock';
     orderDate = (data['orderDate'] as Timestamp?)?.toDate();
     shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();
 
@@ -283,6 +317,8 @@ class AddOrderController extends ChangeNotifier {
     final orderData = {
       'customerName': customerNameController.text.trim(),
       'customerPhone': customerPhoneController.text.trim(),
+      'brandName': brandNameController.text.trim(),
+      'orderType': orderType,
       'orderDate': Timestamp.fromDate(orderDate ?? DateTime.now()),
       'shippingDate': Timestamp.fromDate(shippingDate ?? DateTime.now()),
       'products': finalProducts,
@@ -302,7 +338,7 @@ class AddOrderController extends ChangeNotifier {
         await collection.add({
           ...orderData,
           'orderNumber': orderNumber,
-          'orderStatus': 'Yet to Start',
+          'orderStatus': 'Received',
         });
       }
 

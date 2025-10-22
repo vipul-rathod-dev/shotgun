@@ -13,18 +13,21 @@ class CustomerDetailsForm extends StatefulWidget {
 class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
+  late TextEditingController _brandNameController;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.controller.customerName);
     _phoneController = TextEditingController(text: widget.controller.customerPhone);
+    _brandNameController = TextEditingController(text: widget.controller.brandName);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _brandNameController.dispose();
     super.dispose();
   }
 
@@ -63,6 +66,19 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
               }
               if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
                 return 'Enter a valid 10-digit phone number';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          CustomTextField(
+            label: 'Brand Name',
+            icon: Icons.branding_watermark_outlined,
+            controller: widget.controller.brandNameController,
+            onChanged: widget.controller.setBrandName, // ✅ clean one-liner
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter the customer brand name';
               }
               return null;
             },

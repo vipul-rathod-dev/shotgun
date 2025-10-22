@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class ProductSelectorSheet extends StatefulWidget {
-  const ProductSelectorSheet({Key? key}) : super(key: key);
+  const ProductSelectorSheet({super.key});
 
   @override
   State<ProductSelectorSheet> createState() => _ProductSelectorSheetState();

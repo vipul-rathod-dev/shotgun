@@ -5,10 +5,10 @@ class ProductList extends StatelessWidget {
   final void Function(Map<String, dynamic>) onRemove;
 
   const ProductList({
-    Key? key,
+    super.key,
     required this.products,
     required this.onRemove,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

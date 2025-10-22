@@ -57,7 +57,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
       final firstName = data?['first_name'] ?? '';
       final lastName = data?['last_name'] ?? '';
-      final displayName = (firstName + ' ' + lastName).trim();
+      final displayName = ('$firstName $lastName').trim();
 
       setState(() {
         fullName = displayName.isNotEmpty ? displayName : 'Staff Member';

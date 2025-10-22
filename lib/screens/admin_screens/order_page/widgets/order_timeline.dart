@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 // Used in order_details_insights_page.dart
 
 class OrderTimeline extends StatelessWidget {
   final String status;
-  final Map<String, DateTime?> statusDates;
+  final String orderType;
+  // final Map<String, DateTime?> statusDates;
 
   const OrderTimeline({
     super.key,
     required this.status,
-    required this.statusDates,
+    required this.orderType,
+    // required this.statusDates,
   });
 
   @override
   Widget build(BuildContext context) {
-    final statuses = [
+    final stockStatuses = [
+      "Received",
+      "Packing",
+      "Shipping"
+    ];
+    final customizedStatuses = [
       "Received",
       "Raw Process",
       "Color Process",
@@ -25,6 +31,10 @@ class OrderTimeline extends StatelessWidget {
       "Packing",
       "Shipping",
     ];
+
+    final statuses = orderType.toLowerCase() == "customized order"
+        ? customizedStatuses
+        : stockStatuses;
 
     final activeIndex = statuses.indexOf(status);
 
@@ -38,12 +48,12 @@ class OrderTimeline extends StatelessWidget {
             final isCompleted = index <= activeIndex;
             final isActive = index == activeIndex;
             final step = statuses[index];
-            final date = statusDates[step];
-            final formattedDate =
-                date != null ? DateFormat('MMM d, h:mm a').format(date) : 'N/A';
+            // final date = statusDates[step];
+            // final formattedDate =
+            //     date != null ? DateFormat('MMM d, h:mm a').format(date) : 'N/A';
 
             return Tooltip(
-              message: '$step\n$formattedDate',
+              message: step,
               preferBelow: true,
               decoration: BoxDecoration(
                 color: Colors.black87,

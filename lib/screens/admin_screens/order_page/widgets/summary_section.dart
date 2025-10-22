@@ -36,6 +36,7 @@ class SummarySection extends StatelessWidget {
 
                   InfoRow(Icons.person, 'Customer', c.customerName ?? '-'),
                   InfoRow(Icons.phone, 'Phone Number', c.customerPhone ?? '-'),
+                  InfoRow(Icons.branding_watermark_outlined, 'Brand Name', c.brandName ?? '-'),
                   InfoRow(Icons.calendar_today, 'Order Date', _fmtDate(c.orderDate)),
                   InfoRow(Icons.local_shipping, 'Shipping Date', _fmtDate(c.shippingDate)),
 

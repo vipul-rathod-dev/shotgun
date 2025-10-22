@@ -6,7 +6,7 @@ import 'package:shotgun/screens/admin_screens/order_page/widgets/product_selecto
 class ProductTable extends StatefulWidget {
   final AddOrderController controller;
 
-  const ProductTable({Key? key, required this.controller}) : super(key: key);
+  const ProductTable({super.key, required this.controller});
 
   @override
   State<ProductTable> createState() => _ProductTableState();

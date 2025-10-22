@@ -5,7 +5,7 @@ import 'package:shotgun/widgets/date_picker_field.dart';
 class OrderDetailsForm extends StatefulWidget {
   final AddOrderController controller;
 
-  const OrderDetailsForm({Key? key, required this.controller}) : super(key: key);
+  const OrderDetailsForm({super.key, required this.controller});
 
   @override
   State<OrderDetailsForm> createState() => _OrderDetailsFormState();
