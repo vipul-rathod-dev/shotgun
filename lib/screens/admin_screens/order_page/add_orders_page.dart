@@ -4,15 +4,22 @@ import 'package:shotgun/screens/admin_screens/order_page/controllers/add_order_c
 import 'package:shotgun/screens/admin_screens/order_page/widgets/add_orders_stepper.dart';
 
 class AddOrdersPage extends StatelessWidget {
-  const AddOrdersPage({super.key});
+  final bool isEditMode;
+  final String? orderId;
+
+  const AddOrdersPage({
+    super.key,
+    this.isEditMode = false,
+    this.orderId,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AddOrderController(),
+      create: (_) => AddOrderController()..initEditMode(isEditMode, orderId),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Add New Order'),
+          title: Text(isEditMode ? 'Edit Order' : 'Add New Order'),
           centerTitle: true,
         ),
         body: const Padding(

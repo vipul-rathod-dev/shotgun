@@ -38,7 +38,7 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
           CustomTextField(
             label: 'Customer Name',
             icon: Icons.person,
-            controller: _nameController,
+            controller: widget.controller.customerNameController,
             onChanged: widget.controller.setCustomerName, // ✅ clean one-liner
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
@@ -54,7 +54,7 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
           CustomTextField(
             label: 'Phone Number',
             icon: Icons.phone,
-            controller: _phoneController,
+            controller: widget.controller.customerPhoneController,
             keyboardType: TextInputType.phone,
             onChanged: widget.controller.setCustomerPhone, // ✅
             validator: (value) {

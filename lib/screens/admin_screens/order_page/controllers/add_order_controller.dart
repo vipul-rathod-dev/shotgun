@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shotgun/screens/admin_screens/order_page/models/order_pdf_data.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
 import 'package:printing/printing.dart';
 
@@ -12,6 +13,12 @@ class AddOrderController extends ChangeNotifier {
     GlobalKey<FormState>(), // Color Customizations
   ];
 
+  final TextEditingController customerNameController = TextEditingController();
+  final TextEditingController customerPhoneController = TextEditingController();
+
+  bool isEditMode = false;
+  String? orderId;
+
   String? customerName;
   String? customerPhone;
   DateTime? orderDate;
@@ -20,15 +27,19 @@ class AddOrderController extends ChangeNotifier {
   List<Map<String, dynamic>> products = [];
   Map<String, List<Map<String, dynamic>>> productCustomizations = {};
 
+  bool _isInitialized = false;
+
   // ────────────────────────────────
   // 🔹 Update Methods
   // ────────────────────────────────
   void setCustomerName(String name) {
+    customerNameController.text = name;
     customerName = name;
     notifyListeners();
   }
 
   void setCustomerPhone(String phone) {
+    customerPhoneController.text = phone;
     customerPhone = phone;
     notifyListeners();
   }
@@ -96,7 +107,7 @@ class AddOrderController extends ChangeNotifier {
   // ────────────────────────────────
   Future<void> generateOrderPdf(BuildContext context) async {
     try {
-      final pdf = await PdfGenerator.generateOrderPdf(
+      final orderData = OrderPdfData(
         customerName: customerName ?? '-',
         customerPhone: customerPhone ?? '-',
         orderDate: orderDate,
@@ -104,8 +115,9 @@ class AddOrderController extends ChangeNotifier {
         products: products,
         productCustomizations: productCustomizations,
       );
+      final pdf = await PdfGenerator.generateOrderPdf(orderData);
 
-      await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+      await Printing.layoutPdf(onLayout: (format) async => pdf);
 
       _showSnack(context, '✅ PDF generated successfully', color: Colors.green);
 
@@ -172,9 +184,11 @@ class AddOrderController extends ChangeNotifier {
           'price': product['price'],
           'lineTotal': (product['quantity'] ?? 0) * (product['price'] ?? 0),
           'customizations': customizations.map((c) => {
-                'colorName': c['colorName'],
-                'colorQty': c['colorQty'],
-                'templeName': c['templeName'],
+                'focusColorId': c['focusColorId'],
+                'focusColor': c['focusColor'],
+                'focusQty': c['focusQty'],
+                'templeColorId': c['templeColorId'],
+                'templeColor': c['templeColor'],
                 'templeQty': c['templeQty'],
               }).toList(),
         };
@@ -209,6 +223,122 @@ class AddOrderController extends ChangeNotifier {
 
     }
   }
+
+  Future<void> initEditMode(bool editMode, String? id) async {
+    if (!editMode || id == null || _isInitialized) return;
+
+    isEditMode = editMode;
+    orderId = id;
+
+    final doc = await FirebaseFirestore.instance.collection('orders').doc(id).get();
+    if (!doc.exists) return;
+
+    final data = doc.data()!;
+    customerNameController.text = data['customerName'] ?? '';
+    customerPhoneController.text = data['customerPhone'] ?? '';
+    customerName = data['customerName'] ?? '';
+    customerPhone = data['customerPhone'] ?? '';
+
+    orderDate = (data['orderDate'] as Timestamp?)?.toDate();
+    shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();
+
+    products = List<Map<String, dynamic>>.from(data['products'] ?? []);
+    // if customizations are nested inside products:
+    for (var p in products) {
+      final productId = p['productId'];
+      final customList = List<Map<String, dynamic>>.from(p['customizations'] ?? []);
+      productCustomizations[productId] = customList;
+    }
+
+    _isInitialized = true;
+    notifyListeners();
+  }
+
+  Future<void> saveOrder(BuildContext context) async {
+    // Build final products list using productCustomizations
+    final List<Map<String, dynamic>> finalProducts = products.map((product) {
+      final productId = product['productId'];
+      final customizations = productCustomizations[productId] ?? [];
+
+      return {
+        'productId': productId,
+        'productName': product['productName'],
+        'quantity': product['quantity'],
+        'price': product['price'],
+        'lineTotal': (product['quantity'] ?? 0) * (product['price'] ?? 0),
+        // include customizations (each with IDs and names & qty)
+        'customizations': customizations.map((c) {
+          return {
+            'focusColorId': c['focusColorId'],
+            'focusColor': c['focusColor'],
+            'focusQty': c['focusQty'],
+            'templeColorId': c['templeColorId'],
+            'templeColor': c['templeColor'],
+            'templeQty': c['templeQty'],
+          };
+        }).toList(),
+      };
+    }).toList();
+
+    final orderData = {
+      'customerName': customerNameController.text.trim(),
+      'customerPhone': customerPhoneController.text.trim(),
+      'orderDate': Timestamp.fromDate(orderDate ?? DateTime.now()),
+      'shippingDate': Timestamp.fromDate(shippingDate ?? DateTime.now()),
+      'products': finalProducts,
+      'totalAmount': total,
+      'timestamp': FieldValue.serverTimestamp(),
+    };
+
+    try {
+      final collection = FirebaseFirestore.instance.collection('orders');
+
+      if (isEditMode && orderId != null) {
+        // Update existing doc with merged products+customizations
+        await collection.doc(orderId).update(orderData);
+      } else {
+        // New order -> assign order number and create
+        final orderNumber = await _getNextOrderNumber();
+        await collection.add({
+          ...orderData,
+          'orderNumber': orderNumber,
+          'orderStatus': 'Yet to Start',
+        });
+      }
+
+      // Optional: reflect merged products back into controller.products so local state matches DB
+      products = List<Map<String, dynamic>>.from(finalProducts);
+      // And rebuild productCustomizations from finalProducts for consistency
+      productCustomizations.clear();
+      for (var p in products) {
+        final pid = p['productId'];
+        finalListToMapSafe(p['customizations']);
+        productCustomizations[pid] =
+            List<Map<String, dynamic>>.from(p['customizations'] ?? []);
+      }
+
+      notifyListeners();
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        _showSnack(
+          context,
+          isEditMode ? '✅ Order updated successfully!' : '✅ Order added successfully!',
+          color: Colors.green,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving order: $e');
+      _showSnack(context, 'Error saving order: $e', color: Colors.red);
+    }
+  }
+
+  // small helper to normalize null customizations
+  void finalListToMapSafe(dynamic customizations) {
+    // no-op helper to make code readable (keeps dynamic handling stable)
+    // If you prefer, remove helper and handle nulls inline
+  }
+
 
   // ────────────────────────────────
   // 🔹 Helper: SnackBar

@@ -15,6 +15,36 @@ class ProductTable extends StatefulWidget {
 class _ProductTableState extends State<ProductTable> {
   final List<Map<String, dynamic>> _productSelections = [];
 
+  @override
+  void initState() {
+    super.initState();
+    // ✅ When editing an existing order, load products from the controller
+    if (widget.controller.products.isNotEmpty) {
+      _productSelections.clear();
+      _productSelections.addAll(widget.controller.products);
+    }
+
+    // ✅ Also listen for future changes in controller (optional)
+    widget.controller.addListener(_syncFromController);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_syncFromController);
+    super.dispose();
+  }
+
+  void _syncFromController() {
+    // Keeps local list in sync if controller updates (like initEditMode)
+    if (mounted) {
+      setState(() {
+        _productSelections
+          ..clear()
+          ..addAll(widget.controller.products);
+      });
+    }
+  }
+
   /// ✅ Add Product
   Future<void> _addProduct() async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(

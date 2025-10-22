@@ -25,7 +25,6 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
   /// 🔹 Fetch colors and temples from Firestore
   Future<void> _fetchData() async {
     try {
-      print('I am here');
       final colorSnapshot =
           await FirebaseFirestore.instance.collection('focus_colors').orderBy('name').get();
       final templeSnapshot =
@@ -40,6 +39,8 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
             .toList();
         _isLoading = false;
       });
+
+      setState(() {});
     } catch (e) {
       debugPrint('⚠️ Failed to load colors or temples: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -88,6 +89,14 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                 final index = entry.key;
                 final data = entry.value;
 
+                final selectedColorId = _availableColors.any((c) => c['id'] == data['focusColorId'])
+                    ? data['focusColorId']
+                    : null;
+                final selectedTempleId = _availableTemples.any((t) => t['id'] == data['templeColorId'])
+                    ? data['templeColorId']
+                    : null;
+
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Stack(
@@ -106,7 +115,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                 Flexible(
                                   flex: 3,
                                   child: DropdownButtonFormField<String>(
-                                    value: data['colorId'],
+                                    value: selectedColorId,
                                     decoration: const InputDecoration(labelText: 'Color'),
                                     items: _availableColors.map((color) {
                                       return DropdownMenuItem<String>(
@@ -116,8 +125,8 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                     }).toList(),
                                     onChanged: (value) {
                                       setState(() {
-                                        data['colorId'] = value;
-                                        data['colorName'] = _availableColors
+                                        data['focusColorId'] = value;
+                                        data['focusColor'] = _availableColors
                                             .firstWhere((c) => c['id'] == value)['name'];
                                       });
                                       widget.controller.updateCustomization(productId, index, data);
@@ -132,7 +141,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                 Flexible(
                                   flex: 1,
                                   child: TextFormField(
-                                    initialValue: data['colorQty']?.toString(),
+                                    initialValue: data['focusQty']?.toString(),
                                     decoration: const InputDecoration(labelText: 'Qty'),
                                     keyboardType: TextInputType.number,
                                     validator: (v) {
@@ -144,7 +153,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                     onChanged: (value) {
                                       final newQty = int.tryParse(value) ?? 0;
                                       setState(() {
-                                        data['colorQty'] = newQty;
+                                        data['focusQty'] = newQty;
                                       });
                                       widget.controller.updateCustomization(productId, index, data);
                                     },
@@ -159,7 +168,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                 Flexible(
                                   flex: 3,
                                   child: DropdownButtonFormField<String>(
-                                    value: data['templeId'],
+                                    value: selectedTempleId,
                                     decoration: const InputDecoration(labelText: 'Temple'),
                                     items: _availableTemples.map((temple) {
                                       return DropdownMenuItem<String>(
@@ -169,8 +178,8 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                     }).toList(),
                                     onChanged: (value) {
                                       setState(() {
-                                        data['templeId'] = value;
-                                        data['templeName'] = _availableTemples
+                                        data['templeColorId'] = value;
+                                        data['templeColor'] = _availableTemples
                                             .firstWhere((t) => t['id'] == value)['name'];
                                       });
                                       widget.controller.updateCustomization(productId, index, data);
@@ -236,11 +245,11 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                   onPressed: () {
                     setState(() {
                       widget.controller.addCustomization(productId, {
-                        'colorId': null,
-                        'colorName': '',
-                        'colorQty': 0,
-                        'templeId': null,
-                        'templeName': '',
+                        'focusColorId': null,
+                        'focusColor': '',
+                        'focusQty': 0,
+                        'templeColorId': null,
+                        'templeColor': '',
                         'templeQty': 0,
                       });
                     });

@@ -59,7 +59,15 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
       }
 
       // ✅ All forms valid → Submit order
-      controller.submitOrder(context);
+      if (controller.isEditMode) {
+        controller.saveOrder(context).then((_) {
+          Navigator.pushReplacementNamed(context, '/admin/orders');
+        });
+      } else {
+        controller.submitOrder(context).then((_) {
+          Navigator.pushReplacementNamed(context, '/admin/orders');
+        });
+      }
     }
   }
 
