@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shotgun/screens/admin_screens/admin_page.dart';
 import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
+import 'package:shotgun/screens/auth_screens/company_login_page.dart';
+import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/supervisor_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_suppliers.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
@@ -18,6 +20,7 @@ import 'package:shotgun/screens/staff_screens/process_page/raw_process_page.dart
 import 'package:shotgun/screens/staff_screens/process_page/shipping_process_page.dart';
 import 'package:shotgun/screens/staff_screens/staff_page.dart';
 import 'package:shotgun/screens/staff_screens/track_orders/track_orders_page.dart';
+import 'package:shotgun/screens/supervisor_screens/create_view_staff/view_staff_page.dart';
 import '../screens/supervisor_screens/order_page/add_orders_page.dart';
 import '../screens/register_page.dart';
 
@@ -30,21 +33,34 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Shotgun App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/login',
+      initialRoute: '/company-login',
       routes: {
         '/login': (context) => const LoginPage(),
+        '/company-login': (context) => const CompanyLoginPage(),
         '/register': (context) => const RegisterPage(),
+
+        // ADMIN ROUTES
         '/admin': (context) => const AdminDashboard(),
         '/admin/create-company': (context) => const CreateCompanyPage(),
         '/admin/view-companies': (context) => const ViewCompaniesPage(),
+
+        // SUPERVISOR ROUTES
         '/supervisor': (context) => const SupervisorDashboard(),
-        '/staff': (context) => const StaffDashboard(),
-        '/admin/products': (context) => const ManageProductPage(),
+        '/supervisor/products': (context) => const ManageProductPage(),
         '/manage-inventory': (context) => const ManageInventoryPage(),
-        '/admin/suppliers': (context) => const ManageSuppliersPage(),
-        '/admin/orders': (context) => const ManageOrdersPage(),
-        '/admin/orders/new': (context) => const AddOrdersPage(),
-        '/admin/orders/edit': (context) => const AddOrdersPage(isEditMode: true),
+        '/supervisor/suppliers': (context) => const ManageSuppliersPage(),
+        '/supervisor/orders': (context) => const ManageOrdersPage(),
+        '/supervisor/orders/new': (context) => const AddOrdersPage(),
+        '/supervisor/orders/edit': (context) => const AddOrdersPage(isEditMode: true),
+        '/supervisor/view-staff': (context) => const ViewStaffPage(),
+        '/supervisor/add-staff': (context) {
+          final companyId = ModalRoute.of(context)!.settings.arguments as String;
+          return AddStaffPage(companyId: companyId);
+        },
+
+        // STAFF ROUTES
+        '/staff': (context) => const StaffDashboard(),
+
         '/orders': (context) => const TrackOrdersPage(),
         '/order-details': (context) => const OrderDetailsPage(),
         '/staff/rawProcess': (context) => const RawProcessPage(),

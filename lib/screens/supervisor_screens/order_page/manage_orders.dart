@@ -13,7 +13,7 @@ class ManageOrdersPage extends StatelessWidget {
         backgroundColor: Colors.lightBlue,
         actions: [
           TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/admin/orders/new'),
+            onPressed: () => Navigator.pushNamed(context, '/supervisor/orders/new'),
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text("New Order", style: TextStyle(color: Colors.white)),
           ),

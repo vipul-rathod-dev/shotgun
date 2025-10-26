@@ -17,6 +17,17 @@ class TrackOrdersPage extends StatelessWidget {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.primary,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              // ✅ Fallback route if no previous page exists
+              Navigator.pushReplacementNamed(context, '/staff');
+            }
+          },
+        ),
         title: Text(
           'Track Orders',
           style: GoogleFonts.poppins(

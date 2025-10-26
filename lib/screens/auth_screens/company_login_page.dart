@@ -1,164 +1,183 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shotgun/screens/auth_screens/company_login_controller.dart';
 
-class CompanyLoginPage extends StatefulWidget {
+class CompanyLoginPage extends StatelessWidget {
   const CompanyLoginPage({super.key});
 
-  @override
-  State<CompanyLoginPage> createState() => _CompanyLoginPageState();
-}
-
-class _CompanyLoginPageState extends State<CompanyLoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
-
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-
-    try {
-      // Step 1️⃣ Authenticate with Firebase Auth
-      UserCredential credential = await _auth.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      final user = credential.user!;
-      final userId = user.uid;
-
-      // Step 2️⃣ Find company mapping from global user_companies
-      final mapping = await _firestore.collection('user_companies').doc(userId).get();
-      if (!mapping.exists) {
-        throw Exception('No company found for this user.');
-      }
-
-      final companyId = mapping.data()?['companyId'];
-      final role = mapping.data()?['role'];
-
-      // Step 3️⃣ Load user data from company namespace
-      final userDoc = await _firestore
-          .collection('companies')
-          .doc(companyId)
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      if (!userDoc.exists) {
-        throw Exception('User data missing under company namespace.');
-      }
-
-      final userData = userDoc.data();
-      debugPrint('✅ Logged in user role: $role, company: $companyId');
-
-      // Step 4️⃣ Navigate by role
-      if (role == 'admin') {
-        Navigator.pushReplacementNamed(context, '/admin', arguments: {
-          'companyId': companyId,
-          'userId': userId,
-          'role': role,
-          'userData': userData,
-        });
-      } else if (role == 'supervisor') {
-        Navigator.pushReplacementNamed(context, '/supervisor', arguments: {
-          'companyId': companyId,
-          'userId': userId,
-          'role': role,
-          'userData': userData,
-        });
-      } else if (role == 'staff') {
-        Navigator.pushReplacementNamed(context, '/staff', arguments: {
-          'companyId': companyId,
-          'userId': userId,
-          'role': role,
-          'userData': userData,
-        });
-      } else {
-        throw Exception('Unknown role: $role');
-      }
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Login failed')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  void _navigateByRole(BuildContext context, String role) {
+    final routes = {
+      'supervisor': '/supervisor',
+      'staff': '/staff',
+    };
+    Navigator.pushReplacementNamed(context, routes[role] ?? '/staff');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text("Company Login"),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Text(
-                  "Welcome Back 👋",
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 30),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => v!.isEmpty ? "Enter email" : null,
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: "Password",
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  validator: (v) => v!.length < 6
-                      ? "Password must be at least 6 characters"
-                      : null,
-                ),
-                const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.blueAccent,
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          "Login",
-                          style: TextStyle(fontSize: 16, color: Colors.white),
+    return ChangeNotifierProvider(
+      create: (_) => CompanyLoginController(),
+      builder: (context, _) {
+        final controller = context.watch<CompanyLoginController>();
+
+        return Scaffold(
+          backgroundColor: Colors.grey[100],
+          body: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: Form(
+                key: controller.formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Text(
+                        "Company Login",
+                        style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Company Name
+                    TextFormField(
+                      controller: controller.companyController,
+                      decoration: const InputDecoration(
+                        labelText: "Company Name",
+                        prefixIcon: Icon(Icons.business),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return "Please enter your company name";
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Email
+                    TextFormField(
+                      controller: controller.emailController,
+                      decoration: const InputDecoration(
+                        labelText: "Email",
+                        prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return "Please enter your email";
+                        }
+                        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                        if (!emailRegex.hasMatch(value.trim())) {
+                          return "Please enter a valid email";
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password
+                    TextFormField(
+                      controller: controller.passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: "Password",
+                        prefixIcon: Icon(Icons.lock),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return "Please enter your password";
+                        }
+                        if (value.length < 6) {
+                          return "Password must be at least 6 characters";
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // ✅ Remember Me Checkbox
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: controller.rememberMe,
+                          onChanged: controller.toggleRememberMe,
+                        ),
+                        const Text("Remember Me"),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Login Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: controller.isLoading
+                            ? null
+                            : () async {
+                                if (controller.formKey.currentState!
+                                    .validate()) {
+                                  try {
+                                    final role = await controller.login(
+                                      controller.companyController.text.trim(),
+                                      controller.emailController.text.trim(),
+                                      controller.passwordController.text.trim(),
+                                    );
+
+                                    if (context.mounted) {
+                                      _navigateByRole(context, role);
+                                    }
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString())),
+                                    );
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: controller.isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text("Login"),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // 🧭 Admin Login Button
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/login');
+                        },
+                        icon: const Icon(Icons.admin_panel_settings),
+                        label: const Text(
+                          "Admin Login",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

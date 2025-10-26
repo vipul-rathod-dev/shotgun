@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/widgets/session_aware_page.dart';
 
 class StaffDashboard extends StatefulWidget {
@@ -53,12 +54,22 @@ class _StaffDashboardState extends State<StaffDashboard> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('No user logged in');
 
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final data = doc.data();
+      final prefs = await SharedPreferences.getInstance();
+      final companyId = prefs.getString('cachedCompanyId');
+      if (companyId == null) throw Exception('No companyId found in cache');
 
-      final firstName = data?['first_name'] ?? '';
-      final lastName = data?['last_name'] ?? '';
-      final displayName = ('$firstName $lastName').trim();
+      // 🔹 Fetch from company namespace
+      final userDoc = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) throw Exception('User document not found');
+
+      final data = userDoc.data();
+      final displayName = (data?['name'] ?? '').toString().trim();
 
       setState(() {
         fullName = displayName.isNotEmpty ? displayName : 'Staff Member';
@@ -72,11 +83,10 @@ class _StaffDashboardState extends State<StaffDashboard> {
       });
     }
   }
-
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+    Navigator.pushReplacementNamed(context, '/company-login');
   }
 
   void _navigateTo(String routeName) {

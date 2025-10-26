@@ -13,17 +13,22 @@ class SupervisorDashboard extends StatelessWidget {
       {
         'icon': Icons.production_quantity_limits,
         'title': 'Manage Products',
-        'route': '/admin/products',
+        'route': '/supervisor/products',
       },
       {
         'icon': Icons.people_outline,
         'title': 'Manage Suppliers',
-        'route': '/admin/suppliers',
+        'route': '/supervisor/suppliers',
       },
       {
         'icon': Icons.bar_chart,
         'title': 'Manage Orders',
-        'route': '/admin/orders',
+        'route': '/supervisor/orders',
+      },
+      {
+        'icon': Icons.badge_outlined,
+        'title': 'Manage Staff',
+        'route': '/supervisor/view-staff',
       },
     ];
     return SessionAwarePage(
@@ -40,7 +45,7 @@ class SupervisorDashboard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Admin Menu', style: TextStyle(color: Colors.white, fontSize: 22)),
+                    const Text('Supervisor Menu', style: TextStyle(color: Colors.white, fontSize: 22)),
                     const SizedBox(height: 8),
                     Text(
                       FirebaseAuth.instance.currentUser?.email ?? '',
@@ -52,10 +57,10 @@ class SupervisorDashboard extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.inventory_2_outlined),
                 title: const Text('Manage Products'),
-                selected: ModalRoute.of(context)?.settings.name == '/admin/products',
+                selected: ModalRoute.of(context)?.settings.name == '/supervisor/products',
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.pushNamed(context, '/admin/products');
+                  Navigator.pushNamed(context, '/supervisor/products');
                 },
               ),
               ListTile(
@@ -63,7 +68,7 @@ class SupervisorDashboard extends StatelessWidget {
                 title: const Text('Manage Suppliers'),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.pushNamed(context, '/admin/suppliers');
+                  Navigator.pushNamed(context, '/supervisor/suppliers');
                 },
               ),
               ListTile(
@@ -71,7 +76,15 @@ class SupervisorDashboard extends StatelessWidget {
                 title: const Text('Manage Orders'),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.pushNamed(context, '/admin/orders');
+                  Navigator.pushNamed(context, '/supervisor/orders');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('Manage Staff'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/supervisor/view-staff');
                 },
               ),
             ],
@@ -82,7 +95,7 @@ class SupervisorDashboard extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: Colors.lightBlue,
           title: const Text(
-            'Admin Dashboard',
+            'Supervisor Dashboard',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           centerTitle: true,
@@ -91,7 +104,7 @@ class SupervisorDashboard extends StatelessWidget {
               onSelected: (value) async {
                 if (value == 'logout') {
                   await FirebaseAuth.instance.signOut();
-                  Navigator.pushReplacementNamed(context, '/login');
+                  Navigator.pushReplacementNamed(context, '/company-login');
                 } else if (value == 'settings') {
                   // Navigate to settings
                 }
@@ -119,7 +132,7 @@ class SupervisorDashboard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               color: Colors.lightBlue.shade50,
               child: const Text(
-                'Welcome Admin!',
+                'Welcome Supervisor!',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
@@ -153,7 +166,7 @@ class SupervisorDashboard extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               color: Colors.grey.shade300,
               child: const Text(
-                "© 2025 A1Specto Admin Panel • v1.0",
+                "© 2025 Supervisor Panel • v1.0",
                 style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ),
