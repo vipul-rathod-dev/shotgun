@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:shotgun/screens/admin_screens/order_page/models/order_pdf_data.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
 
 class PdfGenerator {
   static String _formatDate(dynamic timestamp) {

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shotgun/widgets/session_aware_page.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -88,24 +89,62 @@ class _StaffDashboardState extends State<StaffDashboard> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: primaryColor,
-        title: Text(
-          'Staff Dashboard',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+    return SessionAwarePage(
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade100,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: primaryColor,
+          title: Text(
+            'Staff Dashboard',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onSelected: (value) {
+                if (value == 'settings') {
+                  Navigator.pushNamed(context, '/staff/settings');
+                } else if (value == 'logout') {
+                  _logout();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.settings, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Settings'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.logout, color: Colors.redAccent),
+                      SizedBox(width: 8),
+                      Text('Logout'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ),
-      drawer: _buildDrawer(primaryColor),
-      body: Column(
-        children: [
-          _buildHeader(primaryColor),
-          const SizedBox(height: 10),
-          Expanded(child: _buildAnimatedGrid()),
-          _buildFooter(),
-        ],
+
+        drawer: _buildDrawer(primaryColor),
+        body: Column(
+          children: [
+            _buildHeader(primaryColor),
+            const SizedBox(height: 10),
+            Expanded(child: _buildAnimatedGrid()),
+            _buildFooter(),
+          ],
+        ),
       ),
     );
   }

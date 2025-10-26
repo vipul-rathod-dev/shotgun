@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/admin_screens/order_page/models/order_pdf_data.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
 import 'package:printing/printing.dart';
 

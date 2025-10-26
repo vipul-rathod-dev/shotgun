@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/admin_screens/order_page/controllers/add_order_controller.dart';
-import 'package:shotgun/screens/admin_screens/order_page/widgets/product_list.dart';
-import 'package:shotgun/screens/admin_screens/order_page/widgets/product_selector_sheet.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/widgets/product_list.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/widgets/product_selector_sheet.dart';
 
 class ProductTable extends StatefulWidget {
   final AddOrderController controller;

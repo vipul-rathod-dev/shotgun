@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shotgun/screens/admin_screens/order_page/widgets/order_card.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/widgets/order_card.dart';
 
 class ManageOrdersPage extends StatelessWidget {
   const ManageOrdersPage({super.key});

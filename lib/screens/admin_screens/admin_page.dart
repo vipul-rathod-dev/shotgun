@@ -1,195 +1,117 @@
-// ignore_for_file: use_build_context_synchronously
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final dashboardItems = [
-      {
-        'icon': Icons.production_quantity_limits,
-        'title': 'Manage Products',
-        'route': '/admin/products',
-      },
-      {
-        'icon': Icons.people_outline,
-        'title': 'Manage Suppliers',
-        'route': '/admin/suppliers',
-      },
-      {
-        'icon': Icons.bar_chart,
-        'title': 'Manage Orders',
-        'route': '/admin/orders',
-      },
-    ];
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-
-      // ✅ DRAWER MENU
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+      appBar: AppBar(
+        title: Text('Admin Dashboard', style: GoogleFonts.poppins()),
+        backgroundColor: Colors.blueAccent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.pushNamed(context, '/settings'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+          ),
+        ],
+      ),
+      drawer: _buildDrawer(context),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: GridView.count(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.1,
           children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(color: Colors.lightBlue),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Admin Menu', style: TextStyle(color: Colors.white, fontSize: 22)),
-                  const SizedBox(height: 8),
-                  Text(
-                    FirebaseAuth.instance.currentUser?.email ?? '',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
-              ),
+            _buildDashboardCard(
+              context,
+              icon: Icons.business_rounded,
+              title: 'Create New Company',
+              color: Colors.greenAccent.shade700,
+              route: '/admin/create-company',
             ),
-            ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Manage Products'),
-              selected: ModalRoute.of(context)?.settings.name == '/admin/products',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/admin/products');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.people_outline),
-              title: const Text('Manage Suppliers'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/admin/suppliers');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.bar_chart),
-              title: const Text('Manage Orders'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/admin/orders');
-              },
+            _buildDashboardCard(
+              context,
+              icon: Icons.apartment_rounded,
+              title: 'View Existing Companies',
+              color: Colors.orangeAccent.shade700,
+              route: '/admin/view-companies',
             ),
           ],
         ),
       ),
+    );
+  }
 
-      // ✅ APP BAR
-      appBar: AppBar(
-        backgroundColor: Colors.lightBlue,
-        title: const Text(
-          'Admin Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'logout') {
-                await FirebaseAuth.instance.signOut();
-                Navigator.pushReplacementNamed(context, '/login');
-              } else if (value == 'settings') {
-                // Navigate to settings
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Text('Logout'),
-              ),
-            ],
-          ),
-        ],
-      ),
-
-      // ✅ MAIN BODY
-      body: Column(
+  Drawer _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
-          // HEADER
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            color: Colors.lightBlue.shade50,
-            child: const Text(
-              'Welcome Admin!',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // DASHBOARD GRID CARDS
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 250,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1,
+          DrawerHeader(
+            decoration: const BoxDecoration(color: Colors.blueAccent),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.admin_panel_settings, size: 30, color: Colors.blueAccent),
                 ),
-                children: dashboardItems.map((item) {
-                  return _DashboardCard(
-                    icon: item['icon'] as IconData,
-                    title: item['title'] as String,
-                    onTap: () => Navigator.pushNamed(context, item['route'] as String),
-                  );
-                }).toList(),
-              ),
+                const SizedBox(height: 10),
+                Text('Admin Panel', style: GoogleFonts.poppins(fontSize: 18, color: Colors.white)),
+                Text('Manage companies & users',
+                    style: GoogleFonts.poppins(fontSize: 13, color: Colors.white70)),
+              ],
             ),
           ),
-
-          // FOOTER
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: Colors.grey.shade300,
-            child: const Text(
-              "© 2025 A1Specto Admin Panel • v1.0",
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
+          ListTile(
+            leading: const Icon(Icons.business),
+            title: const Text('Companies'),
+            onTap: () => Navigator.pushNamed(context, '/admin/view-companies'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
+            onTap: () => Navigator.pushReplacementNamed(context, '/login'),
           ),
         ],
       ),
     );
   }
-}
 
-class _DashboardCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  const _DashboardCard({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
+  Widget _buildDashboardCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required String route,
+  }) {
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, route),
+      borderRadius: BorderRadius.circular(20),
+      child: Card(
+        elevation: 4,
+        color: color.withOpacity(0.9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 40, color: Colors.lightBlue),
-              const SizedBox(height: 12),
+              Icon(icon, size: 50, color: Colors.white),
+              const SizedBox(height: 10),
               Text(
                 title,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ],
           ),

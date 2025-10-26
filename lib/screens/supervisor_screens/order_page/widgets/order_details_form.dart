@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/admin_screens/order_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
 import 'package:shotgun/widgets/date_picker_field.dart';
 
 class OrderDetailsForm extends StatefulWidget {

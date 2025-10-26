@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/admin_screens/order_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
 
 class ColorTempleRequirements extends StatefulWidget {
   final AddOrderController controller;

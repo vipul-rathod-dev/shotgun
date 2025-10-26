@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shotgun/screens/staff_screens/track_orders/utils/order_status_color.dart';
 
 class OrderTile extends StatelessWidget {
   final String orderId;
@@ -20,10 +21,11 @@ class OrderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final customerName = data['customerName'] ?? 'Unknown';
+    print(data['orderStatus']);
     final status = data['orderStatus'] ?? 'N/A';
     final total = (data['totalAmount'] ?? 0.0) as num;
     final orderDate = (data['orderDate'] as Timestamp?)?.toDate();
-    final color = status.statusColor;
+    final color = status.toString().toLowerCase().statusColor;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),

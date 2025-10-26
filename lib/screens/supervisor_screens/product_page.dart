@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/admin_screens/paginated_product_list.dart';
+import 'package:shotgun/screens/supervisor_screens/paginated_product_list.dart';
 
 class ManageProductPage extends StatefulWidget {
   const ManageProductPage({super.key});

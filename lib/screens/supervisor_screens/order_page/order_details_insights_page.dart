@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
-import 'package:shotgun/screens/admin_screens/order_page/models/order_pdf_data.dart';
-import 'package:shotgun/screens/admin_screens/order_page/widgets/order_timeline.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
+import 'package:shotgun/screens/supervisor_screens/order_page/widgets/order_timeline.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
 
 class OrderDetailsInsightsPage extends StatefulWidget {

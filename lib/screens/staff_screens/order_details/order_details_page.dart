@@ -14,88 +14,117 @@ class OrderDetailsPage extends StatelessWidget {
   const OrderDetailsPage({super.key});
 
   Future<void> _handleNextStep(
-    BuildContext context,
-    String orderId,
-    String status,
-  ) async {
-    // 🧠 Step 1: Ask for confirmation
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Move to Next Stage?',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to move this order to the next process?',
-        ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: getStatusColor(status),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes, Move', style: TextStyle(color: Colors.white),),
-          ),
-        ],
+  BuildContext context,
+  String orderId,
+  String status,
+  String orderType,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        'Move to Next Stage?',
+        style: TextStyle(fontWeight: FontWeight.bold),
       ),
-    );
+      content: const Text(
+        'Are you sure you want to move this order to the next process?',
+      ),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: getStatusColor(status),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Yes, Move', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
 
-    if (confirmed != true) return; // user cancelled
+  if (confirmed != true) return;
 
-    // 🧠 Step 2: Continue with status update
-    final currentStatus = status.toLowerCase();
-    const stages = [
-      'received',
-      'raw process',
-      'color process',
-      'quality check',
-      'fitting process',
-      'demo process',
-      'packing',
-      'shipping'
-    ];
-    final currentIndex = stages.indexOf(currentStatus);
+  const stages = [
+    'received',
+    'raw process',
+    'color process',
+    'quality check',
+    'fitting process',
+    'demo process',
+    'packing',
+    'shipping'
+  ];
 
-    if (currentIndex == -1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unknown status — cannot update.')),
-      );
-      return;
-    }
+  final currentStatus = status.toLowerCase();
+  final currentIndex = stages.indexOf(currentStatus);
 
-    if (currentIndex == stages.length - 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order is already completed ✅')),
-      );
-      return;
-    }
+  String nextStatus;
 
-    final nextStatus = stages[currentIndex + 1];
-    await FirebaseFirestore.instance
-        .collection('orders')
-        .doc(orderId)
-        .update({'orderStatus': nextStatus});
-
+  // 🔹 Determine next status based on order type
+  if (orderType.toLowerCase() == 'stock') {
+    nextStatus = 'packing';
+  } else if (orderType.toLowerCase() == 'customization') {
+    nextStatus = 'raw process';
+  } else if (currentIndex == -1) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Order moved to "$nextStatus" 🚀'),
-        backgroundColor: Colors.green.shade600,
-      ),
+      const SnackBar(content: Text('Unknown status — cannot update.')),
     );
+    return;
+  } else if (currentIndex == stages.length - 1) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Order is already completed ✅')),
+    );
+    return;
+  } else {
+    nextStatus = stages[currentIndex + 1];
   }
 
+  // 🔹 Update Firestore
+  await FirebaseFirestore.instance
+      .collection('orders')
+      .doc(orderId)
+      .update({'orderStatus': nextStatus});
 
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('Order moved to "$nextStatus" 🚀'),
+      backgroundColor: Colors.green.shade600,
+    ),
+  );
+
+  // 🧭 Navigate to next screen based on new status
+  switch (nextStatus) {
+    case 'raw process':
+      Navigator.pushReplacementNamed(context, '/staff/rawProcess', arguments: orderId);
+      break;
+    case 'color process':
+      Navigator.pushReplacementNamed(context, '/staff/colorProcess', arguments: orderId);
+      break;
+    case 'quality check':
+      Navigator.pushReplacementNamed(context, '/staff/qualityCheck', arguments: orderId);
+      break;
+    case 'fitting process':
+      Navigator.pushReplacementNamed(context, '/staff/fittingProcess', arguments: orderId);
+      break;
+    case 'demo process':
+      Navigator.pushReplacementNamed(context, '/staff/demoProcess', arguments: orderId);
+      break;
+    case 'packing':
+      Navigator.pushReplacementNamed(context, '/staff/packing', arguments: orderId);
+      break;
+    case 'shipping':
+      Navigator.pushReplacementNamed(context, '/staff/shipping', arguments: orderId);
+      break;
+    default:
+      Navigator.pushReplacementNamed(context, '/staff/trackOrders');
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +173,8 @@ class OrderDetailsPage extends StatelessWidget {
           final orderNumber = order['orderNumber'] ?? 'N/A';
           final status = order['orderStatus'] ?? 'N/A';
           final orderDate = (order['orderDate'] as Timestamp?)?.toDate();
+          final orderType = order['orderType'] ?? 'N/A'; // 🆕 Added field
+          final brandName = order['brandName'] ?? 'N/A'; // 🆕 Added field
           final items = (order['products'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
           // 🧮 Totals
@@ -161,7 +192,7 @@ class OrderDetailsPage extends StatelessWidget {
                 'Next Step',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
-              onPressed: () => _handleNextStep(context, orderId, status),
+              onPressed: () => _handleNextStep(context, orderId, status, orderType),
             ),
             body: SafeArea(
               child: SingleChildScrollView(
@@ -177,6 +208,7 @@ class OrderDetailsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
 
+                    // 🔹 Order Info
                     InfoTile(title: 'Order ID', value: orderNumber, textColor: textColor),
                     InfoTile(
                       title: 'Order Date',
@@ -185,10 +217,20 @@ class OrderDetailsPage extends StatelessWidget {
                           : '--',
                       textColor: textColor,
                     ),
+                    // 🆕 Added Order Type and Brand Name
+                    InfoTile(
+                      title: 'Order Type',
+                      value: orderType,
+                      textColor: textColor,
+                    ),
+                    InfoTile(
+                      title: 'Brand Name',
+                      value: brandName,
+                      textColor: textColor,
+                    ),
 
                     const SizedBox(height: 25),
 
-                    // 🌈 Enhanced Totals Card
                     OrderTotalsCard(
                       totalProducts: totalProducts,
                       totalQuantity: totalQuantity,
