@@ -5,12 +5,11 @@ import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
 import 'package:shotgun/screens/auth_screens/company_login_page.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/supervisor_page.dart';
-import 'package:shotgun/screens/supervisor_screens/manage_suppliers.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/auth_screens/login_page.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory/manage_inventory_page.dart';
 import 'package:shotgun/screens/staff_screens/order_details/order_details_page.dart';
-import 'package:shotgun/screens/supervisor_screens/product_page.dart';
+import 'package:shotgun/screens/supervisor_screens/products_page/product_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/color_process_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/demo_process_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/fitting_process_page.dart';
@@ -21,6 +20,7 @@ import 'package:shotgun/screens/staff_screens/process_page/shipping_process_page
 import 'package:shotgun/screens/staff_screens/staff_page.dart';
 import 'package:shotgun/screens/staff_screens/track_orders/track_orders_page.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/view_staff_page.dart';
+import 'package:shotgun/screens/supervisor_screens/suppliers_page.dart';
 import '../screens/supervisor_screens/order_page/add_orders_page.dart';
 import '../screens/register_page.dart';
 

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shotgun/screens/auth_screens/login_controller.dart';
@@ -6,6 +7,9 @@ import 'app/app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true, // 👈 enables local caching
+  );
 
   // 🟢 Get saved role if session is valid
   final role = await LoginController.getSavedRole();
