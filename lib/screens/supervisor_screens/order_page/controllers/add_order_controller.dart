@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
-import 'package:printing/printing.dart';
 
 class AddOrderController extends ChangeNotifier {
   // 🔹 Form keys for different steps
@@ -35,25 +37,25 @@ class AddOrderController extends ChangeNotifier {
 
   bool get showColorCustomization => orderType == 'Customized';
 
+  // ────────────────────────────────
+  // 🔹 Helper: Get Company ID
+  // ────────────────────────────────
+  Future<String> _getCompanyId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString('cachedCompanyId');
+    if (id == null) throw Exception('No cached company ID found.');
+    return id;
+  }
+
+  // ────────────────────────────────
+  // 🔹 Setters / Updaters
+  // ────────────────────────────────
   void setOrderType(String? type) {
     orderType = type;
-    // showColorCustomization is derived → triggers rebuild
-    // ignore: unused_local_variable
-    final wasCustomized = showColorCustomization;
-
-    // If switching to Standard, clear all color-related data
-    if (type == 'Standard') {
-      productCustomizations.clear(); // 🧹 remove old customization data
-    }
-
-    // Force a rebuild so UI (Stepper + Summary) updates properly
+    if (type == 'Standard') productCustomizations.clear();
     notifyListeners();
   }
 
-
-  // ────────────────────────────────
-  // 🔹 Update Methods
-  // ────────────────────────────────
   void setCustomerName(String name) {
     customerNameController.text = name;
     customerName = name;
@@ -96,7 +98,7 @@ class AddOrderController extends ChangeNotifier {
   }
 
   // ────────────────────────────────
-  // 🔹 Customization Handling
+  // 🔹 Customizations
   // ────────────────────────────────
   void addCustomization(String productId, Map<String, dynamic> data) {
     productCustomizations.putIfAbsent(productId, () => []).add(data);
@@ -112,23 +114,20 @@ class AddOrderController extends ChangeNotifier {
         index >= 0 &&
         index < productCustomizations[productId]!.length) {
       productCustomizations[productId]![index] = newData;
-      notifyListeners(); // ensures SummarySection rebuilds
-    }
-  }
-
-  void removeCustomization(String productId, int index) {
-    if (productCustomizations[productId] != null) {
-      productCustomizations[productId]!.removeAt(index);
       notifyListeners();
     }
   }
 
-  double get total {
-    return products.fold<double>(
-      0,
-      (sums, p) => sums + ((p['price'] ?? 0) * ((p['quantity'] ?? 0) as num).toInt()),
-    );
+  void removeCustomization(String productId, int index) {
+    productCustomizations[productId]?.removeAt(index);
+    notifyListeners();
   }
+
+  double get total => products.fold<double>(
+    0,
+    (sum, p) =>
+        sum + ((p['price'] ?? 0) * ((p['quantity'] ?? 0) as num).toInt()),
+  );
 
   // ────────────────────────────────
   // 🔹 PDF Generation
@@ -144,11 +143,9 @@ class AddOrderController extends ChangeNotifier {
         productCustomizations: productCustomizations,
       );
       final pdf = await PdfGenerator.generateOrderPdf(orderData);
-
       await Printing.layoutPdf(onLayout: (format) async => pdf);
 
       _showSnack(context, '✅ PDF generated successfully', color: Colors.green);
-
     } catch (e, stack) {
       debugPrint('❌ PDF Generation Error: $e');
       debugPrint(stack.toString());
@@ -156,8 +153,17 @@ class AddOrderController extends ChangeNotifier {
     }
   }
 
+  // ────────────────────────────────
+  // 🔹 Generate Order Number (Company Scoped)
+  // ────────────────────────────────
   Future<String> _getNextOrderNumber() async {
-    final counterRef = FirebaseFirestore.instance.collection('metadata').doc('order_counter');
+    final companyId = await _getCompanyId();
+    final counterRef = FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('metadata')
+        .doc('order_counter');
+
     return FirebaseFirestore.instance.runTransaction((transaction) async {
       final snapshot = await transaction.get(counterRef);
 
@@ -167,7 +173,6 @@ class AddOrderController extends ChangeNotifier {
       }
 
       transaction.set(counterRef, {'lastOrderNumber': nextNumber});
-
       final year = DateTime.now().year;
       return 'ORD-$year-${nextNumber.toString().padLeft(4, '0')}';
     });
@@ -181,64 +186,80 @@ class AddOrderController extends ChangeNotifier {
       _showSnack(context, 'Please enter customer name');
       return;
     }
-
     if (products.isEmpty) {
       _showSnack(context, 'Please add at least one product');
       return;
     }
-
     if (orderDate == null || shippingDate == null) {
       _showSnack(context, 'Please select order and shipping dates');
       return;
     }
-
     if (shippingDate!.isBefore(orderDate!)) {
       _showSnack(context, 'Shipping date cannot be before order date');
-
       return;
     }
 
     try {
+      final companyId = await _getCompanyId();
       final orderNumber = await _getNextOrderNumber();
+      final user = FirebaseAuth.instance.currentUser;
 
-      // 🧾 Build final products list
-      final List<Map<String, dynamic>> finalProducts = products.map((product) {
-        final productId = product['productId'];
-        final customizations = productCustomizations[productId] ?? [];
-        return {
-          'productId': productId,
-          'productName': product['productName'],
-          'quantity': product['quantity'],
-          'price': product['price'],
-          'lineTotal': (product['quantity'] ?? 0) * (product['price'] ?? 0),
-          'customizations': customizations.map((c) => {
-                'focusColorId': c['focusColorId'],
-                'focusColor': c['focusColor'],
-                'focusQty': c['focusQty'],
-                'templeColorId': c['templeColorId'],
-                'templeColor': c['templeColor'],
-                'templeQty': c['templeQty'],
-              }).toList(),
-        };
-      }).toList();
+      if (user == null) {
+        throw Exception('Missing user info.');
+      }
 
-      await FirebaseFirestore.instance.collection('orders').add({
-        'orderNumber': orderNumber,
-        'customerName': customerName,
-        'customerPhone': customerPhone,
-        'brandName': brandName,
-        'orderDate': Timestamp.fromDate(orderDate!),
-        'shippingDate': Timestamp.fromDate(shippingDate!),
-        'products': finalProducts,
-        'totalAmount': total,
-        'orderType': orderType,
-        'orderStatus': 'Received',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      final finalProducts =
+          products.map((p) {
+            final customizations = productCustomizations[p['productId']] ?? [];
+            return {
+              'productId': p['productId'],
+              'productName': p['productName'],
+              'quantity': p['quantity'],
+              'price': p['price'],
+              'lineTotal': (p['quantity'] ?? 0) * (p['price'] ?? 0),
+              'customizations':
+                  customizations
+                      .map(
+                        (c) => {
+                          'focusColorId': c['focusColorId'],
+                          'focusColor': c['focusColor'],
+                          'focusQty': c['focusQty'],
+                          'templeColorId': c['templeColorId'],
+                          'templeColor': c['templeColor'],
+                          'templeQty': c['templeQty'],
+                        },
+                      )
+                      .toList(),
+            };
+          }).toList();
 
-      _showSnack(context, '✅ Order #$orderNumber submitted successfully!', color: Colors.green);
+      await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .collection('orders')
+          .add({
+            'orderNumber': orderNumber,
+            'customerName': customerName,
+            'customerPhone': customerPhone,
+            'brandName': brandName,
+            'orderDate': Timestamp.fromDate(orderDate!),
+            'shippingDate': Timestamp.fromDate(shippingDate!),
+            'products': finalProducts,
+            'totalAmount': total,
+            'orderType': orderType,
+            'orderStatus': 'Received',
+            'timestamp': FieldValue.serverTimestamp(),
+            'createdByUid': user.uid,
+            'createdByEmail': user.email,
+          });
 
-      // Optional: Clear data after submission
+      _showSnack(
+        context,
+        '✅ Order #$orderNumber submitted successfully!',
+        color: Colors.green,
+      );
+
+      // Reset state
       products.clear();
       productCustomizations.clear();
       customerName = null;
@@ -252,67 +273,76 @@ class AddOrderController extends ChangeNotifier {
       debugPrint("❌ Order submission failed: $e");
       debugPrint(stack.toString());
       _showSnack(context, 'Order submission failed: $e', color: Colors.red);
-
     }
   }
 
+  // ────────────────────────────────
+  // 🔹 Edit Mode Initialization
+  // ────────────────────────────────
   Future<void> initEditMode(bool editMode, String? id) async {
     if (!editMode || id == null || _isInitialized) return;
 
     isEditMode = editMode;
     orderId = id;
+    final companyId = await _getCompanyId();
 
-    final doc = await FirebaseFirestore.instance.collection('orders').doc(id).get();
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('companies')
+            .doc(companyId)
+            .collection('orders')
+            .doc(id)
+            .get();
+
     if (!doc.exists) return;
 
     final data = doc.data()!;
     customerNameController.text = data['customerName'] ?? '';
     customerPhoneController.text = data['customerPhone'] ?? '';
     brandNameController.text = data['brandName'] ?? '';
-    customerName = data['customerName'] ?? '';
-    customerPhone = data['customerPhone'] ?? '';
-    brandName = data['brandName'] ?? '';
-    orderType = data['orderType'] ?? 'Stock';
+    customerName = data['customerName'];
+    customerPhone = data['customerPhone'];
+    brandName = data['brandName'];
+    orderType = data['orderType'] ?? 'Standard';
     orderDate = (data['orderDate'] as Timestamp?)?.toDate();
     shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();
 
     products = List<Map<String, dynamic>>.from(data['products'] ?? []);
-    // if customizations are nested inside products:
     for (var p in products) {
-      final productId = p['productId'];
-      final customList = List<Map<String, dynamic>>.from(p['customizations'] ?? []);
-      productCustomizations[productId] = customList;
+      final pid = p['productId'];
+      productCustomizations[pid] = List<Map<String, dynamic>>.from(
+        p['customizations'] ?? [],
+      );
     }
 
     _isInitialized = true;
     notifyListeners();
   }
 
+  // ────────────────────────────────
+  // 🔹 Save (Update) Order
+  // ────────────────────────────────
   Future<void> saveOrder(BuildContext context) async {
-    // Build final products list using productCustomizations
-    final List<Map<String, dynamic>> finalProducts = products.map((product) {
-      final productId = product['productId'];
-      final customizations = productCustomizations[productId] ?? [];
+    final companyId = await _getCompanyId();
+    final user = FirebaseAuth.instance.currentUser;
 
-      return {
-        'productId': productId,
-        'productName': product['productName'],
-        'quantity': product['quantity'],
-        'price': product['price'],
-        'lineTotal': (product['quantity'] ?? 0) * (product['price'] ?? 0),
-        // include customizations (each with IDs and names & qty)
-        'customizations': customizations.map((c) {
+    if (user == null) {
+      throw Exception('Missing user info.');
+    }
+
+    final finalProducts =
+        products.map((p) {
+          final pid = p['productId'];
+          final customizations = productCustomizations[pid] ?? [];
           return {
-            'focusColorId': c['focusColorId'],
-            'focusColor': c['focusColor'],
-            'focusQty': c['focusQty'],
-            'templeColorId': c['templeColorId'],
-            'templeColor': c['templeColor'],
-            'templeQty': c['templeQty'],
+            'productId': pid,
+            'productName': p['productName'],
+            'quantity': p['quantity'],
+            'price': p['price'],
+            'lineTotal': (p['quantity'] ?? 0) * (p['price'] ?? 0),
+            'customizations': customizations,
           };
-        }).toList(),
-      };
-    }).toList();
+        }).toList();
 
     final orderData = {
       'customerName': customerNameController.text.trim(),
@@ -324,16 +354,19 @@ class AddOrderController extends ChangeNotifier {
       'products': finalProducts,
       'totalAmount': total,
       'timestamp': FieldValue.serverTimestamp(),
+      'createdByUid': user.uid,
+      'createdByEmail': user.email,
     };
 
     try {
-      final collection = FirebaseFirestore.instance.collection('orders');
+      final collection = FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .collection('orders');
 
       if (isEditMode && orderId != null) {
-        // Update existing doc with merged products+customizations
         await collection.doc(orderId).update(orderData);
       } else {
-        // New order -> assign order number and create
         final orderNumber = await _getNextOrderNumber();
         await collection.add({
           ...orderData,
@@ -342,24 +375,15 @@ class AddOrderController extends ChangeNotifier {
         });
       }
 
-      // Optional: reflect merged products back into controller.products so local state matches DB
-      products = List<Map<String, dynamic>>.from(finalProducts);
-      // And rebuild productCustomizations from finalProducts for consistency
-      productCustomizations.clear();
-      for (var p in products) {
-        final pid = p['productId'];
-        finalListToMapSafe(p['customizations']);
-        productCustomizations[pid] =
-            List<Map<String, dynamic>>.from(p['customizations'] ?? []);
-      }
-
       notifyListeners();
 
       if (context.mounted) {
         Navigator.pop(context);
         _showSnack(
           context,
-          isEditMode ? '✅ Order updated successfully!' : '✅ Order added successfully!',
+          isEditMode
+              ? '✅ Order updated successfully!'
+              : '✅ Order added successfully!',
           color: Colors.green,
         );
       }
@@ -369,17 +393,14 @@ class AddOrderController extends ChangeNotifier {
     }
   }
 
-  // small helper to normalize null customizations
-  void finalListToMapSafe(dynamic customizations) {
-    // no-op helper to make code readable (keeps dynamic handling stable)
-    // If you prefer, remove helper and handle nulls inline
-  }
-
-
   // ────────────────────────────────
   // 🔹 Helper: SnackBar
   // ────────────────────────────────
-  void _showSnack(BuildContext context, String msg, {Color color = Colors.black87}) {
+  void _showSnack(
+    BuildContext context,
+    String msg, {
+    Color color = Colors.black87,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),

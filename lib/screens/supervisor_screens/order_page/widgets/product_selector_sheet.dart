@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class ProductSelectorSheet extends StatefulWidget {
@@ -10,6 +11,7 @@ class ProductSelectorSheet extends StatefulWidget {
 }
 
 class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
+  String? _companyId;
   String? _selectedProductId;
   String? _selectedProductName;
   int _quantity = 1;
@@ -26,15 +28,27 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadCompanyAndProducts();
   }
 
-  Future<void> _loadProducts() async {
+  Future<void> _loadCompanyAndProducts() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final companyId = prefs.getString('cachedCompanyId');
+
+      if (companyId == null) {
+        throw Exception('Company ID not found in cache');
+      }
+
+      setState(() => _companyId = companyId);
+
       final snapshot = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
           .collection('products')
           .orderBy('name')
           .get();
+
       setState(() {
         _products = snapshot.docs;
         _filteredProducts = _products;
@@ -54,7 +68,7 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
     setState(() {
       _filteredProducts = _products.where((product) {
         final data = product.data() as Map<String, dynamic>;
-        final name = (data['name'] ?? '').toString().toLowerCase();
+        final name = (data['displayName'] ?? '').toString().toLowerCase();
         return name.contains(lowerQuery);
       }).toList();
     });
@@ -91,6 +105,10 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+
+    if (_companyId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return DraggableScrollableSheet(
       expand: false,
@@ -135,9 +153,8 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
                         itemCount: _filteredProducts.length,
                         itemBuilder: (context, index) {
                           final product = _filteredProducts[index];
-                          final data =
-                              product.data() as Map<String, dynamic>;
-                          final name = data['name'] ?? 'Unnamed';
+                          final data = product.data() as Map<String, dynamic>;
+                          final name = data['displayName'] ?? 'Unnamed';
                           final price = data['price']?.toString() ?? '-';
                           final stock = data['stock']?.toString() ?? '-';
 
@@ -150,8 +167,10 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
                               setState(() {
                                 _selectedProductId = value;
                                 _selectedProductName = name;
-                                _priceController.text = data['price']?.toString() ?? '';
-                                _price = double.tryParse(_priceController.text) ?? 0;
+                                _priceController.text =
+                                    data['price']?.toString() ?? '';
+                                _price =
+                                    double.tryParse(_priceController.text) ?? 0;
                               });
                             },
                           );
@@ -192,7 +211,6 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
 
               // ✅ Confirm Button

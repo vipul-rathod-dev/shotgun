@@ -1,12 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/widgets/order_card.dart';
 
-class ManageOrdersPage extends StatelessWidget {
+class ManageOrdersPage extends StatefulWidget {
   const ManageOrdersPage({super.key});
 
   @override
+  State<ManageOrdersPage> createState() => _ManageOrdersPageState();
+}
+
+class _ManageOrdersPageState extends State<ManageOrdersPage> {
+  String? _companyId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyId();
+  }
+
+  Future<void> _loadCompanyId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _companyId = prefs.getString('cachedCompanyId');
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_companyId == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Orders'),
@@ -15,12 +42,20 @@ class ManageOrdersPage extends StatelessWidget {
           TextButton.icon(
             onPressed: () => Navigator.pushNamed(context, '/supervisor/orders/new'),
             icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text("New Order", style: TextStyle(color: Colors.white)),
+            label: const Text(
+              "New Order",
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('orders').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('companies')
+            .doc(_companyId)
+            .collection('orders')
+            .orderBy('orderNumber', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));

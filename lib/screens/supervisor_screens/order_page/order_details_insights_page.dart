@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/widgets/order_timeline.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
@@ -21,6 +22,20 @@ class OrderDetailsInsightsPage extends StatefulWidget {
 
 class _OrderDetailsInsightsPageState extends State<OrderDetailsInsightsPage> with SingleTickerProviderStateMixin {
   int _previousStep = 0;
+  String? _companyId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyId();
+  }
+
+  Future<void> _loadCompanyId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _companyId = prefs.getString('cachedCompanyId');
+    });
+  }
 
   @override
   void didUpdateWidget(covariant OrderDetailsInsightsPage oldWidget) {
@@ -109,7 +124,15 @@ class _OrderDetailsInsightsPageState extends State<OrderDetailsInsightsPage> wit
 
   @override
   Widget build(BuildContext context) {
+    if (_companyId == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final orderStream = FirebaseFirestore.instance
+        .collection('companies')
+        .doc(_companyId)
         .collection('orders')
         .doc(widget.orderId)
         .snapshots();
@@ -517,6 +540,8 @@ class _OrderDetailsInsightsPageState extends State<OrderDetailsInsightsPage> wit
       // Floating Action Buttons (Share PDF) - uses current snapshot data to generate pdf
       floatingActionButton: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
+            .collection('companies')
+            .doc(_companyId)
             .collection('orders')
             .doc(widget.orderId)
             .snapshots(),

@@ -18,7 +18,7 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
   int _currentStep = 0;
 
   /// 🔹 Move to next step with validation
-  void _nextStep(AddOrderController controller) {
+  void _nextStep(AddOrderController controller) async {
     final currentForm =
         controller
             .formKeys[_currentStep < controller.formKeys.length
@@ -66,10 +66,10 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
           Navigator.pushReplacementNamed(context, '/supervisor/orders');
         });
       } else {
-        controller.submitOrder(context).then((_) {
-          Navigator.pushReplacementNamed(context, '/supervisor/orders');
-        });
+        await controller.submitOrder(context);
+        Navigator.pushReplacementNamed(context, '/supervisor/orders');
       }
+
     }
   }
 
@@ -155,13 +155,13 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
     return Stepper(
       key: ValueKey(controller.showColorCustomization),
       type: StepperType.vertical,
-      currentStep: _currentStep,
+      currentStep: _currentStep.clamp(0, steps.length - 1),
       onStepContinue: () => _nextStep(controller),
       onStepCancel: _previousStep,
       controlsBuilder: (context, details) {
         final isLastStep = controller.showColorCustomization
-            ? _currentStep == 4
-            : _currentStep == 3;
+            ? _currentStep >= 4
+            : _currentStep >= 3;
 
         return Padding(
           padding: const EdgeInsets.only(top: 20),
