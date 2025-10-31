@@ -60,7 +60,7 @@ class _ManageSuppliersPageState extends State<ManageSuppliersPage> {
           .doc(companyId)
           .collection('suppliers');
       _supplierStream = _suppliersCollection!
-          .orderBy('timestamp', descending: true)
+          .orderBy('name', descending: false)
           .snapshots();
       isLoading = false;
     });

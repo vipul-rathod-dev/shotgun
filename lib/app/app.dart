@@ -33,6 +33,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Shotgun App',
       theme: ThemeData(primarySwatch: Colors.blue),
+      debugShowCheckedModeBanner: false,
       initialRoute: '/company-login',
       routes: {
         '/login': (context) => const LoginPage(),
