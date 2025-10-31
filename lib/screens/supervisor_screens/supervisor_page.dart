@@ -1,11 +1,41 @@
 // ignore_for_file: use_build_context_synchronously
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shotgun/widgets/session_aware_page.dart';
 
-class SupervisorDashboard extends StatelessWidget {
+class SupervisorDashboard extends StatefulWidget {
   const SupervisorDashboard({super.key});
+
+  @override
+  State<SupervisorDashboard> createState() => _SupervisorDashboardState();
+}
+
+class _SupervisorDashboardState extends State<SupervisorDashboard>
+    with SingleTickerProviderStateMixin {
+  bool _isMenuOpen = false;
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleMenu() {
+    setState(() => _isMenuOpen = !_isMenuOpen);
+    if (_isMenuOpen) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,103 +66,200 @@ class SupervisorDashboard extends StatelessWidget {
 
     return SessionAwarePage(
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
-
-        // ✅ DRAWER MENU
+        backgroundColor: const Color(0xFFF3F6FB),
         drawer: _buildDrawer(context, userEmail),
-
-        // ✅ APP BAR
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.lightBlue,
-          title: const Text(
-            'Supervisor Dashboard',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          centerTitle: true,
-          actions: [
-            PopupMenuButton<String>(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              onSelected: (value) async {
-                if (value == 'logout') {
-                  final confirm = await _showLogoutDialog(context);
-                  if (confirm == true) {
-                    await FirebaseAuth.instance.signOut();
-                    Navigator.pushReplacementNamed(context, '/company-login');
-                  }
-                } else if (value == 'settings') {
-                  // Navigate to settings page
-                }
-              },
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem(
-                  value: 'settings',
-                  child: Text('Settings'),
-                ),
-                const PopupMenuItem(
-                  value: 'logout',
-                  child: Text('Logout'),
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        // ✅ MAIN BODY
+        appBar: _buildAppBar(context),
         body: SafeArea(
           child: Column(
             children: [
-              _buildHeader(context),
-              const SizedBox(height: 12),
-
-              // GRID SECTION
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 250,
-                      mainAxisSpacing: 20,
-                      crossAxisSpacing: 20,
-                      childAspectRatio: 1,
-                    ),
-                    itemCount: dashboardItems.length,
-                    itemBuilder: (context, index) {
-                      final item = dashboardItems[index];
-                      return _DashboardCard(
-                        icon: item.icon,
-                        title: item.title,
-                        onTap: () => Navigator.pushNamed(context, item.route),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // FOOTER
-              Container(
-                padding: const EdgeInsets.all(12),
-                color: Colors.grey.shade200,
-                child: const Text(
-                  "© 2025 Supervisor Panel • v1.0",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+              const SizedBox(height: 28),
+              _buildDashboardCards(context, dashboardItems),
+              const Spacer(),
+              _buildFooter(),
             ],
           ),
+        ),
+
+        // 🔹 Floating Action Button Menu
+        floatingActionButton: Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            if (_isMenuOpen)
+              GestureDetector(
+                onTap: _toggleMenu,
+                child: Container(
+                  color: Colors.black54.withOpacity(0.4),
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              bottom: _isMenuOpen ? 140 : 80,
+              right: 16,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _isMenuOpen ? 1 : 0,
+                child: _buildFabMenuButton(
+                  icon: Icons.add_box_outlined,
+                  label: "Add Focus Colour",
+                  onTap: () {
+                    _toggleMenu();
+                    Navigator.pushNamed(context, '/supervisor/add-focus-color');
+                  },
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              bottom: _isMenuOpen ? 80 : 80,
+              right: 16,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _isMenuOpen ? 1 : 0,
+                child: _buildFabMenuButton(
+                  icon: Icons.add_box_outlined,
+                  label: "Add Temple Colour",
+                  onTap: () {
+                    _toggleMenu();
+                    Navigator.pushNamed(context, '/supervisor/add-temple-color');
+                  },
+                ),
+              ),
+            ),
+            FloatingActionButton(
+              backgroundColor: const Color(0xFF1565C0),
+              onPressed: _toggleMenu,
+              child: AnimatedIcon(
+                icon: AnimatedIcons.menu_close,
+                progress: _animationController,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // 🔹 Drawer
-  Widget _buildDrawer(BuildContext context, String userEmail) {
+  // 🔹 Floating Submenu Button
+  Widget _buildFabMenuButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blueAccent.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF1565C0), size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF1565C0),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      elevation: 3,
+      backgroundColor: const Color(0xFF1565C0),
+      title: const Text(
+        'Supervisor Dashboard',
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 20,
+          color: Colors.white,
+        ),
+      ),
+      centerTitle: true,
+      shadowColor: Colors.blueAccent.withOpacity(0.4),
+      actions: [
+        PopupMenuButton<String>(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          onSelected: (value) async {
+            if (value == 'logout') {
+              final confirm = await _showLogoutDialog(context);
+              if (confirm == true) {
+                await FirebaseAuth.instance.signOut();
+                Navigator.pushReplacementNamed(context, '/company-login');
+              }
+            }
+          },
+          itemBuilder: (BuildContext context) =>
+              const [PopupMenuItem(value: 'logout', child: Text('Logout'))],
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDashboardCards(
+      BuildContext context, List<DashboardItem> items) {
+    return SizedBox(
+      height: 200,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: items
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(right: 20),
+                  child: _DashboardCard(
+                    icon: item.icon,
+                    title: item.title,
+                    onTap: () => Navigator.pushNamed(context, item.route),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      color: const Color(0xFFE8EDF4),
+      child: const Text(
+        "© 2025 Supervisor Panel • v1.2",
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.black54,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  // Drawer & other methods are same as before
+  Drawer _buildDrawer(BuildContext context, String userEmail) {
     bool isActive(String route) =>
         ModalRoute.of(context)?.settings.name == route;
 
@@ -142,7 +269,9 @@ class SupervisorDashboard extends StatelessWidget {
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.lightBlueAccent, Colors.lightBlue],
+                colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
             accountName: const Text(
@@ -152,7 +281,7 @@ class SupervisorDashboard extends StatelessWidget {
             accountEmail: Text(userEmail),
             currentAccountPicture: const CircleAvatar(
               backgroundColor: Colors.white,
-              child: Icon(Icons.person, color: Colors.lightBlue, size: 36),
+              child: Icon(Icons.person, color: Color(0xFF1565C0), size: 36),
             ),
           ),
           _drawerItem(context, Icons.inventory_2_outlined, 'Manage Products',
@@ -190,16 +319,18 @@ class SupervisorDashboard extends StatelessWidget {
   ) {
     final active = isActive(route);
     return ListTile(
-      leading: Icon(icon,
-          color: active ? Colors.lightBlue : Colors.grey.shade700),
+      leading: Icon(
+        icon,
+        color: active ? const Color(0xFF1565C0) : Colors.grey.shade700,
+      ),
       title: Text(
         title,
         style: TextStyle(
-          color: active ? Colors.lightBlue.shade700 : Colors.black87,
+          color: active ? const Color(0xFF1565C0) : Colors.black87,
           fontWeight: active ? FontWeight.w600 : FontWeight.w400,
         ),
       ),
-      tileColor: active ? Colors.lightBlue.shade50 : null,
+      tileColor: active ? const Color(0xFFE3F2FD) : null,
       onTap: () {
         Navigator.pop(context);
         if (!active) Navigator.pushReplacementNamed(context, route);
@@ -207,46 +338,13 @@ class SupervisorDashboard extends StatelessWidget {
     );
   }
 
-  // 🔹 Header
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.lightBlue.shade100, Colors.lightBlue.shade50],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.lightBlue.shade100,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: const [
-          Icon(Icons.dashboard_rounded, color: Colors.lightBlue, size: 30),
-          SizedBox(width: 10),
-          Text(
-            'Welcome, Supervisor!',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🔹 Logout confirmation dialog
   static Future<bool?> _showLogoutDialog(BuildContext context) {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
@@ -256,7 +354,7 @@ class SupervisorDashboard extends StatelessWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.lightBlue,
+              backgroundColor: const Color(0xFF1565C0),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -270,6 +368,7 @@ class SupervisorDashboard extends StatelessWidget {
   }
 }
 
+// 🔹 Dashboard Card (same as before)
 class _DashboardCard extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -285,8 +384,7 @@ class _DashboardCard extends StatefulWidget {
   State<_DashboardCard> createState() => _DashboardCardState();
 }
 
-class _DashboardCardState extends State<_DashboardCard>
-    with SingleTickerProviderStateMixin {
+class _DashboardCardState extends State<_DashboardCard> {
   bool _hovered = false;
 
   @override
@@ -294,41 +392,48 @@ class _DashboardCardState extends State<_DashboardCard>
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: _hovered
-                  ? Colors.lightBlue.shade100.withOpacity(0.6)
-                  : Colors.grey.shade200,
-              blurRadius: _hovered ? 12 : 6,
-              offset: Offset(0, _hovered ? 4 : 2),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 170,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: _hovered
+                  ? [const Color(0xFF42A5F5), const Color(0xFF1565C0)]
+                  : [Colors.white, Colors.grey.shade100],
             ),
-          ],
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: widget.onTap,
+            boxShadow: [
+              BoxShadow(
+                color: _hovered
+                    ? Colors.blueAccent.withOpacity(0.35)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(widget.icon,
-                    size: 45,
-                    color: _hovered ? Colors.lightBlue : Colors.lightBlueAccent),
+                Icon(
+                  widget.icon,
+                  size: 46,
+                  color: _hovered ? Colors.white : const Color(0xFF1565C0),
+                ),
                 const SizedBox(height: 14),
                 Text(
                   widget.title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  style: TextStyle(
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: _hovered ? Colors.white : Colors.black87,
                   ),
                 ),
               ],
@@ -340,7 +445,7 @@ class _DashboardCardState extends State<_DashboardCard>
   }
 }
 
-// 🔹 Dashboard Item Model
+// Model
 class DashboardItem {
   final IconData icon;
   final String title;

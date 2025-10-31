@@ -3,6 +3,8 @@ import 'package:shotgun/screens/admin_screens/admin_page.dart';
 import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
 import 'package:shotgun/screens/auth_screens/company_login_page.dart';
+import 'package:shotgun/screens/supervisor_screens/add_colors/add_focus_color.dart';
+import 'package:shotgun/screens/supervisor_screens/add_colors/add_temple_color.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/supervisor_page.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
@@ -58,6 +60,8 @@ class MyApp extends StatelessWidget {
           final companyId = ModalRoute.of(context)!.settings.arguments as String;
           return AddStaffPage(companyId: companyId);
         },
+        '/supervisor/add-focus-color': (context) => const AddFocusColor(),
+        '/supervisor/add-temple-color': (context) => const AddTempleColor(),
 
         // STAFF ROUTES
         '/staff': (context) => const StaffDashboard(),
