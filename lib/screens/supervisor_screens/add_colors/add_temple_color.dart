@@ -20,7 +20,9 @@ class _AddTempleColorState extends State<AddTempleColor> {
   final TextEditingController _colorNameController = TextEditingController();
   File? _selectedImage;
   String? _companyId;
-  final Set<String> _selectedColors = {}; // track selected items
+  final Set<String> _selectedColors = {};
+  final List<String> _materials = ['Black', 'Clear', 'PC'];
+  String? _selectedMaterial;
 
   @override
   void initState() {
@@ -48,56 +50,84 @@ class _AddTempleColorState extends State<AddTempleColor> {
       return;
     }
 
-    final colorData = {
-      'name': colorName,
-      'imagePath': _selectedImage?.path,
-      'createdAt': Timestamp.now(),
-    };
+    if (_selectedMaterial == null) {
+      _showSnackBar("Please select a base material", Colors.redAccent);
+      return;
+    }
 
-    await FirebaseFirestore.instance
-        .collection('companies')
-        .doc(_companyId)
-        .collection('temple_colors')
-        .add(colorData);
+    try {
+      final colorData = {
+        'name': colorName,
+        'imagePath': _selectedImage?.path,
+        'templeBaseMaterial': _selectedMaterial,
+        'createdAt': Timestamp.now(),
+      };
 
-    _colorNameController.clear();
-    setState(() => _selectedImage = null);
+      await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(_companyId)
+          .collection('temple_colors')
+          .add(colorData);
 
-    _showSnackBar("Temple Color added successfully!", Colors.green);
+      _colorNameController.clear();
+      setState(() {
+        _selectedImage = null;
+        _selectedMaterial = null;
+      });
+
+      _showSnackBar("Temple Color added successfully!", Colors.green);
+    } catch (e) {
+      _showSnackBar("Error adding temple color: $e", Colors.redAccent);
+    }
   }
 
   Future<void> _deleteTempleColor(String id) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirm Deletion"),
-        content: const Text("Are you sure you want to delete this temple color?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text("Delete"),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Confirm Deletion"),
+            content: const Text(
+              "Are you sure you want to delete this temple color?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                ),
+                child: const Text("Delete"),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirm == true) {
-      await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(_companyId)
-          .collection('temple_colors')
-          .doc(id)
-          .delete();
+      try {
+        await FirebaseFirestore.instance
+            .collection('companies')
+            .doc(_companyId)
+            .collection('temple_colors')
+            .doc(id)
+            .delete();
 
-      _showSnackBar("Temple Color deleted", Colors.redAccent);
+        _showSnackBar("Temple Color deleted", Colors.redAccent);
+      } catch (e) {
+        _showSnackBar("Error deleting color: $e", Colors.redAccent);
+      }
     }
   }
 
   void _viewImage(File image, String colorName) {
+    if (!image.existsSync()) {
+      _showSnackBar("Image not found on this device", Colors.redAccent);
+      return;
+    }
+
     showGeneralDialog(
       context: context,
       barrierLabel: "View Image",
@@ -137,17 +167,20 @@ class _AddTempleColorState extends State<AddTempleColor> {
                     Text(
                       colorName,
                       style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1976D2)),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1976D2),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Image.file(image,
-                          width: double.infinity,
-                          height: 220,
-                          fit: BoxFit.contain),
+                      child: Image.file(
+                        image,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                     const SizedBox(height: 18),
                     ElevatedButton.icon(
@@ -157,8 +190,10 @@ class _AddTempleColorState extends State<AddTempleColor> {
                         backgroundColor: const Color(0xFF1976D2),
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () =>
-                          Share.shareFiles([image.path], text: "$colorName 👆"),
+                      onPressed:
+                          () => Share.shareFiles([
+                            image.path,
+                          ], text: "$colorName 👆"),
                     ),
                   ],
                 ),
@@ -171,8 +206,10 @@ class _AddTempleColorState extends State<AddTempleColor> {
   }
 
   Future<void> _exportSelectedToPDF(
-      List<Map<String, dynamic>> selectedColors) async {
+    List<Map<String, dynamic>> selectedColors,
+  ) async {
     try {
+      _showSnackBar("Generating PDF...", Colors.blueAccent);
       final pdf = pw.Document();
 
       for (var color in selectedColors) {
@@ -182,30 +219,41 @@ class _AddTempleColorState extends State<AddTempleColor> {
         pw.Widget imageWidget;
         if (imagePath != null && File(imagePath).existsSync()) {
           final image = pw.MemoryImage(File(imagePath).readAsBytesSync());
-          imageWidget = pw.Image(image,
-              width: 400, height: 400, fit: pw.BoxFit.contain);
+          imageWidget = pw.Image(
+            image,
+            width: 400,
+            height: 400,
+            fit: pw.BoxFit.contain,
+          );
         } else {
           imageWidget = pw.Container(
-              height: 300,
-              alignment: pw.Alignment.center,
-              child: pw.Text("No Image",
-                  style: pw.TextStyle(fontSize: 16, color: PdfColors.grey)));
+            height: 300,
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              "No Image Found",
+              style: pw.TextStyle(fontSize: 16, color: PdfColors.grey),
+            ),
+          );
         }
 
         pdf.addPage(
           pw.Page(
-            build: (context) => pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
-                pw.Text(colorName,
-                    style: pw.TextStyle(
+            build:
+                (context) => pw.Column(
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      colorName,
+                      style: pw.TextStyle(
                         fontSize: 22,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.blue900)),
-                pw.SizedBox(height: 20),
-                imageWidget,
-              ],
-            ),
+                        color: PdfColors.blue900,
+                      ),
+                    ),
+                    pw.SizedBox(height: 20),
+                    imageWidget,
+                  ],
+                ),
           ),
         );
       }
@@ -222,10 +270,15 @@ class _AddTempleColorState extends State<AddTempleColor> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: color,
-    ));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+  }
+
+  @override
+  void dispose() {
+    _colorNameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -240,27 +293,30 @@ class _AddTempleColorState extends State<AddTempleColor> {
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
       ),
-      floatingActionButton: _selectedColors.isEmpty
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () async {
-                final snapshot = await FirebaseFirestore.instance
-                    .collection('companies')
-                    .doc(_companyId)
-                    .collection('temple_colors')
-                    .get();
+      floatingActionButton:
+          _selectedColors.isEmpty
+              ? null
+              : FloatingActionButton.extended(
+                onPressed: () async {
+                  final snapshot =
+                      await FirebaseFirestore.instance
+                          .collection('companies')
+                          .doc(_companyId)
+                          .collection('temple_colors')
+                          .get();
 
-                final selectedDocs = snapshot.docs
-                    .where((doc) => _selectedColors.contains(doc.id))
-                    .map((doc) => doc.data())
-                    .toList();
+                  final selectedDocs =
+                      snapshot.docs
+                          .where((doc) => _selectedColors.contains(doc.id))
+                          .map((doc) => doc.data())
+                          .toList();
 
-                _exportSelectedToPDF(selectedDocs);
-              },
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text("Export to PDF"),
-              backgroundColor: Colors.blueAccent,
-            ),
+                  await _exportSelectedToPDF(selectedDocs);
+                },
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: const Text("Export to PDF"),
+                backgroundColor: Colors.blueAccent,
+              ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -277,7 +333,7 @@ class _AddTempleColorState extends State<AddTempleColor> {
                     blurRadius: 8,
                     spreadRadius: 2,
                     offset: const Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
               child: Row(
@@ -285,30 +341,67 @@ class _AddTempleColorState extends State<AddTempleColor> {
                   if (_selectedImage != null)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(_selectedImage!,
-                          width: 45, height: 45, fit: BoxFit.cover),
+                      child: Image.file(
+                        _selectedImage!,
+                        width: 45,
+                        height: 45,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: _colorNameController,
-                      decoration: InputDecoration(
-                        labelText: "Temple Color Name",
-                        prefixIcon: const Icon(Icons.palette_outlined),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.image_outlined,
-                              color: Colors.blueAccent),
-                          onPressed: _pickImage,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _colorNameController,
+                          decoration: InputDecoration(
+                            labelText: "Temple Color Name",
+                            prefixIcon: const Icon(Icons.palette_outlined),
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.image_outlined,
+                                color: Colors.blueAccent,
+                              ),
+                              onPressed: _pickImage,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          value: _selectedMaterial,
+                          decoration: InputDecoration(
+                            labelText: "Base Material",
+                            prefixIcon: const Icon(Icons.category_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          items:
+                              _materials
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (val) => setState(() => _selectedMaterial = val),
                         ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
+                      ],
                     ),
                   ),
+
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: _addTempleColor,
@@ -318,7 +411,8 @@ class _AddTempleColorState extends State<AddTempleColor> {
                       backgroundColor: const Color(0xFF1976D2),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ],
@@ -328,100 +422,144 @@ class _AddTempleColorState extends State<AddTempleColor> {
 
             // List of Colors
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _companyId == null
-                    ? null
-                    : FirebaseFirestore.instance
-                        .collection('companies')
-                        .doc(_companyId)
-                        .collection('temple_colors')
-                        .orderBy('createdAt', descending: true)
-                        .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final docs = snapshot.data!.docs;
-                  if (docs.isEmpty) {
-                    return const Center(
-                        child: Text("No temple colors added yet."));
-                  }
-
-                  return ListView.builder(
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final imagePath = data['imagePath'] as String?;
-                      final isSelected = _selectedColors.contains(doc.id);
-
-                      return GestureDetector(
-                        onLongPress: () {
-                          setState(() {
-                            if (isSelected) {
-                              _selectedColors.remove(doc.id);
-                            } else {
-                              _selectedColors.add(doc.id);
-                            }
-                          });
-                        },
-                        onTap: () {
-                          if (_selectedColors.isNotEmpty) {
-                            setState(() {
-                              if (isSelected) {
-                                _selectedColors.remove(doc.id);
-                              } else {
-                                _selectedColors.add(doc.id);
-                              }
-                            });
-                          } else if (imagePath != null) {
-                            _viewImage(File(imagePath), data['name']);
+              child:
+                  _companyId == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : StreamBuilder<QuerySnapshot>(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('companies')
+                                .doc(_companyId)
+                                .collection('temple_colors')
+                                .orderBy('createdAt', descending: true)
+                                .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
                           }
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.blue.shade50
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: ListTile(
-                            leading: imagePath != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Image.file(File(imagePath),
-                                        width: 55,
-                                        height: 55,
-                                        fit: BoxFit.cover),
-                                  )
-                                : const CircleAvatar(
-                                    backgroundColor: Color(0xFFE3F2FD),
-                                    child: Icon(Icons.palette_outlined,
-                                        color: Color(0xFF1976D2)),
+                          final docs = snapshot.data!.docs;
+                          if (docs.isEmpty) {
+                            return const Center(
+                              child: Text("No temple colors added yet."),
+                            );
+                          }
+
+                          return ListView.builder(
+                            itemCount: docs.length,
+                            itemBuilder: (context, index) {
+                              final doc = docs[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final imagePath = data['imagePath'] as String?;
+                              final isSelected = _selectedColors.contains(
+                                doc.id,
+                              );
+
+                              return GestureDetector(
+                                onLongPress: () {
+                                  setState(() {
+                                    if (isSelected) {
+                                      _selectedColors.remove(doc.id);
+                                    } else {
+                                      _selectedColors.add(doc.id);
+                                    }
+                                  });
+                                },
+                                onTap: () {
+                                  if (_selectedColors.isNotEmpty) {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedColors.remove(doc.id);
+                                      } else {
+                                        _selectedColors.add(doc.id);
+                                      }
+                                    });
+                                  } else if (imagePath != null) {
+                                    final file = File(imagePath);
+                                    if (file.existsSync()) {
+                                      _viewImage(file, data['name']);
+                                    } else {
+                                      _showSnackBar(
+                                        "Image not found",
+                                        Colors.red,
+                                      );
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 8,
                                   ),
-                            title: Text(data['name'] ?? '',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.redAccent),
-                              onPressed: () => _deleteTempleColor(doc.id),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isSelected
+                                            ? Colors.blue.shade50
+                                            : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ListTile(
+                                    leading:
+                                        imagePath != null &&
+                                                File(imagePath).existsSync()
+                                            ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              child: Image.file(
+                                                File(imagePath),
+                                                width: 55,
+                                                height: 55,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            )
+                                            : const CircleAvatar(
+                                              backgroundColor: Color(
+                                                0xFFE3F2FD,
+                                              ),
+                                              child: Icon(
+                                                Icons.palette_outlined,
+                                                color: Color(0xFF1976D2),
+                                              ),
+                                            ),
+                                    title: Text(
+                                      data['name'] ?? '',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      data['templeBaseMaterial'] != null &&
+                                              data['templeBaseMaterial']
+                                                  .toString()
+                                                  .isNotEmpty
+                                          ? "Material: ${data['templeBaseMaterial']}"
+                                          : "Material: N/A",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.redAccent,
+                                      ),
+                                      onPressed:
+                                          () => _deleteTempleColor(doc.id),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
             ),
           ],
         ),

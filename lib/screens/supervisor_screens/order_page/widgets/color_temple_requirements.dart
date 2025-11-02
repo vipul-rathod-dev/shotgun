@@ -48,11 +48,11 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
 
       setState(() {
         _availableColors = colorSnapshot.docs
-            .map((d) => {'id': d.id, 'name': d['name'] ?? 'Unnamed'})
+            .map((d) => {'id': d.id, 'name': d['name'] ?? 'Unnamed', 'focusBaseMaterial': d['focusBaseMaterial']})
             .toList();
 
         _availableTemples = templeSnapshot.docs
-            .map((d) => {'id': d.id, 'name': d['name'] ?? 'Unnamed'})
+            .map((d) => {'id': d.id, 'name': d['name'] ?? 'Unnamed', 'templeBaseMaterial': d['templeBaseMaterial']})
             .toList();
 
         _isLoading = false;
@@ -104,7 +104,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
-                    product['productName'],
+                    product['productName'] ?? 'Unnamed Product',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
@@ -117,20 +117,10 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                   final index = entry.key;
                   final data = entry.value;
 
-                  final selectedColorId =
-                      _availableColors.any((c) => c['id'] == data['focusColorId'])
-                          ? data['focusColorId']
-                          : null;
-                  final selectedTempleId =
-                      _availableTemples.any((t) => t['id'] == data['templeColorId'])
-                          ? data['templeColorId']
-                          : null;
-
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Stack(
                       children: [
-                        /// 💡 Card Body
                         Card(
                           elevation: 2,
                           shape: RoundedRectangleBorder(
@@ -140,26 +130,28 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                             padding: const EdgeInsets.all(12),
                             child: Column(
                               children: [
+                                /// 🎯 Focus Color Row
                                 Row(
                                   children: [
-                                    /// 🎨 Focus Color Dropdown
                                     Flexible(
                                       flex: 3,
                                       child: SearchableDropdown(
                                         labelText: 'Focus Color',
                                         keyName: 'name',
                                         items: _availableColors,
-                                        value: selectedColorId,
+                                        // value: customizations[productId]!.isNotEmpty ? customizations[productId]![index] : null,
+                                        value: _availableColors.firstWhere(
+                                          (color) =>
+                                              color['id'] ==
+                                              (customizations[productId]![index]['focusColorId'] ?? ''),
+                                          orElse: () => {},
+                                        ),
                                         onChanged: (value) {
                                           if (value == null) return;
-                                          final color =
-                                              _availableColors.firstWhere(
-                                            (c) => c['id'] == value,
-                                            orElse: () => {'name': ''},
-                                          );
                                           setState(() {
-                                            data['focusColorId'] = color['id'];
-                                            data['focusColor'] = color['name'];
+                                            data['focusColorId'] = value['id'];
+                                            data['focusColor'] = value['name'];
+                                            data['focusBaseMaterial'] = value['focusBaseMaterial'];
                                           });
                                           widget.controller.updateCustomization(
                                               productId, index, data);
@@ -168,12 +160,12 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                     ),
                                     const SizedBox(width: 12),
 
-                                    /// 🎨 Focus Qty
+                                    /// 🎯 Focus Qty
                                     Flexible(
                                       flex: 1,
                                       child: TextFormField(
                                         initialValue:
-                                            data['focusQty']?.toString(),
+                                            data['focusQty']?.toString() ?? '',
                                         decoration: const InputDecoration(
                                           labelText: 'Qty',
                                           contentPadding: EdgeInsets.symmetric(
@@ -204,30 +196,31 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                     ),
                                   ],
                                 ),
+
                                 const SizedBox(height: 12),
 
+                                /// 🏛 Temple Color Row
                                 Row(
                                   children: [
-                                    /// 🏛 Temple Color Dropdown
                                     Flexible(
                                       flex: 3,
                                       child: SearchableDropdown(
                                         labelText: 'Temple Color',
                                         keyName: 'name',
                                         items: _availableTemples,
-                                        value: selectedTempleId,
+                                        // value: data,
+                                        value: _availableTemples.firstWhere(
+                                          (temple) =>
+                                              temple['id'] ==
+                                              (customizations[productId]![index]['templeColorId'] ?? ''),
+                                          orElse: () => {},
+                                        ),
                                         onChanged: (value) {
                                           if (value == null) return;
-                                          final temple =
-                                              _availableTemples.firstWhere(
-                                            (t) => t['id'] == value,
-                                            orElse: () => {'name': ''},
-                                          );
                                           setState(() {
-                                            data['templeColorId'] =
-                                                temple['id'];
-                                            data['templeColor'] =
-                                                temple['name'];
+                                            data['templeColorId'] = value['id'];
+                                            data['templeColor'] = value['name'];
+                                            data['templeBaseMaterial'] = value['templeBaseMaterial'];
                                           });
                                           widget.controller.updateCustomization(
                                               productId, index, data);
@@ -241,7 +234,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                       flex: 1,
                                       child: TextFormField(
                                         initialValue:
-                                            data['templeQty']?.toString(),
+                                            data['templeQty']?.toString() ?? '',
                                         decoration: const InputDecoration(
                                           labelText: 'Qty',
                                           contentPadding: EdgeInsets.symmetric(
@@ -277,7 +270,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                           ),
                         ),
 
-                        /// ❌ Floating Remove Button
+                        /// ❌ Remove Button
                         Positioned(
                           top: 4,
                           right: 4,
@@ -307,7 +300,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                   );
                 }),
 
-                /// ➕ Add Option Button (modern, filled, rounded)
+                /// ➕ Add Option Button
                 Align(
                   alignment: Alignment.centerLeft,
                   child: FilledButton.icon(
@@ -332,14 +325,17 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                           'focusColorId': null,
                           'focusColor': '',
                           'focusQty': 0,
+                          'focusBaseMaterial': '',
                           'templeColorId': null,
                           'templeColor': '',
                           'templeQty': 0,
+                          'templeBaseMaterial': ''
                         });
                       });
                     },
                   ),
                 ),
+
                 const Divider(thickness: 1),
               ],
             ),

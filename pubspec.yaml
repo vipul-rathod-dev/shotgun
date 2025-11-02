@@ -48,6 +48,7 @@ dependencies:
   image_picker: ^1.1.2
   firebase_storage:
   flutter_animate:
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

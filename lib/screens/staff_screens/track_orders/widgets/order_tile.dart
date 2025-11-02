@@ -21,7 +21,6 @@ class OrderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final customerName = data['customerName'] ?? 'Unknown';
-    print(data['orderStatus']);
     final status = data['orderStatus'] ?? 'N/A';
     final total = (data['totalAmount'] ?? 0.0) as num;
     final orderDate = (data['orderDate'] as Timestamp?)?.toDate();

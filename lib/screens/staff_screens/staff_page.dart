@@ -17,30 +17,24 @@ class _StaffDashboardState extends State<StaffDashboard> {
   bool isLoading = true;
 
   final List<Map<String, dynamic>> dashboardItems = [
+    // {
+    //   'title': 'Manage Inventory',
+    //   'icon': Icons.inventory_2_rounded,
+    //   'color': Colors.blueAccent,
+    //   'route': '/manage-inventory',
+    // },
+    // {
+    //   'title': 'Track Orders',
+    //   'icon': Icons.local_shipping_rounded,
+    //   'color': Colors.orangeAccent,
+    //   'route': '/orders',
+    // },
     {
-      'title': 'Manage Inventory',
-      'icon': Icons.inventory_2_rounded,
-      'color': Colors.blueAccent,
-      'route': '/manage-inventory',
-    },
-    {
-      'title': 'Track Orders',
-      'icon': Icons.local_shipping_rounded,
-      'color': Colors.orangeAccent,
-      'route': '/orders',
-    },
-    {
-      'title': 'Messages',
-      'icon': Icons.message_rounded,
-      'color': Colors.greenAccent,
-      'route': '/messages',
-    },
-    {
-      'title': 'Profile',
-      'icon': Icons.person_rounded,
-      'color': Colors.purpleAccent,
-      'route': '/profile',
-    },
+      'title': 'My Tasks',
+      'icon': Icons.task_alt_rounded,
+      'color': Colors.tealAccent,
+      'route': '/staff/tasks',
+    }
   ];
 
   @override

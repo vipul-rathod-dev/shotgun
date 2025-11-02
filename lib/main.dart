@@ -8,7 +8,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true, // 👈 enables local caching
+    persistenceEnabled: false, // 👈 enables local caching
   );
 
   // 🟢 Get saved role if session is valid

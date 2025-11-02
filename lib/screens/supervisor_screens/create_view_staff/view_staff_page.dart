@@ -104,7 +104,6 @@ class _ViewStaffPageState extends State<ViewStaffPage> {
                     trailing: IconButton(
                       icon: const Icon(Icons.edit, color: Colors.grey),
                       onPressed: () {
-                        // TODO: open staff edit page
                       },
                     ),
                   ),
@@ -117,7 +116,6 @@ class _ViewStaffPageState extends State<ViewStaffPage> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.lightBlue,
         onPressed: () {
-          // TODO: navigate to Add Staff page under this company
           Navigator.pushNamed(
             context,
             '/supervisor/add-staff',

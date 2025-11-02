@@ -5,6 +5,9 @@ import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
 
 class AddOrderController extends ChangeNotifier {
   // 🔹 Form keys for different steps
@@ -125,14 +128,14 @@ class AddOrderController extends ChangeNotifier {
 
   double get total => products.fold<double>(
     0,
-    (sum, p) =>
-        sum + ((p['price'] ?? 0) * ((p['quantity'] ?? 0) as num).toInt()),
+    (sum1, p) =>
+        sum1 + ((p['price'] ?? 0) * ((p['quantity'] ?? 0) as num).toInt()),
   );
 
   // ────────────────────────────────
   // 🔹 PDF Generation
   // ────────────────────────────────
-  Future<void> generateOrderPdf(BuildContext context) async {
+  Future<void> generateOrderPdf(BuildContext context, {bool shareInstead = false}) async {
     try {
       final orderData = OrderPdfData(
         customerName: customerName ?? '-',
@@ -142,16 +145,28 @@ class AddOrderController extends ChangeNotifier {
         products: products,
         productCustomizations: productCustomizations,
       );
-      final pdf = await PdfGenerator.generateOrderPdf(orderData);
-      await Printing.layoutPdf(onLayout: (format) async => pdf);
 
-      _showSnack(context, '✅ PDF generated successfully', color: Colors.green);
+      final pdf = await PdfGenerator.generateOrderPdf(orderData);
+
+      // 🪄 Save PDF temporarily
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/order_summary.pdf');
+      await file.writeAsBytes(pdf);
+
+      if (shareInstead) {
+        await Share.shareXFiles([XFile(file.path)], text: 'Order Summary PDF');
+        _showSnack(context, '✅ PDF shared successfully', color: Colors.green);
+      } else {
+        // fallback to preview
+        await Printing.layoutPdf(onLayout: (format) async => pdf);
+      }
     } catch (e, stack) {
       debugPrint('❌ PDF Generation Error: $e');
       debugPrint(stack.toString());
       _showSnack(context, 'Error generating PDF: $e', color: Colors.red);
     }
   }
+
 
   // ────────────────────────────────
   // 🔹 Generate Order Number (Company Scoped)
@@ -224,9 +239,11 @@ class AddOrderController extends ChangeNotifier {
                           'focusColorId': c['focusColorId'],
                           'focusColor': c['focusColor'],
                           'focusQty': c['focusQty'],
+                          'focusBaseMaterial': c['focusBaseMaterial'],
                           'templeColorId': c['templeColorId'],
                           'templeColor': c['templeColor'],
                           'templeQty': c['templeQty'],
+                          'templeBaseMaterial': c['templeBaseMaterial'],
                         },
                       )
                       .toList(),

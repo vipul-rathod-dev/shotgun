@@ -3,10 +3,11 @@ import 'package:shotgun/screens/admin_screens/admin_page.dart';
 import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
 import 'package:shotgun/screens/auth_screens/company_login_page.dart';
+import 'package:shotgun/screens/staff_screens/tasks_page/tasks_page.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors/add_focus_color.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors/add_temple_color.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
-import 'package:shotgun/screens/supervisor_screens/supervisor_page.dart';
+// import 'package:shotgun/screens/supervisor_screens/supervisor_page.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/auth_screens/login_page.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory/manage_inventory_page.dart';
@@ -25,6 +26,8 @@ import 'package:shotgun/screens/supervisor_screens/create_view_staff/view_staff_
 import 'package:shotgun/screens/supervisor_screens/suppliers_page.dart';
 import '../screens/supervisor_screens/order_page/add_orders_page.dart';
 import '../screens/register_page.dart';
+import '../screens/supervisor_screens/supervisor_dashboard/supervisor_dashboard.dart';
+import '../screens/supervisor_screens/supervisor_dashboard/widgets/execute_order.dart';
 
 class MyApp extends StatelessWidget {
   final String initialRoute;
@@ -62,6 +65,7 @@ class MyApp extends StatelessWidget {
         },
         '/supervisor/add-focus-color': (context) => const AddFocusColor(),
         '/supervisor/add-temple-color': (context) => const AddTempleColor(),
+        '/supervisor/execute-order': (context) => const ExecuteOrder(),
 
         // STAFF ROUTES
         '/staff': (context) => const StaffDashboard(),
@@ -75,6 +79,7 @@ class MyApp extends StatelessWidget {
         '/staff/demoProcess': (context) => const DemoProcessPage(),
         '/staff/packing': (context) => const PackingPage(),
         '/staff/shipping': (context) => const ShippingPage(),
+        '/staff/tasks': (context) => const TasksPage(),
       },
     );
   }
