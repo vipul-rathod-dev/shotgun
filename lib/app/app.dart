@@ -7,7 +7,6 @@ import 'package:shotgun/screens/staff_screens/tasks_page/tasks_page.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors/add_focus_color.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors/add_temple_color.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
-// import 'package:shotgun/screens/supervisor_screens/supervisor_page.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/auth_screens/login_page.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory/manage_inventory_page.dart';

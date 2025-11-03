@@ -295,7 +295,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       case 'in progress':
         return Colors.orange;
       default:
-        return Colors.grey;
+        return Colors.red;
     }
   }
 }

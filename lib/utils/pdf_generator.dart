@@ -19,23 +19,46 @@ class PdfGenerator {
 
     // 🧮 Build base material summary
     final Map<String, Map<String, Map<String, int>>> baseMaterialSummary = {};
-    for (final entry in data.productCustomizations!.entries) {
-      final productId = entry.key;
-      final productName = productsMap[productId]?['productName'] ?? 'Unknown Product';
-      final customizations = entry.value;
+    if (data.productCustomizations == null) {
+      // 🧮 Build base material summary
+      for (var entry in data.products) {
+        final productId = entry['productId'];
+        final productName = productsMap[productId]?['productName'] ?? 'Unknown Product';
+        final customizations = productsMap[productId]?['customizations'];
 
-      for (final c in customizations) {
-        final base = (c['focusBaseMaterial'] ?? 'Unknown').toString();
-        final focusQty = (c['focusQty'] ?? 0) as int;
-        final templeQty = (c['templeQty'] ?? 0) as int;
+        for (final c in customizations) {
+          final base = (c['focusBaseMaterial'] ?? 'Unknown').toString();
+          final focusQty = (c['focusQty'] ?? 0) as int;
+          final templeQty = (c['templeQty'] ?? 0) as int;
 
-        baseMaterialSummary.putIfAbsent(base, () => {});
-        baseMaterialSummary[base]!.putIfAbsent(productName, () => {'focus': 0, 'temple': 0});
+          baseMaterialSummary.putIfAbsent(base, () => {});
+          baseMaterialSummary[base]!.putIfAbsent(productName, () => {'focus': 0, 'temple': 0});
 
-        baseMaterialSummary[base]![productName]!['focus'] =
-            (baseMaterialSummary[base]![productName]!['focus'] ?? 0) + focusQty;
-        baseMaterialSummary[base]![productName]!['temple'] =
-            (baseMaterialSummary[base]![productName]!['temple'] ?? 0) + templeQty;
+          baseMaterialSummary[base]![productName]!['focus'] =
+              (baseMaterialSummary[base]![productName]!['focus'] ?? 0) + focusQty;
+          baseMaterialSummary[base]![productName]!['temple'] =
+              (baseMaterialSummary[base]![productName]!['temple'] ?? 0) + templeQty;
+        }
+      }
+    } else {
+      for (final entry in data.productCustomizations!.entries) {
+        final productId = entry.key;
+        final productName = productsMap[productId]?['productName'] ?? 'Unknown Product';
+        final customizations = entry.value;
+
+        for (final c in customizations) {
+          final base = (c['focusBaseMaterial'] ?? 'Unknown').toString();
+          final focusQty = (c['focusQty'] ?? 0) as int;
+          final templeQty = (c['templeQty'] ?? 0) as int;
+
+          baseMaterialSummary.putIfAbsent(base, () => {});
+          baseMaterialSummary[base]!.putIfAbsent(productName, () => {'focus': 0, 'temple': 0});
+
+          baseMaterialSummary[base]![productName]!['focus'] =
+              (baseMaterialSummary[base]![productName]!['focus'] ?? 0) + focusQty;
+          baseMaterialSummary[base]![productName]!['temple'] =
+              (baseMaterialSummary[base]![productName]!['temple'] ?? 0) + templeQty;
+        }
       }
     }
 
