@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shotgun/utils/firestore_scripts.dart';
 import 'package:shotgun/widgets/session_aware_page.dart';
 import 'models/dashboard_item.dart';
 import 'models/fab_menu_item_model.dart';
@@ -116,9 +117,15 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
                 await FirebaseAuth.instance.signOut();
                 Navigator.pushReplacementNamed(context, '/company-login');
               }
+            } else if (value == 'run_script') {
+              await _showRunScriptDialog(context);
             }
           },
-          itemBuilder: (context) => const [PopupMenuItem(value: 'logout', child: Text('Logout'))],
+          
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'run_script', child: Text('Run Update Script')),
+            PopupMenuItem(value: 'logout', child: Text('Logout'))
+          ],
           icon: const Icon(Icons.more_vert, color: Colors.white),
         ),
       ],
@@ -181,4 +188,55 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       ),
     );
   }
+
+  static Future<void> _showRunScriptDialog(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Run Firestore Update Script'),
+        content: const Text(
+          'This will update all products in your company where '
+          'category == "Finished" and add a new field. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF1565C0),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Run'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Running Firestore script...')),
+    );
+
+    try {
+      await FirestoreScripts.addFieldToFinishedCategory(
+        subCollectionName: 'products', // inside companies/{companyId}/products
+        fieldName: 'modelGender',
+        value: 'Gents',
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Script completed successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e')),
+      );
+    }
+  }
+
 }

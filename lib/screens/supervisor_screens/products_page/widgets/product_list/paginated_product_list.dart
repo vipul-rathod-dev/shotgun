@@ -81,6 +81,7 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
     return _products.where((p) {
       final name = p.displayName.toLowerCase();
       final q = _searchTerm.toLowerCase();
+      print(name);
       return name.contains(q) || _fuzzyMatch(name, q);
     }).toList();
   }
@@ -126,8 +127,8 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
         .doc(_companyId)
         .collection('products')
         .where('category', isEqualTo: widget.category)
-        .orderBy('displayName')
-        .limit(_limit);
+        .orderBy('displayName');
+        // .limit(_limit);
 
     if (_lastDocument != null) {
       query = query.startAfterDocument(_lastDocument!);
