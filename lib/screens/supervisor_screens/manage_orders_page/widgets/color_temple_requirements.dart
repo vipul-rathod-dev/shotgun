@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/controllers/add_order_controller.dart';
 import 'package:shotgun/widgets/custom_searchable_dropdown.dart';
 
 class ColorTempleRequirements extends StatefulWidget {

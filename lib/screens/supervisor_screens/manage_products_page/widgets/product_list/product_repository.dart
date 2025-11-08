@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shotgun/screens/supervisor_screens/products_page/widgets/product_list/product_model.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_products_page/widgets/product_list/product_model.dart';
 
 class ProductRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

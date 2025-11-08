@@ -1,6 +1,6 @@
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/models/order_model.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/models/order_model.dart';
 
 class OrderPdfService {
   static Future<void> generateOrderPdf(OrderModel order) async {

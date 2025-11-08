@@ -4,14 +4,14 @@ import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
 import 'package:shotgun/screens/auth_screens/company_login_page.dart';
 import 'package:shotgun/screens/staff_screens/tasks_page/tasks_page.dart';
-import 'package:shotgun/screens/supervisor_screens/add_colors/add_focus_color.dart';
-import 'package:shotgun/screens/supervisor_screens/add_colors/add_temple_color.dart';
-import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
+import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_focus_color.dart';
+import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_temple_color.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_staff/add_staff_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/manage_orders.dart';
 import 'package:shotgun/screens/auth_screens/login_page.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory/manage_inventory_page.dart';
 import 'package:shotgun/screens/staff_screens/order_details/order_details_page.dart';
-import 'package:shotgun/screens/supervisor_screens/products_page/product_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_products_page/manage_products_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/color_process_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/demo_process_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/fitting_process_page.dart';
@@ -21,13 +21,13 @@ import 'package:shotgun/screens/staff_screens/process_page/raw_process_page.dart
 import 'package:shotgun/screens/staff_screens/process_page/shipping_process_page.dart';
 import 'package:shotgun/screens/staff_screens/staff_page.dart';
 import 'package:shotgun/screens/staff_screens/track_orders/track_orders_page.dart';
-import 'package:shotgun/screens/supervisor_screens/create_view_staff/view_staff_page.dart';
-import 'package:shotgun/screens/supervisor_screens/suppliers_page.dart';
-import 'package:shotgun/screens/supervisor_screens/view_inventory_page/view_inventory_page.dart';
-import '../screens/supervisor_screens/order_page/add_orders_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_suppliers_page/suppliers_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_inventory_page/manage_inventory_page.dart';
+import '../screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import '../screens/register_page.dart';
-import '../screens/supervisor_screens/supervisor_dashboard/supervisor_dashboard.dart';
-import '../screens/supervisor_screens/supervisor_dashboard/widgets/execute_order.dart';
+import '../screens/supervisor_screens/supervisor_dashboard.dart';
+import '../screens/supervisor_screens/widgets/execute_order.dart';
 
 class MyApp extends StatelessWidget {
   final String initialRoute;
@@ -53,7 +53,7 @@ class MyApp extends StatelessWidget {
         // SUPERVISOR ROUTES
         '/supervisor': (context) => const SupervisorDashboard(),
         '/supervisor/products': (context) => const ManageProductPage(),
-        '/manage-inventory': (context) => const ManageInventoryPage(),
+        '/manage-inventory': (context) => const ManageProductPage1(),
         '/supervisor/suppliers': (context) => const ManageSuppliersPage(),
         '/supervisor/orders': (context) => const ManageOrdersPage(),
         '/supervisor/orders/new': (context) => const AddOrdersPage(),
@@ -66,8 +66,7 @@ class MyApp extends StatelessWidget {
         '/supervisor/add-focus-color': (context) => const AddFocusColor(),
         '/supervisor/add-temple-color': (context) => const AddTempleColor(),
         '/supervisor/execute-order': (context) => const ExecuteOrder(),
-        '/supervisor/view-inventory': (context) => const ViewInventoryPage(),
-        // '/supervisor/view-inventory': (context) => const AddInventory(),
+        '/supervisor/manage-inventory': (context) => const ManageInventoryPage(),
 
         // STAFF ROUTES
         '/staff': (context) => const StaffDashboard(),

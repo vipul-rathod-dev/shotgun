@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/add_orders_stepper.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/add_orders_stepper.dart';
 
 class AddOrdersPage extends StatelessWidget {
   final bool isEditMode;

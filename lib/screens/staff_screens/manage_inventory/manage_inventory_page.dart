@@ -6,8 +6,8 @@ import 'widgets/add_inventory_dialog.dart';
 import 'widgets/delete_confirmation_dialog.dart';
 import 'widgets/product_card.dart';
 
-class ManageInventoryPage extends StatelessWidget {
-  const ManageInventoryPage({super.key});
+class ManageProductPage1 extends StatelessWidget {
+  const ManageProductPage1({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/models/order_pdf_data.dart';
 import 'package:shotgun/utils/pdf_generator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';

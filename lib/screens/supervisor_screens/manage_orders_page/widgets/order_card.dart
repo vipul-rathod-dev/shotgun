@@ -3,8 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/add_orders_page.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/order_details_insights_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/order_details_insights_page.dart';
 import '../helpers/status_color.dart'; // ✅ new import
 
 class OrderCard extends StatelessWidget {

@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class ViewInventoryPage extends StatefulWidget {
-  const ViewInventoryPage({super.key});
+class ManageInventoryPage extends StatefulWidget {
+  const ManageInventoryPage({super.key});
 
   @override
-  State<ViewInventoryPage> createState() => _ViewInventoryPageState();
+  State<ManageInventoryPage> createState() => _ManageInventoryPageState();
 }
 
-class _ViewInventoryPageState extends State<ViewInventoryPage> {
+class _ManageInventoryPageState extends State<ManageInventoryPage> {
   Future<List<Map<String, dynamic>>>? _inventoryFuture;
   String _searchQuery = '';
   String? _cachedCompanyId;

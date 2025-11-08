@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/supervisor_screens/products_page/widgets/product_list/paginated_product_list.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_products_page/widgets/product_list/paginated_product_list.dart';
 
 class ProductTabs extends StatefulWidget {
   const ProductTabs({super.key});
