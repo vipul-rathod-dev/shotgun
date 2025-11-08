@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/order_timeline.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/order_timeline.dart';
 import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/color_temple_requirements.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/customer_details_form.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/order_details_form.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/product_table.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/widgets/summary_section.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/color_temple_requirements.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/customer_details_form.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/order_details_form.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/product_table.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/summary_section.dart';
 
 class AddOrdersStepper extends StatefulWidget {
   const AddOrdersStepper({super.key});

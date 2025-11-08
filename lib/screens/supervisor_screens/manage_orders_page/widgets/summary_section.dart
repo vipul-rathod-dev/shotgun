@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/controllers/add_order_controller.dart';
 
 class SummarySection extends StatelessWidget {
   const SummarySection({super.key});

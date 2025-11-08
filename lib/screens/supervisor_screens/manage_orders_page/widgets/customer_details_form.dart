@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/supervisor_screens/order_page/controllers/add_order_controller.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/controllers/add_order_controller.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class CustomerDetailsForm extends StatefulWidget {
