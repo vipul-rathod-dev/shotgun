@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/models/order_pdf_data.dart';
@@ -8,6 +9,8 @@ import 'package:shotgun/utils/pdf_generator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 class AddOrderController extends ChangeNotifier {
   // 🔹 Form keys for different steps
@@ -39,6 +42,8 @@ class AddOrderController extends ChangeNotifier {
   String? orderType; // e.g., 'Standard' or 'Customized'
 
   bool get showColorCustomization => orderType == 'Customized';
+
+  Map<String, int> boxQuantity = {};
 
   // ────────────────────────────────
   // 🔹 Helper: Get Company ID
@@ -103,27 +108,40 @@ class AddOrderController extends ChangeNotifier {
   // ────────────────────────────────
   // 🔹 Customizations
   // ────────────────────────────────
-  void addCustomization(String productId, Map<String, dynamic> data) {
-    productCustomizations.putIfAbsent(productId, () => []).add(data);
+  void addCustomization(String gender, Map<String, dynamic> customization) {
+    if (!productCustomizations.containsKey(gender)) {
+      productCustomizations[gender] = [];
+    }
+    productCustomizations[gender]!.add(customization);
+    _updateBoxQuantity(gender);
     notifyListeners();
   }
 
-  void updateCustomization(
-    String productId,
-    int index,
-    Map<String, dynamic> newData,
-  ) {
-    if (productCustomizations[productId] != null &&
-        index >= 0 &&
-        index < productCustomizations[productId]!.length) {
-      productCustomizations[productId]![index] = newData;
+  void updateCustomization(String gender, int index, Map<String, dynamic> newData) {
+    if (productCustomizations.containsKey(gender) &&
+        index < productCustomizations[gender]!.length) {
+      productCustomizations[gender]![index] = newData;
+      _updateBoxQuantity(gender);
       notifyListeners();
     }
   }
 
-  void removeCustomization(String productId, int index) {
-    productCustomizations[productId]?.removeAt(index);
-    notifyListeners();
+  void removeCustomization(String gender, int index) {
+    if (productCustomizations.containsKey(gender) &&
+        index < productCustomizations[gender]!.length) {
+      productCustomizations[gender]!.removeAt(index);
+      _updateBoxQuantity(gender);
+      notifyListeners();
+    }
+  }
+
+  void _updateBoxQuantity(String gender) {
+    final entries = productCustomizations[gender] ?? [];
+    final total = entries.fold<int>(
+      0,
+      (sum, e) => sum + (int.tryParse(e['focusQty']?.toString() ?? '0') ?? 0),
+    );
+    boxQuantity[gender] = total;
   }
 
   double get total => products.fold<double>(
@@ -196,7 +214,7 @@ class AddOrderController extends ChangeNotifier {
   // ────────────────────────────────
   // 🔹 Submit Order
   // ────────────────────────────────
-  Future<void> submitOrder(BuildContext context) async {
+  Future<void> submitOrder1(BuildContext context) async {
     if (customerName == null || customerName!.isEmpty) {
       _showSnack(context, 'Please enter customer name');
       return;
@@ -293,6 +311,91 @@ class AddOrderController extends ChangeNotifier {
     }
   }
 
+  Future<void> submitOrder(BuildContext context) async {
+    if (customerName == null || customerName!.isEmpty) {
+      _showSnack(context, 'Please enter customer name');
+      return;
+    }
+    if (products.isEmpty) {
+      _showSnack(context, 'Please add at least one product');
+      return;
+    }
+    if (orderDate == null || shippingDate == null) {
+      _showSnack(context, 'Please select order and shipping dates');
+      return;
+    }
+    if (shippingDate!.isBefore(orderDate!)) {
+      _showSnack(context, 'Shipping date cannot be before order date');
+      return;
+    }
+
+    try {
+      final companyId = await _getCompanyId();
+      final orderNumber = await _getNextOrderNumber();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Missing user info.');
+
+      final finalProducts = products.map((p) {
+        final pid = p['productId'];
+        return {
+          'productId': pid,
+          'productName': p['productName'],
+          'quantity': p['quantity'],
+          'price': p['price'],
+          'lineTotal': (p['quantity'] ?? 0) * (p['price'] ?? 0),
+          'modelGender': p['modelGender'],
+        };
+      }).toList();
+
+      // 🔹 Firestore-safe deep copies
+      final safeBoxQuantity = Map<String, dynamic>.from(boxQuantity);
+      final safeCustomizations = productCustomizations.map(
+        (key, value) => MapEntry(key, List<Map<String, dynamic>>.from(value)),
+      );
+
+      await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .collection('orders')
+          .add({
+            'orderNumber': orderNumber,
+            'customerName': customerName,
+            'customerPhone': customerPhone,
+            'brandName': brandName,
+            'orderDate': Timestamp.fromDate(orderDate!),
+            'shippingDate': Timestamp.fromDate(shippingDate!),
+            'products': finalProducts,
+            'totalAmount': total,
+            'orderType': orderType,
+            'orderStatus': 'Received',
+            'boxQuantity': safeBoxQuantity,
+            'productCustomizations': safeCustomizations,
+            'timestamp': FieldValue.serverTimestamp(),
+            'createdByUid': user.uid,
+            'createdByEmail': user.email,
+          });
+
+      _showSnack(context, '✅ Order #$orderNumber submitted successfully!',
+          color: Colors.green);
+
+      products.clear();
+      productCustomizations.clear();
+      boxQuantity.clear();
+      customerName = null;
+      customerPhone = null;
+      brandName = null;
+      orderType = null;
+      orderDate = null;
+      shippingDate = null;
+      notifyListeners();
+    } catch (e, stack) {
+      debugPrint("❌ Order submission failed: $e");
+      debugPrint(stack.toString());
+      _showSnack(context, 'Order submission failed: $e', color: Colors.red);
+    }
+  }
+
+
   // ────────────────────────────────
   // 🔹 Edit Mode Initialization
   // ────────────────────────────────
@@ -303,17 +406,18 @@ class AddOrderController extends ChangeNotifier {
     orderId = id;
     final companyId = await _getCompanyId();
 
-    final doc =
-        await FirebaseFirestore.instance
-            .collection('companies')
-            .doc(companyId)
-            .collection('orders')
-            .doc(id)
-            .get();
+    final doc = await FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('orders')
+        .doc(id)
+        .get();
 
     if (!doc.exists) return;
 
     final data = doc.data()!;
+
+    // 🔹 Basic fields
     customerNameController.text = data['customerName'] ?? '';
     customerPhoneController.text = data['customerPhone'] ?? '';
     brandNameController.text = data['brandName'] ?? '';
@@ -324,17 +428,45 @@ class AddOrderController extends ChangeNotifier {
     orderDate = (data['orderDate'] as Timestamp?)?.toDate();
     shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();
 
+    // 🔹 Load products
     products = List<Map<String, dynamic>>.from(data['products'] ?? []);
+
+    // 🔹 Load per-product customizations (if any)
     for (var p in products) {
       final pid = p['productId'];
-      productCustomizations[pid] = List<Map<String, dynamic>>.from(
-        p['customizations'] ?? [],
-      );
+      productCustomizations[pid] =
+          List<Map<String, dynamic>>.from(p['customizations'] ?? []);
+    }
+
+    // 🔹 Restore gender-level customizations
+    if (data.containsKey('productCustomizations')) {
+      productCustomizations
+        ..clear()
+        ..addAll(
+          (data['productCustomizations'] as Map).map(
+            (k, v) => MapEntry(
+              k.toString(),
+              List<Map<String, dynamic>>.from(v ?? []),
+            ),
+          ),
+        );
+    }
+
+    // 🔹 Restore box quantities
+    if (data.containsKey('boxQuantity')) {
+      boxQuantity
+        ..clear()
+        ..addAll(
+          (data['boxQuantity'] as Map).map(
+            (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+          ),
+        );
     }
 
     _isInitialized = true;
     notifyListeners();
   }
+
 
   // ────────────────────────────────
   // 🔹 Save (Update) Order
@@ -347,17 +479,21 @@ class AddOrderController extends ChangeNotifier {
       throw Exception('Missing user info.');
     }
 
+    final safeBoxQuantity = Map<String, dynamic>.from(boxQuantity);
+    final safeCustomizations = productCustomizations.map(
+      (key, value) => MapEntry(key, List<Map<String, dynamic>>.from(value)),
+    );
+
     final finalProducts =
         products.map((p) {
           final pid = p['productId'];
-          final customizations = productCustomizations[pid] ?? [];
           return {
             'productId': pid,
             'productName': p['productName'],
             'quantity': p['quantity'],
             'price': p['price'],
             'lineTotal': (p['quantity'] ?? 0) * (p['price'] ?? 0),
-            'customizations': customizations,
+            'modelGender': p['modelGender'],
           };
         }).toList();
 
@@ -373,6 +509,8 @@ class AddOrderController extends ChangeNotifier {
       'timestamp': FieldValue.serverTimestamp(),
       'createdByUid': user.uid,
       'createdByEmail': user.email,
+      'boxQuantity': safeBoxQuantity,
+      'productCustomizations': safeCustomizations,
     };
 
     try {
@@ -423,6 +561,209 @@ class AddOrderController extends ChangeNotifier {
         content: Text(msg),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+extension OrderPdfGenerator on AddOrderController {
+  Future<void> generateOrderPdf1(BuildContext context, {bool shareInstead = false}) async {
+    final pdf = pw.Document();
+
+    final total = products.fold<double>(0, (sum, p) => sum + ((p['price'] ?? 0) * (p['quantity'] ?? 0)));
+    final DateFormat fmt = DateFormat('dd MMM yyyy');
+
+    // Group products by gender
+    final Map<String, List<Map<String, dynamic>>> genderGroups = {};
+    for (final p in products) {
+      final gender = (p['modelGender'] ?? 'Unknown').toString();
+      genderGroups.putIfAbsent(gender, () => []);
+      genderGroups[gender]!.add(p);
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          margin: const pw.EdgeInsets.all(20),
+          theme: pw.ThemeData.withFont(
+            base: await PdfGoogleFonts.robotoRegular(),
+            bold: await PdfGoogleFonts.robotoBold(),
+          ),
+        ),
+        build: (context) => [
+          pw.Text('Order Summary', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          pw.Divider(),
+
+          _infoRow('Customer', customerName ?? '-'),
+          _infoRow('Phone Number', customerPhone ?? '-'),
+          _infoRow('Brand Name', brandName ?? '-'),
+          _infoRow('Order Date', orderDate == null ? '-' : fmt.format(orderDate!)),
+          _infoRow('Shipping Date', shippingDate == null ? '-' : fmt.format(shippingDate!)),
+
+          pw.SizedBox(height: 15),
+          pw.Text('Products by Gender', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 6),
+
+          if (products.isEmpty)
+            pw.Text('No products added.', style: pw.TextStyle(color: PdfColors.grey))
+          else
+            ...genderGroups.entries.map((entry) {
+              final gender = entry.key;
+              final productList = entry.value;
+              final genderCustomizations = productCustomizations[gender] ?? [];
+              final genderBoxQty = (boxQuantity[gender] ?? 0);
+
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 6),
+                    child: pw.Text(gender,
+                        style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
+                  ),
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey300),
+                      borderRadius: pw.BorderRadius.circular(8),
+                    ),
+                    padding: const pw.EdgeInsets.all(8),
+                    child: pw.Column(
+                      children: productList.map((p) {
+                        final qty = (p['quantity'] ?? 0) as int;
+                        final price = (p['price'] ?? 0).toDouble();
+                        final total = (qty * price).toStringAsFixed(2);
+                        final ratio = genderBoxQty > 0 ? (qty / genderBoxQty) : 0.0;
+
+                        return pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Expanded(
+                                  flex: 4,
+                                  child: pw.Text(p['productName'] ?? '-',
+                                      style: pw.TextStyle(
+                                          fontWeight: pw.FontWeight.bold, fontSize: 13)),
+                                ),
+                                pw.Expanded(
+                                  flex: 2,
+                                  child: pw.Text('Qty: $qty',
+                                      textAlign: pw.TextAlign.center,
+                                      style: const pw.TextStyle(fontSize: 12)),
+                                ),
+                                pw.Expanded(
+                                  flex: 2,
+                                  child: pw.Text('₹$price',
+                                      textAlign: pw.TextAlign.center,
+                                      style: const pw.TextStyle(fontSize: 12)),
+                                ),
+                                pw.Expanded(
+                                  flex: 2,
+                                  child: pw.Text('₹$total',
+                                      textAlign: pw.TextAlign.right,
+                                      style: pw.TextStyle(
+                                          fontWeight: pw.FontWeight.bold,
+                                          color: PdfColors.green)),
+                                ),
+                              ],
+                            ),
+                            if (genderCustomizations.isNotEmpty) ...[
+                              pw.SizedBox(height: 6),
+                              pw.Container(
+                                padding: const pw.EdgeInsets.all(6),
+                                decoration: pw.BoxDecoration(
+                                  border: pw.Border.all(color: PdfColors.grey300),
+                                  borderRadius: pw.BorderRadius.circular(6),
+                                ),
+                                child: pw.Column(
+                                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pw.Text('Color Customizations',
+                                        style: pw.TextStyle(
+                                            fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                                    pw.SizedBox(height: 4),
+                                    pw.Container(
+                                      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      color: PdfColors.grey200,
+                                      child: pw.Row(
+                                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          pw.Text('🎯 Focus Color', style: const pw.TextStyle(fontSize: 11)),
+                                          pw.Text('🏛 Temple Color',
+                                              style: const pw.TextStyle(fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
+                                    pw.SizedBox(height: 4),
+                                    ...genderCustomizations.map((c) {
+                                      final focusColor = c['focusColor'] ?? '-';
+                                      final focusQty = ((c['focusQty'] ?? 0) * ratio).toStringAsFixed(1);
+                                      final templeColor = c['templeColor'] ?? '-';
+                                      final templeQty = ((c['templeQty'] ?? 0) * ratio).toStringAsFixed(1);
+                                      return pw.Row(
+                                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          pw.Text('$focusColor = $focusQty',
+                                              style: const pw.TextStyle(fontSize: 11)),
+                                          pw.Text('$templeColor = $templeQty',
+                                              style: const pw.TextStyle(fontSize: 11)),
+                                        ],
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            pw.SizedBox(height: 8),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+              );
+            }),
+
+          pw.Divider(),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Grand Total:',
+                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.Text('₹${total.toStringAsFixed(2)}',
+                  style: pw.TextStyle(
+                      fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.green)),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    final bytes = await pdf.save();
+
+    if (shareInstead) {
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'Order_Summary_${customerName ?? ''}.pdf',
+      );
+    } else {
+      await Printing.layoutPdf(
+        onLayout: (format) async => bytes,
+      );
+    }
+  }
+
+  pw.Widget _infoRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        children: [
+          pw.Text('$label: ',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+          pw.Expanded(child: pw.Text(value, style: const pw.TextStyle(fontSize: 12))),
+        ],
       ),
     );
   }

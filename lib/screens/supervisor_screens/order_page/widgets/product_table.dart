@@ -54,6 +54,8 @@ class _ProductTableState extends State<ProductTable> {
       builder: (_) => const ProductSelectorSheet(),
     );
 
+    print('Result: $result');
+
     if (result != null) {
       if (_productSelections.any((p) => p['productId'] == result['productId'])) {
         ScaffoldMessenger.of(context).showSnackBar(

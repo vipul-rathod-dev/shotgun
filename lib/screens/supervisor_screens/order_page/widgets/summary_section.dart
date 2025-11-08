@@ -12,34 +12,6 @@ class SummarySection extends StatelessWidget {
   String _fmtDate(DateTime? date) =>
       date == null ? '-' : DateFormat('dd MMM yyyy').format(date);
 
-  /// 🔹 Aggregate total Focus and Temple quantities by baseMaterial
-  Map<String, Map<String, Map<String, int>>> _getBaseMaterialSummary(
-    Map<String, List<Map<String, dynamic>>> customizations,
-    Map<String, dynamic> productsMap) {
-    final Map<String, Map<String, Map<String, int>>> summary = {};
-
-    for (final entry in customizations.entries) {
-      final productId = entry.key;
-      final productName = productsMap[productId]?['productName'] ?? 'Unknown Product';
-      final productCustomizations = entry.value;
-
-      for (final c in productCustomizations) {
-        final base = (c['focusBaseMaterial'] ?? 'Unknown').toString();
-        final focusQty = (c['focusQty'] ?? 0) as int;
-        final templeQty = (c['templeQty'] ?? 0) as int;
-
-        summary.putIfAbsent(base, () => {});
-        summary[base]!.putIfAbsent(productName, () => {'focus': 0, 'temple': 0});
-        summary[base]![productName]!['focus'] =
-            summary[base]![productName]!['focus']! + focusQty;
-        summary[base]![productName]!['temple'] =
-            summary[base]![productName]!['temple']! + templeQty;
-      }
-    }
-
-    return summary;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AddOrderController>(
@@ -47,12 +19,15 @@ class SummarySection extends StatelessWidget {
         final total = _getTotal(c);
         final products = c.products;
         final customizations = c.productCustomizations;
-        final Map<String, Map<String, dynamic>> productsMap = {
-          for (var p in c.products)
-            (p['productId'] ?? '').toString(): p,
-        };
+        final boxQuantity = c.boxQuantity;
 
-        final baseMaterialSummary = _getBaseMaterialSummary(customizations, productsMap);
+        // 🔹 Group products by gender
+        final Map<String, List<Map<String, dynamic>>> genderGroups = {};
+        for (final p in products) {
+          final gender = (p['modelGender'] ?? 'Unknown').toString();
+          genderGroups.putIfAbsent(gender, () => []);
+          genderGroups[gender]!.add(p);
+        }
 
         return Card(
           margin: const EdgeInsets.only(top: 12),
@@ -75,93 +50,56 @@ class SummarySection extends StatelessWidget {
                   InfoRow(Icons.local_shipping, 'Shipping Date', _fmtDate(c.shippingDate)),
 
                   const SizedBox(height: 16),
-                  const Text('Products',
+                  const Text('Products by Gender',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
 
                   if (products.isEmpty)
                     const Text('No products added.', style: TextStyle(color: Colors.grey))
                   else
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: products
-                            .map((p) => ProductTile(
-                                  product: p,
-                                  customizations: customizations[p['productId']] ?? [],
-                                ))
-                            .toList(),
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: genderGroups.entries.map((entry) {
+                        final gender = entry.key;
+                        final productList = entry.value;
+                        final genderCustomizations = customizations[gender] ?? [];
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+                              child: Text(
+                                gender,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87),
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: productList
+                                    .map((p) => ProductTile(
+                                          product: p,
+                                          customizations: genderCustomizations,
+                                          boxQuantity: boxQuantity,
+                                        ))
+                                    .toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+                        );
+                      }).toList(),
                     ),
 
                   const SizedBox(height: 20),
-
-                  /// 🔹 Base Material Summary Section
-                  if (baseMaterialSummary.isNotEmpty) ...[
-                    const Text('Focus & Temple Summary by Base Material',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: baseMaterialSummary.entries.map((baseEntry) {
-                          final base = baseEntry.key;
-                          final productEntries = baseEntry.value;
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(base,
-                                    style: const TextStyle(
-                                        fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                const SizedBox(height: 4),
-                                ...productEntries.entries.map((productEntry) {
-                                  final productName = productEntry.key;
-                                  final focus = productEntry.value['focus'] ?? 0;
-                                  final temple = productEntry.value['temple'] ?? 0;
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                            flex: 3,
-                                            child: Text(productName,
-                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-                                        Expanded(
-                                            flex: 2,
-                                            child: Text('Focus: $focus',
-                                                textAlign: TextAlign.center,
-                                                style: const TextStyle(fontSize: 13))),
-                                        Expanded(
-                                            flex: 2,
-                                            child: Text('Temple: $temple',
-                                                textAlign: TextAlign.right,
-                                                style: const TextStyle(fontSize: 13))),
-                                      ],
-                                    ),
-                                  );
-                                }),
-                                const Divider(thickness: 0.5),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -176,7 +114,7 @@ class SummarySection extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   ElevatedButton.icon(
-                    onPressed: () => c.generateOrderPdf(context, shareInstead: true),
+                    onPressed: () => c.generateOrderPdf1(context, shareInstead: true),
                     icon: const Icon(Icons.share),
                     label: const Text('Share PDF'),
                     style: ElevatedButton.styleFrom(
@@ -217,13 +155,26 @@ class InfoRow extends StatelessWidget {
 class ProductTile extends StatelessWidget {
   final Map<String, dynamic> product;
   final List<Map<String, dynamic>> customizations;
-  const ProductTile({super.key, required this.product, required this.customizations});
+  final Map<String, int> boxQuantity;
+
+  const ProductTile({
+    super.key,
+    required this.product,
+    required this.customizations,
+    required this.boxQuantity,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final qty = product['quantity'] ?? 0;
-    final price = product['price'] ?? 0.0;
+    final qty = (product['quantity'] ?? 0) as int;
+    final price = (product['price'] ?? 0).toDouble();
     final total = (qty * price).toStringAsFixed(2);
+
+    final gender = product['modelGender'] ?? 'Unknown';
+    final genderBoxQty = (boxQuantity[gender] ?? 0);
+
+    // prevent divide-by-zero
+    final ratio = genderBoxQty > 0 ? (qty / genderBoxQty) : 0.0;
 
     return Container(
       margin: const EdgeInsets.all(6),
@@ -232,99 +183,142 @@ class ProductTile extends StatelessWidget {
         color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              flex: 4,
-              child: Text(product['productName'] ?? '-',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                flex: 4,
+                child: Text(
+                  product['productName'] ?? '-',
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text('Qty: $qty',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Qty: $qty',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text('₹$price',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '₹$price',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text('₹$total',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '₹$total',
                   textAlign: TextAlign.end,
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
-            ),
-          ],
-        ),
-
-        // 🔸 Color Customizations Section
-        if (customizations.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Color Customizations',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                            child: Text('🎯 Focus Color',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(
-                            child: Text('🏛 Temple Color',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600, fontSize: 13))),
-                      ],
-                    ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
                   ),
-                  const SizedBox(height: 6),
-                  ...customizations.map((c) => CustomizationTile(c: c)),
-                ],
+                ),
+              ),
+            ],
+          ),
+
+          // 🔸 Gender-level Color Customizations
+          if (customizations.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Color Customizations',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '🎯 Focus Color',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '🏛 Temple Color',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ...customizations.map(
+                      (c) => CustomizationTile(
+                        c: c,
+                        ratio: ratio,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-      ]),
+        ],
+      ),
     );
   }
 }
 
 class CustomizationTile extends StatelessWidget {
   final Map<String, dynamic> c;
-  const CustomizationTile({super.key, required this.c});
+  final double ratio;
+
+  const CustomizationTile({
+    super.key,
+    required this.c,
+    required this.ratio,
+  });
 
   @override
   Widget build(BuildContext context) {
     final focusColor = c['focusColor'] ?? '-';
-    final focusQty = c['focusQty'] ?? 0;
+    final focusQty = ((c['focusQty'] ?? 0) * ratio).toStringAsFixed(1);
     final templeColor = c['templeColor'] ?? '-';
-    final templeQty = c['templeQty'] ?? 0;
+    final templeQty = ((c['templeQty'] ?? 0) * ratio).toStringAsFixed(1);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -332,12 +326,18 @@ class CustomizationTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-              child: Text('$focusColor (x$focusQty)',
-                  style: const TextStyle(fontSize: 13))),
+            child: Text(
+              '$focusColor = $focusQty',
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
           Expanded(
-              child: Text('$templeColor (x$templeQty)',
-                  style: const TextStyle(fontSize: 13),
-                  textAlign: TextAlign.right)),
+            child: Text(
+              '$templeColor = $templeQty',
+              style: const TextStyle(fontSize: 13),
+              textAlign: TextAlign.right,
+            ),
+          ),
         ],
       ),
     );

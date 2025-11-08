@@ -14,6 +14,7 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   String? _companyId;
   String? _selectedProductId;
   String? _selectedProductName;
+  String? _selectedProductGender;
   int _quantity = 1;
   double _price = 0;
 
@@ -97,6 +98,7 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
     Navigator.pop(context, {
       'productId': _selectedProductId,
       'productName': _selectedProductName,
+      'modelGender': _selectedProductGender,
       'quantity': _quantity,
       'price': _price,
     });
@@ -155,6 +157,7 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
                           final product = _filteredProducts[index];
                           final data = product.data() as Map<String, dynamic>;
                           final name = data['displayName'] ?? 'Unnamed';
+                          final modelGender = data['modelGender'] ?? 'Unknown';
                           final price = data['price']?.toString() ?? '-';
                           final stock = data['stock']?.toString() ?? '-';
 
@@ -167,6 +170,7 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
                               setState(() {
                                 _selectedProductId = value;
                                 _selectedProductName = name;
+                                _selectedProductGender = modelGender;
                                 _priceController.text =
                                     data['price']?.toString() ?? '';
                                 _price =

@@ -168,4 +168,26 @@ class PdfGenerator {
 
     return pdf.save();
   }
+
+  static Future<Uint8List> generateSimpleTextPdf({
+    required String title,
+    required String content,
+  }) async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(title,
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 12),
+            pw.Text(content, style: const pw.TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+    return pdf.save();
+  }
+
 }

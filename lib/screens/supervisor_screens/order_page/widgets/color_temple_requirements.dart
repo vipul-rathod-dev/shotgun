@@ -48,11 +48,19 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
 
       setState(() {
         _availableColors = colorSnapshot.docs
-            .map((d) => {'id': d.id, 'name': d['name'] ?? 'Unnamed', 'focusBaseMaterial': d['focusBaseMaterial']})
+            .map((d) => {
+                  'id': d.id,
+                  'name': d['name'] ?? 'Unnamed',
+                  'focusBaseMaterial': d['focusBaseMaterial']
+                })
             .toList();
 
         _availableTemples = templeSnapshot.docs
-            .map((d) => {'id': d.id, 'name': d['name'] ?? 'Unnamed', 'templeBaseMaterial': d['templeBaseMaterial']})
+            .map((d) => {
+                  'id': d.id,
+                  'name': d['name'] ?? 'Unnamed',
+                  'templeBaseMaterial': d['templeBaseMaterial']
+                })
             .toList();
 
         _isLoading = false;
@@ -86,25 +94,32 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
       );
     }
 
+    // 🔹 Group products by modelGender
+    final groupedProducts = <String, List<Map<String, dynamic>>>{};
+    for (final product in products) {
+      final gender = product['modelGender'] ?? 'Unknown';
+      groupedProducts.putIfAbsent(gender, () => []).add(product);
+    }
+
     return Form(
       key: widget.controller.formKeys[3],
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: products.map((product) {
-          final productId = product['productId'];
-          final entries = customizations[productId] ?? [];
+        children: groupedProducts.entries.map((entry) {
+          final gender = entry.key;
+          final entries = customizations[gender] ?? [];
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// 🏷 Product Title
+                /// 🏷 Gender Title
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
-                    product['productName'] ?? 'Unnamed Product',
+                    gender,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
@@ -139,11 +154,12 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                         labelText: 'Focus Color',
                                         keyName: 'name',
                                         items: _availableColors,
-                                        // value: customizations[productId]!.isNotEmpty ? customizations[productId]![index] : null,
                                         value: _availableColors.firstWhere(
                                           (color) =>
                                               color['id'] ==
-                                              (customizations[productId]![index]['focusColorId'] ?? ''),
+                                              (customizations[gender]![index]
+                                                      ['focusColorId'] ??
+                                                  ''),
                                           orElse: () => {},
                                         ),
                                         onChanged: (value) {
@@ -151,10 +167,11 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           setState(() {
                                             data['focusColorId'] = value['id'];
                                             data['focusColor'] = value['name'];
-                                            data['focusBaseMaterial'] = value['focusBaseMaterial'];
+                                            data['focusBaseMaterial'] =
+                                                value['focusBaseMaterial'];
                                           });
                                           widget.controller.updateCustomization(
-                                              productId, index, data);
+                                              gender, index, data);
                                         },
                                       ),
                                     ),
@@ -190,11 +207,22 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           setState(() =>
                                               data['focusQty'] = newQty);
                                           widget.controller.updateCustomization(
-                                              productId, index, data);
+                                              gender, index, data);
                                         },
                                       ),
                                     ),
                                   ],
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'Total Focus Qty (Box Quantity): ${widget.controller.boxQuantity[gender] ?? 0}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
                                 ),
 
                                 const SizedBox(height: 12),
@@ -208,22 +236,25 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                         labelText: 'Temple Color',
                                         keyName: 'name',
                                         items: _availableTemples,
-                                        // value: data,
                                         value: _availableTemples.firstWhere(
                                           (temple) =>
                                               temple['id'] ==
-                                              (customizations[productId]![index]['templeColorId'] ?? ''),
+                                              (customizations[gender]![index]
+                                                      ['templeColorId'] ??
+                                                  ''),
                                           orElse: () => {},
                                         ),
                                         onChanged: (value) {
                                           if (value == null) return;
                                           setState(() {
                                             data['templeColorId'] = value['id'];
-                                            data['templeColor'] = value['name'];
-                                            data['templeBaseMaterial'] = value['templeBaseMaterial'];
+                                            data['templeColor'] =
+                                                value['name'];
+                                            data['templeBaseMaterial'] =
+                                                value['templeBaseMaterial'];
                                           });
                                           widget.controller.updateCustomization(
-                                              productId, index, data);
+                                              gender, index, data);
                                         },
                                       ),
                                     ),
@@ -259,7 +290,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           setState(() =>
                                               data['templeQty'] = newQty);
                                           widget.controller.updateCustomization(
-                                              productId, index, data);
+                                              gender, index, data);
                                         },
                                       ),
                                     ),
@@ -281,7 +312,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                               onTap: () {
                                 setState(() {
                                   widget.controller
-                                      .removeCustomization(productId, index);
+                                      .removeCustomization(gender, index);
                                 });
                               },
                               child: const Padding(
@@ -317,11 +348,12 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                     icon: const Icon(Icons.add, size: 20),
                     label: const Text(
                       'Add Option',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     onPressed: () {
                       setState(() {
-                        widget.controller.addCustomization(productId, {
+                        widget.controller.addCustomization(gender, {
                           'focusColorId': null,
                           'focusColor': '',
                           'focusQty': 0,
@@ -335,6 +367,35 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                     },
                   ),
                 ),
+                /// 📦 Total Focus Qty (Box Quantity)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10.0, bottom: 6.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.inventory_2_outlined,
+                          color: Colors.blueGrey, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Total Focus Qty (Box Quantity): ',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.blueGrey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '${widget.controller.boxQuantity[gender] ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
 
                 const Divider(thickness: 1),
               ],

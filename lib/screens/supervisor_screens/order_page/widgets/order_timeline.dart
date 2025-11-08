@@ -32,7 +32,7 @@ class OrderTimeline extends StatelessWidget {
       "Shipping",
     ];
 
-    final statuses = orderType.toLowerCase() == "customized order"
+    final statuses = orderType.toLowerCase() == "customized"
         ? customizedStatuses
         : stockStatuses;
 
