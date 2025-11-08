@@ -23,6 +23,7 @@ import 'package:shotgun/screens/staff_screens/staff_page.dart';
 import 'package:shotgun/screens/staff_screens/track_orders/track_orders_page.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/view_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/suppliers_page.dart';
+import 'package:shotgun/screens/supervisor_screens/view_inventory_page/view_inventory_page.dart';
 import '../screens/supervisor_screens/order_page/add_orders_page.dart';
 import '../screens/register_page.dart';
 import '../screens/supervisor_screens/supervisor_dashboard/supervisor_dashboard.dart';
@@ -65,6 +66,8 @@ class MyApp extends StatelessWidget {
         '/supervisor/add-focus-color': (context) => const AddFocusColor(),
         '/supervisor/add-temple-color': (context) => const AddTempleColor(),
         '/supervisor/execute-order': (context) => const ExecuteOrder(),
+        '/supervisor/view-inventory': (context) => const ViewInventoryPage(),
+        // '/supervisor/view-inventory': (context) => const AddInventory(),
 
         // STAFF ROUTES
         '/staff': (context) => const StaffDashboard(),

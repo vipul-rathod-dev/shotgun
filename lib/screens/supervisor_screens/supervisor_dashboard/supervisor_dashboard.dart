@@ -20,6 +20,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     with SingleTickerProviderStateMixin {
   bool _isMenuOpen = false;
   late AnimationController _animationController;
+  bool _isRunningScript = false;
 
   @override
   void initState() {
@@ -45,7 +46,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
 
   @override
   Widget build(BuildContext context) {
+    final userEmail = FirebaseAuth.instance.currentUser?.email ?? 'Supervisor';
+
     final List<DashboardItem> dashboardItems = const [
+      DashboardItem(icon: Icons.inventory_2_rounded, title: 'Manage Inventory', route: '/supervisor/view-inventory'),
       DashboardItem(icon: Icons.production_quantity_limits, title: 'Manage Products', route: '/supervisor/products'),
       DashboardItem(icon: Icons.people_outline, title: 'Manage Suppliers', route: '/supervisor/suppliers'),
       DashboardItem(icon: Icons.bar_chart, title: 'Manage Orders', route: '/supervisor/orders'),
@@ -70,20 +74,32 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       ),
     ];
 
-    final userEmail = FirebaseAuth.instance.currentUser?.email ?? 'Supervisor';
-
     return SessionAwarePage(
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3F6FB),
+        backgroundColor: const Color(0xFFF5F7FB),
         drawer: SupervisorDrawer(userEmail: userEmail),
         appBar: _buildAppBar(context),
-        bottomNavigationBar: _buildFooter(),
         body: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              const SizedBox(height: 28),
-              _buildDashboardCards(context, dashboardItems),
-              const Spacer(),
+              _buildDashboardContent(context, dashboardItems),
+              if (_isRunningScript)
+                Container(
+                  color: Colors.black.withOpacity(0.4),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 12),
+                        Text(
+                          "Running update script...",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -93,17 +109,36 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
           toggleMenu: _toggleMenu,
           items: fabItems,
         ),
+        bottomNavigationBar: _buildFooter(),
       ),
     );
   }
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      elevation: 3,
-      backgroundColor: const Color(0xFF1565C0),
+      automaticallyImplyLeading: true,
+      elevation: 4,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
       title: const Text(
         'Supervisor Dashboard',
-        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20, color: Colors.white),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 22,
+          color: Colors.white,
+          letterSpacing: 0.4,
+        ),
       ),
       centerTitle: true,
       actions: [
@@ -121,10 +156,9 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
               await _showRunScriptDialog(context);
             }
           },
-          
           itemBuilder: (context) => const [
             PopupMenuItem(value: 'run_script', child: Text('Run Update Script')),
-            PopupMenuItem(value: 'logout', child: Text('Logout'))
+            PopupMenuItem(value: 'logout', child: Text('Logout')),
           ],
           icon: const Icon(Icons.more_vert, color: Colors.white),
         ),
@@ -132,25 +166,81 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     );
   }
 
-  Widget _buildDashboardCards(BuildContext context, List<DashboardItem> items) {
-    return SizedBox(
-      height: 200,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: items
-              .map((item) => Padding(
-                    padding: const EdgeInsets.only(right: 20),
+  Widget _buildDashboardContent(BuildContext context, List<DashboardItem> items) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth > 1200
+        ? 4
+        : screenWidth > 800
+            ? 3
+            : 2;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Welcome back 👋",
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1A237E),
+                ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "What would you like to manage today?",
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+          ),
+          const SizedBox(height: 30),
+          Expanded(
+            child: GridView.builder(
+              physics: const BouncingScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return TweenAnimationBuilder<double>(
+                  duration: Duration(milliseconds: 400 + (index * 120)),
+                  tween: Tween(begin: 0, end: 1),
+                  builder: (context, value, child) => Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(0, 30 * (1 - value)),
+                      child: child,
+                    ),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: const LinearGradient(
+                        colors: [Colors.white, Color(0xFFE3F2FD)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blueGrey.withOpacity(0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
                     child: DashboardCard(
                       icon: item.icon,
                       title: item.title,
                       onTap: () => Navigator.pushNamed(context, item.route),
                     ),
-                  ))
-              .toList(),
-        ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -160,8 +250,13 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       padding: const EdgeInsets.all(14),
       color: const Color(0xFFE8EDF4),
       child: const Text(
-        "© 2025 Supervisor Panel • v1.2",
-        style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
+        "© 2025 Supervisor Panel • v1.5",
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.black54,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+        ),
         textAlign: TextAlign.center,
       ),
     );
@@ -189,24 +284,28 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     );
   }
 
-  static Future<void> _showRunScriptDialog(BuildContext context) async {
+  Future<void> _showRunScriptDialog(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Run Firestore Update Script'),
-        content: const Text(
-          'This will update all products in your company where '
-          'category == "Finished" and add a new field. Continue?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.auto_fix_high_rounded, size: 60, color: Colors.blueAccent),
+            SizedBox(height: 14),
+            Text(
+              'This will add or update the “stock” field in all finished products. Proceed?',
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF1565C0),
+              backgroundColor: const Color(0xFF1565C0),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -218,25 +317,41 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
 
     if (confirm != true) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Running Firestore script...')),
-    );
-
+    setState(() => _isRunningScript = true);
     try {
       await FirestoreScripts.addFieldToFinishedCategory(
-        subCollectionName: 'products', // inside companies/{companyId}/products
-        fieldName: 'modelGender',
-        value: 'Gents',
+        subCollectionName: 'products',
+        fieldName: 'stock',
+        value: 0,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Script completed successfully!')),
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Script completed successfully!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Error: $e'),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
       );
+    } finally {
+      setState(() => _isRunningScript = false);
     }
   }
-
 }

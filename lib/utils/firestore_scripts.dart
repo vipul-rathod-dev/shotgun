@@ -21,7 +21,7 @@ class FirestoreScripts {
         .collection('companies')
         .doc(companyId)
         .collection(subCollectionName)
-        .where('category', isEqualTo: 'Finished')
+        // .where('category', isEqualTo: 'Finished')
         .get();
 
     if (querySnapshot.docs.isEmpty) {
