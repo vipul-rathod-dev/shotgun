@@ -54,6 +54,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       DashboardItem(icon: Icons.people_outline, title: 'Manage Suppliers', route: '/supervisor/suppliers'),
       DashboardItem(icon: Icons.bar_chart, title: 'Manage Orders', route: '/supervisor/orders'),
       DashboardItem(icon: Icons.badge_outlined, title: 'Manage Staff', route: '/supervisor/view-staff'),
+      DashboardItem(icon: Icons.badge_outlined, title: 'Manage Process', route: '/supervisor/manage-process'),
     ];
 
     final fabItems = [
@@ -296,7 +297,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
             Icon(Icons.auto_fix_high_rounded, size: 60, color: Colors.blueAccent),
             SizedBox(height: 14),
             Text(
-              'This will add or update the “stock” field in all finished products. Proceed?',
+              'This will add or update a field in all products. Proceed?',
               textAlign: TextAlign.center,
             ),
           ],
@@ -321,8 +322,8 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     try {
       await FirestoreScripts.addFieldToFinishedCategory(
         subCollectionName: 'products',
-        fieldName: 'stock',
-        value: 0,
+        fieldName: 'unit',
+        value: 'pcs',
       );
 
       ScaffoldMessenger.of(context).showSnackBar(

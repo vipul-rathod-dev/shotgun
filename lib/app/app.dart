@@ -7,6 +7,7 @@ import 'package:shotgun/screens/staff_screens/tasks_page/tasks_page.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors/add_focus_color.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors/add_temple_color.dart';
 import 'package:shotgun/screens/supervisor_screens/create_view_staff/add_staff_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_process/manage_process_page.dart';
 import 'package:shotgun/screens/supervisor_screens/order_page/manage_orders.dart';
 import 'package:shotgun/screens/auth_screens/login_page.dart';
 import 'package:shotgun/screens/staff_screens/manage_inventory/manage_inventory_page.dart';
@@ -67,7 +68,7 @@ class MyApp extends StatelessWidget {
         '/supervisor/add-temple-color': (context) => const AddTempleColor(),
         '/supervisor/execute-order': (context) => const ExecuteOrder(),
         '/supervisor/view-inventory': (context) => const ViewInventoryPage(),
-        // '/supervisor/view-inventory': (context) => const AddInventory(),
+        '/supervisor/manage-process': (context) => const ManageProcessPage(),
 
         // STAFF ROUTES
         '/staff': (context) => const StaffDashboard(),
