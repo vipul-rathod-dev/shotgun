@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/order_details_insights_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/order_process_widgets/order_process_dashboard.dart';
 import '../helpers/status_color.dart'; // ✅ new import
 
 class OrderCard extends StatelessWidget {
@@ -27,6 +28,7 @@ class OrderCard extends StatelessWidget {
 
     final currentUser = FirebaseAuth.instance.currentUser;
     final createdByUid = orderData['createdByUid'];
+    final orderType = orderData['orderType'];
 
     return Card(
       elevation: 2,
@@ -35,6 +37,20 @@ class OrderCard extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.receipt_long, color: Colors.blue),
         title: Text("Order #$id"),
+        onTap:() {
+          print(orderType);
+          if (orderType == 'Customized') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OrderProcessesDashboard(
+                  orderId: orderId,
+                  currentUser: FirebaseAuth.instance.currentUser!,
+                ),
+              ),
+            );
+          }
+        },
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
