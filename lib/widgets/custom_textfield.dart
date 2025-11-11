@@ -13,6 +13,7 @@ class CustomTextField extends StatefulWidget {
   final TextInputAction? textInputAction;
   final Iterable<String>? autofillHints;
   final String? hintText;
+  final  InputDecoration? decoration;
 
   const CustomTextField({
     super.key,
@@ -26,7 +27,8 @@ class CustomTextField extends StatefulWidget {
     this.maxLines = 1,
     this.textInputAction,
     this.autofillHints,
-    this.hintText
+    this.hintText,
+    this.decoration,
   });
 
   @override
@@ -53,44 +55,45 @@ class _CustomTextFieldState extends State<CustomTextField> {
         autofillHints: widget.autofillHints,
         onChanged: widget.onChanged,
         maxLines: widget.maxLines,
-        decoration: InputDecoration(
-          labelText: widget.label,
-          labelStyle: GoogleFonts.poppins(color: Colors.grey[700]),
-          prefixIcon: widget.icon != null
-            ? Icon(widget.icon, color: theme.colorScheme.primary)
-            : null,
-          suffixIcon: widget.isPassword
-            ? IconButton(
-                tooltip: _obscure ? 'Show password' : 'Hide password',
-                icon: Icon(
-                  _obscure ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey[600],
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              )
-            : null,
+        decoration: widget.decoration ??
+          InputDecoration(
+            labelText: widget.label,
+            labelStyle: GoogleFonts.poppins(color: Colors.grey[700]),
+            prefixIcon: widget.icon != null
+              ? Icon(widget.icon, color: theme.colorScheme.primary)
+              : null,
+            suffixIcon: widget.isPassword
+              ? IconButton(
+                  tooltip: _obscure ? 'Show password' : 'Hide password',
+                  icon: Icon(
+                    _obscure ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey[600],
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                )
+              : null,
 
-          filled: true,
-          fillColor: Colors.grey[100],
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            filled: true,
+            fillColor: Colors.grey[100],
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.colorScheme.error, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            hintText: widget.hintText
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.colorScheme.error, width: 1.5),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          hintText: widget.hintText
-        ),
       ),
     );
   }

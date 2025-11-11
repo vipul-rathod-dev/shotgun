@@ -2,17 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/order_details_insights_page.dart';
-import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/order_process_widgets/order_process_dashboard.dart';
-import '../helpers/status_color.dart'; // ✅ new import
+import '../helpers/status_color.dart';
+import 'order_process_dashboard/order_dashboard_page.dart';
 
 class OrderCard extends StatelessWidget {
   final String orderId;
+  final String companyId;
   final Map<String, dynamic> orderData;
 
-  const OrderCard({super.key, required this.orderId, required this.orderData});
+  const OrderCard({super.key, required this.orderId, required this.companyId, required this.orderData});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +28,6 @@ class OrderCard extends StatelessWidget {
 
     final currentUser = FirebaseAuth.instance.currentUser;
     final createdByUid = orderData['createdByUid'];
-    final orderType = orderData['orderType'];
 
     return Card(
       elevation: 2,
@@ -38,18 +37,16 @@ class OrderCard extends StatelessWidget {
         leading: const Icon(Icons.receipt_long, color: Colors.blue),
         title: Text("Order #$id"),
         onTap:() {
-          print(orderType);
-          if (orderType == 'Customized') {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OrderProcessesDashboard(
-                  orderId: orderId,
-                  currentUser: FirebaseAuth.instance.currentUser!,
-                ),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OrderDashboardPage(
+                companyId: companyId,
+                orderId: orderId,
+                orderData: orderData,
               ),
-            );
-          }
+            ),
+          );
         },
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,12 +123,10 @@ class OrderCard extends StatelessWidget {
 
                   if (confirm == true) {
                     try {
-                      final prefs = await SharedPreferences.getInstance();
-                      final companyId = prefs.getString('cachedCompanyId');
                       final currentUser = FirebaseAuth.instance.currentUser;
 
-                      if (companyId == null || currentUser == null) {
-                        throw Exception('Missing user or company info.');
+                      if (currentUser == null) {
+                        throw Exception('Missing user info.');
                       }
 
                       // 🔹 Fetch the order document to verify creator

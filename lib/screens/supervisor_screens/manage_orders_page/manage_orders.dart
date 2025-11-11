@@ -78,6 +78,7 @@ class _ManageOrdersPageState extends State<ManageOrdersPage> {
               final data = orders[index].data() as Map<String, dynamic>;
               return OrderCard(
                 orderId: orders[index].id,
+                companyId: _companyId!,
                 orderData: data,
               );
             },
