@@ -20,20 +20,28 @@ class RawProcessPage extends StatefulWidget {
 }
 
 class _RawProcessPageState extends State<RawProcessPage> {
-  List<Map<String, dynamic>> _products = [];
+  final List<Map<String, dynamic>> _products = [];
   final List<Map<String, dynamic>> _productEntries = [];
+  final ScrollController _scrollController = ScrollController();
+
+  Map<String, dynamic>? _selectedStaff; // temporary UI selection only
+  List<Map<String, dynamic>> _staffList = [];
+  bool _loadingStaff = true;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchStaff();
   }
 
   @override
   void dispose() {
     for (var entry in _productEntries) {
-      (entry['quantityController'] as TextEditingController).dispose();
+      final controller = entry['quantityController'] as TextEditingController?;
+      controller?.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -53,13 +61,53 @@ class _RawProcessPageState extends State<RawProcessPage> {
         };
       }).toList();
 
-      setState(() {
-        _products = products;
-        _addProductEntry();
-      });
+      if (mounted) {
+        setState(() {
+          _products.addAll(products);
+          // ensure at least one entry exists (original behaviour)
+          if (_productEntries.isEmpty) _addProductEntry();
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to load products: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load products: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchStaff() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(widget.companyId)
+          .collection('users')
+          .where('role', isEqualTo: 'staff')
+          .get();
+
+      final staff = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] ?? 'Unnamed',
+          'email': data['email'] ?? '',
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _staffList = staff;
+          _loadingStaff = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingStaff = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load staff: $e')),
+        );
+      }
     }
   }
 
@@ -68,19 +116,40 @@ class _RawProcessPageState extends State<RawProcessPage> {
     setState(() {
       _productEntries.add({'product': null, 'quantityController': controller});
     });
+
+    // scroll to bottom after frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent + 80,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   void _removeProductEntry(int index) {
+    final controller = _productEntries[index]['quantityController'] as TextEditingController?;
+    controller?.dispose();
     setState(() {
-      _productEntries[index]['quantityController'].dispose();
       _productEntries.removeAt(index);
     });
   }
 
   Future<void> _startColorProcess() async {
+    // validate staff selection (still required but not persisted)
+    if (_selectedStaff == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please assign a staff member')),
+      );
+      return;
+    }
+
+    // validate products & quantities
     for (var entry in _productEntries) {
-      if (entry['product'] == null ||
-          entry['quantityController'].text.trim().isEmpty) {
+      final controller = entry['quantityController'] as TextEditingController?;
+      if (entry['product'] == null || controller == null || controller.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please complete all product fields')),
         );
@@ -89,39 +158,54 @@ class _RawProcessPageState extends State<RawProcessPage> {
     }
 
     final rawProcessData = _productEntries.map((entry) {
+      final controller = entry['quantityController'] as TextEditingController;
       return {
         'productId': entry['product']['id'],
         'productName': entry['product']['displayName'],
-        'quantity': entry['quantityController'].text.trim(),
+        'quantity': controller.text.trim(),
       };
     }).toList();
 
-    await FirebaseFirestore.instance
-        .collection('companies')
-        .doc(widget.companyId)
-        .collection('orders')
-        .doc(widget.orderId)
-        .update({
-      'orderStatus': 'Color Process',
-      'rawProcess': {
-        'products': rawProcessData,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-    });
+    try {
+      // NOTE: assigned staff is intentionally NOT saved to Firestore (temporary UI selection only)
+      await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(widget.companyId)
+          .collection('orders')
+          .doc(widget.orderId)
+          .update({
+        'orderStatus': 'Color Process',
+        'rawProcess': {
+          'products': rawProcessData,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Moved to Color Process successfully!')),
-    );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Moved to Color Process successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update order: $e')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // This widget is designed to be embedded inside a parent (e.g. OrderDashboardPage)
+    // which should give it bounded height (e.g. by wrapping in Expanded).
+    // The layout here uses a bounded inner ListView (SizedBox) to avoid infinite constraints.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// Header
+          // Header
           Text(
             'Raw Process Setup',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -131,17 +215,51 @@ class _RawProcessPageState extends State<RawProcessPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Select products and quantities before moving to color process.',
+            'Select products, quantities, and assign staff before moving to color process.',
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
           const SizedBox(height: 20),
 
-          /// Raw Process Form
+          // --- Assign Staff Dropdown (temporary selection only) ---
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Assign Staff',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                  const SizedBox(height: 10),
+                  _loadingStaff
+                      ? const Center(child: CircularProgressIndicator())
+                      : SearchableDropdown(
+                          key: const ValueKey('staff_dropdown'),
+                          items: _staffList,
+                          keyName: 'name',
+                          labelText: 'Select Staff',
+                          value: _selectedStaff,
+                          onChanged: (value) => setState(() => _selectedStaff = value),
+                        ),
+                  const SizedBox(height: 6),
+                  // Small hint to remind it's temporary
+                  const Text(
+                    'Note: Assigned staff is selected locally (not saved yet).',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
+          ),
+          const SizedBox(height: 20),
+
+          // --- Product Entries Section ---
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -150,105 +268,85 @@ class _RawProcessPageState extends State<RawProcessPage> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Add Raw Materials',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: 275.0, // Set your desired maximum height
-                    ),
-                    child: SizedBox(
-                      // height: 200,
-                      child: ListView.builder(
-                        // physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        itemCount: _productEntries.length,
-                        itemBuilder: (context, index) {
-                          final entry = _productEntries[index];
-                          final isLast = index == _productEntries.length - 1;
-                      
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Card(
-                              elevation: 1,
-                              margin: EdgeInsets.zero,
-                              color: Colors.grey.shade50,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: SearchableDropdown(
-                                        items: _products,
-                                        keyName: 'displayName',
-                                        labelText: 'Product',
-                                        value: entry['product'],
-                                        onChanged: (value) {
-                                          setState(() => entry['product'] = value);
-                                        },
-                                      ),
+
+                  // Bounded height ListView to avoid infinite height in scrollable parent
+                  SizedBox(
+                    height: 275,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: _productEntries.length,
+                      itemBuilder: (context, index) {
+                        final entry = _productEntries[index];
+                        final isLast = index == _productEntries.length - 1;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Card(
+                            elevation: 1,
+                            margin: EdgeInsets.zero,
+                            color: Colors.grey.shade50,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: SearchableDropdown(
+                                      key: ValueKey('product_${index}_${entry.hashCode}'),
+                                      items: _products,
+                                      keyName: 'displayName',
+                                      labelText: 'Product',
+                                      value: entry['product'],
+                                      onChanged: (value) => setState(() => entry['product'] = value),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      flex: 2,
-                                      child: CustomTextField(
-                                        controller: entry['quantityController'],
-                                        hintText: 'Qty',
-                                        keyboardType:
-                                            const TextInputType.numberWithOptions(
-                                                decimal: true),
-                                      ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    flex: 2,
+                                    child: CustomTextField(
+                                      controller: entry['quantityController'],
+                                      hintText: 'Qty',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (isLast)
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add_circle_outline,
-                                              color: Colors.blueAccent,
-                                              size: 26,
-                                            ),
-                                            onPressed: _addProductEntry,
-                                          ),
-                                        if (_productEntries.length > 1)
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.remove_circle_outline,
-                                              color: Colors.redAccent,
-                                              size: 26,
-                                            ),
-                                            onPressed: () =>
-                                                _removeProductEntry(index),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isLast)
+                                        IconButton(
+                                          icon: const Icon(Icons.add_circle_outline, color: Colors.blueAccent, size: 26),
+                                          onPressed: _addProductEntry,
+                                        ),
+                                      if (_productEntries.length > 1)
+                                        IconButton(
+                                          icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 26),
+                                          onPressed: () => _removeProductEntry(index),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
             ),
           ),
-
           const SizedBox(height: 24),
 
-          /// Start Process Button
+          // Start Process Button
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -257,17 +355,14 @@ class _RawProcessPageState extends State<RawProcessPage> {
               onPressed: _startColorProcess,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),
 
           const SizedBox(height: 30),
 
-          /// Order Summary Section
+          // Order Summary Section
           Row(
             children: const [
               Icon(Icons.inventory_2_rounded, color: Colors.blueAccent),
@@ -281,12 +376,16 @@ class _RawProcessPageState extends State<RawProcessPage> {
           const Divider(thickness: 1, height: 20),
           const SizedBox(height: 8),
 
-          _buildOrderSummary(),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 260),
+            child: _buildOrderSummary(),
+          ),
         ],
       ),
     );
   }
 
+  // --- Build Order Summary ---
   Widget _buildOrderSummary() {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
@@ -297,95 +396,62 @@ class _RawProcessPageState extends State<RawProcessPage> {
           .get(),
       builder: (context, snapshot) {
         if (snapshot.hasError) return Text('Error: ${snapshot.error}');
-        if (!snapshot.hasData) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
         final orderData = snapshot.data!.data() as Map<String, dynamic>?;
         if (orderData == null || orderData['products'] == null) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('No products found for this order'),
-          );
+          return const Center(child: Text('No products found for this order'));
         }
 
         final List products = orderData['products'];
         final productCustomizations = orderData['productCustomizations'] ?? {};
 
-        return SizedBox(
-          height: 300, // max height for order summary scroll
-          child: ListView.builder(
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final p = products[index];
-              final name = p['productName'] ?? 'Unknown';
-              final modelGender = p['modelGender'];
-              final boxQuantity = orderData['boxQuantity'][modelGender] ?? 0;
-              final orderQuantity = p["quantity"] ?? 0;
-              final totalBoxQuantity =
-                  boxQuantity != 0 ? (orderQuantity / boxQuantity) : 0;
-              final customizations = productCustomizations[modelGender] ?? [];
+        return ListView.builder(
+          shrinkWrap: true,
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final p = products[index];
+            final name = p['productName'] ?? 'Unknown';
+            final modelGender = p['modelGender'];
+            final boxQuantity = orderData['boxQuantity'][modelGender] ?? 0;
+            final orderQuantity = p["quantity"] ?? 0;
+            final totalBoxQuantity = boxQuantity != 0 ? (orderQuantity / boxQuantity) : 0;
+            final customizations = productCustomizations[modelGender] ?? [];
 
-              var totalFocus = {'Black': 0, 'Clear': 0, 'PC': 0};
-              var totalTemple = {'Black': 0, 'Clear': 0, 'PC': 0};
+            var totalFocus = {'Black': 0, 'Clear': 0, 'PC': 0};
+            var totalTemple = {'Black': 0, 'Clear': 0, 'PC': 0};
 
-              for (var cust in customizations) {
-                final qty = int.tryParse(cust['focusQty'].toString()) ?? 0;
-                final focusBase = cust['focusBaseMaterial'] ?? '';
-                final templeBase = cust['templeBaseMaterial'] ?? '';
+            for (var cust in customizations) {
+              final qty = int.tryParse(cust['focusQty'].toString()) ?? 0;
+              final focusBase = cust['focusBaseMaterial'] ?? '';
+              final templeBase = cust['templeBaseMaterial'] ?? '';
+              totalFocus[focusBase] = (totalFocus[focusBase] ?? 0) + qty;
+              totalTemple[templeBase] = (totalTemple[templeBase] ?? 0) + qty;
+            }
 
-                totalFocus[focusBase] = (totalFocus[focusBase] ?? 0) + qty;
-                totalTemple[templeBase] =
-                    (totalTemple[templeBase] ?? 0) + qty;
-              }
+            totalFocus = totalFocus.map((k, v) => MapEntry(k, (v * totalBoxQuantity).toInt()));
+            totalTemple = totalTemple.map((k, v) => MapEntry(k, (v * totalBoxQuantity).toInt()));
 
-              totalFocus = totalFocus.map(
-                (k, v) => MapEntry(k, (v * totalBoxQuantity).toInt()),
-              );
-              totalTemple = totalTemple.map(
-                (k, v) => MapEntry(k, (v * totalBoxQuantity).toInt()),
-              );
-
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+              child: ExpansionTile(
+                leading: const Icon(Icons.check_circle_outline, color: Colors.blueAccent),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                subtitle: Text(
+                  "Model: $modelGender • Boxes: ${totalBoxQuantity.toStringAsFixed(1)}",
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
-                elevation: 2,
-                child: ExpansionTile(
-                  leading: const Icon(
-                    Icons.check_circle_outline,
-                    color: Colors.blueAccent,
-                  ),
-                  title: Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                  subtitle: Text(
-                    "Model: $modelGender • Boxes: ${totalBoxQuantity.toStringAsFixed(1)}",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                  childrenPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  children: [
-                    _buildColorRow('Focus', totalFocus),
-                    const SizedBox(height: 8),
-                    _buildColorRow('Temple', totalTemple),
-                  ],
-                ),
-              );
-            },
-          ),
+                childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                children: [
+                  _buildColorRow('Focus', totalFocus),
+                  const SizedBox(height: 8),
+                  _buildColorRow('Temple', totalTemple),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -421,8 +487,9 @@ class _RawProcessPageState extends State<RawProcessPage> {
                   ),
                 ),
                 backgroundColor: colorMap[e.key],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: -2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
               );
             }).toList(),
           ),

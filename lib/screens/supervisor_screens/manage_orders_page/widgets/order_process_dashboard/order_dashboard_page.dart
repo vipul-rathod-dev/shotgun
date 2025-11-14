@@ -81,15 +81,7 @@ class _OrderDashboardPageState extends State<OrderDashboardPage> {
           const SizedBox(height: 16),
           _buildHorizontalStepper(),
           const Divider(height: 24),
-          _buildStepContent()
-          // Expanded(
-          //   child: AnimatedSwitcher(
-          //     duration: const Duration(milliseconds: 300),
-          //     transitionBuilder: (child, anim) =>
-          //         FadeTransition(opacity: anim, child: child),
-          //     child: _buildStepContent(),
-          //   ),
-          // ),
+          Expanded(child: _buildStepContent())
         ],
       ),
     );
