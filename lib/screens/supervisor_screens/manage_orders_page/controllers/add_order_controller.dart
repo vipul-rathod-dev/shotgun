@@ -139,7 +139,7 @@ class AddOrderController extends ChangeNotifier {
     final entries = productCustomizations[gender] ?? [];
     final total = entries.fold<int>(
       0,
-      (sum, e) => sum + (int.tryParse(e['focusQty']?.toString() ?? '0') ?? 0),
+      (sum1, e) => sum1 + (int.tryParse(e['focusQty']?.toString() ?? '0') ?? 0),
     );
     boxQuantity[gender] = total;
   }
@@ -570,7 +570,7 @@ extension OrderPdfGenerator on AddOrderController {
   Future<void> generateOrderPdf1(BuildContext context, {bool shareInstead = false}) async {
     final pdf = pw.Document();
 
-    final total = products.fold<double>(0, (sum, p) => sum + ((p['price'] ?? 0) * (p['quantity'] ?? 0)));
+    final total = products.fold<double>(0, (sum1, p) => sum1 + ((p['price'] ?? 0) * (p['quantity'] ?? 0)));
     final DateFormat fmt = DateFormat('dd MMM yyyy');
 
     // Group products by gender

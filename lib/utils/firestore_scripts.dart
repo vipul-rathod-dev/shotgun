@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FirestoreScripts {
@@ -25,7 +26,7 @@ class FirestoreScripts {
         .get();
 
     if (querySnapshot.docs.isEmpty) {
-      print("⚠️ No matching documents found.");
+      debugPrint("⚠️ No matching documents found.");
       return;
     }
 
@@ -44,6 +45,6 @@ class FirestoreScripts {
     }
 
     await batch.commit();
-    print("✅ Added '$fieldName' to $counter documents in $subCollectionName.");
+    debugPrint("✅ Added '$fieldName' to $counter documents in $subCollectionName.");
   }
 }

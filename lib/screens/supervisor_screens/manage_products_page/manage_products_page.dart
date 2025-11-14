@@ -78,8 +78,6 @@ class _ManageProductPageState extends State<ManageProductPage>
       return;
     }
 
-    print(selectedFinishedType);
-
     if (selectedCategory == 'Finished' && selectedFinishedType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a type for Finished product')),

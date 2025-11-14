@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
-import 'package:shotgun/screens/supervisor_screens/manage_orders_page/order_details_insights_page.dart';
-import '../helpers/status_color.dart'; // ✅ new import
+import '../helpers/status_color.dart';
+import 'order_details_insights/order_details_insights_page.dart'; // ✅ new import
 
 class OrderCard extends StatelessWidget {
   final String orderId;
@@ -63,7 +63,6 @@ class OrderCard extends StatelessWidget {
               onPressed:
                   () => Navigator.push(
                     context,
-                    // MaterialPageRoute(builder: (_) => OrderDetailsPage(orderId: orderId)),
                     MaterialPageRoute(
                       builder:
                           (_) => OrderDetailsInsightsPage(orderId: orderId),
