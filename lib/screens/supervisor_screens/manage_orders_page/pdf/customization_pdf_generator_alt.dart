@@ -1,5 +1,8 @@
-// pdf/customization_pdf_generator_alt.dart
-// Alternate customization PDF generator — modular functions version (Updated Split Pages + Page Numbers)
+
+// pdf/customization_pdf_generator_alt_print_optimized.dart
+// Alternate customization PDF generator — Print-Optimized (Maximum Styling)
+// Includes: dark outer borders, light inner grid lines, zebra striping, high-contrast headers,
+// bolder totals, improved padding & fonts, and upgraded summary box styling.
 
 import 'dart:io';
 import 'package:pdf/pdf.dart';
@@ -49,8 +52,9 @@ class CustomizationPdfGeneratorAlt {
           ),
           pw.SizedBox(height: 8),
           _buildFocusTable(focusMatrix, orderedProducts),
-          // pw.SizedBox(height: 20),
-          // _buildOverallSummary(focusMatrix, templeMatrix),
+          pw.SizedBox(height: 12),
+          // Optionally we can show a small focus-only summary here
+          _buildMiniSummaryForFocus(focusMatrix),
         ],
       ),
     );
@@ -85,7 +89,7 @@ class CustomizationPdfGeneratorAlt {
         .toString()
         .replaceAll(RegExp(r'[^\w\-]'), '_');
 
-    final file = File('${dir.path}/ALT_customizations_$safeOrder.pdf');
+    final file = File('${dir.path}/ALT_customizations_${safeOrder}_print_optimized.pdf');
     await file.writeAsBytes(await pdf.save());
 
     await Share.shareXFiles(
@@ -109,8 +113,11 @@ class CustomizationPdfGeneratorAlt {
         final genderRaw = (mp['modelGender'] ?? '').toString().toLowerCase();
         if (genderRaw.contains('gent') || genderRaw.contains('male')) {
           gents.add(mp);
-        } else if (genderRaw.contains('lady') || genderRaw.contains('female')) {ladies.add(mp);}
-        else {others.add(mp);}
+        } else if (genderRaw.contains('lady') || genderRaw.contains('female')) {
+          ladies.add(mp);
+        } else {
+          others.add(mp);
+        }
       } catch (_) {}
     }
 
@@ -140,8 +147,11 @@ class CustomizationPdfGeneratorAlt {
       final pcEntryByProduct = productCustomizations[productName];
       if (pcEntryByProduct is List) {
         customs = pcEntryByProduct;
-      } else if (productCustomizations[gender] is List) {customs = productCustomizations[gender] as List<dynamic>;}
-      else if (product['customizations'] is List) {customs = product['customizations'] as List<dynamic>;}
+      } else if (productCustomizations[gender] is List) {
+        customs = productCustomizations[gender] as List<dynamic>;
+      } else if (product['customizations'] is List) {
+        customs = product['customizations'] as List<dynamic>;
+      }
 
       for (final c in customs) {
         try {
@@ -152,7 +162,6 @@ class CustomizationPdfGeneratorAlt {
           final String color = focusColorRaw.isEmpty
               ? '—'
               : (baseMat.isEmpty ? focusColorRaw : "$focusColorRaw - $baseMat");
-
 
           final num rawQty = _safeNum(cust['focusQty']);
           final num computed = rawQty * perModelOrderQty;
@@ -172,9 +181,6 @@ class CustomizationPdfGeneratorAlt {
         } catch (_) {}
       }
     }
-
-    // final List<String> colors =
-    //     colorSet.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     int basePriority(String c) {
       final b = c.toLowerCase();
@@ -253,10 +259,11 @@ class CustomizationPdfGeneratorAlt {
 
       if (pcEntry is List) {
         customs = pcEntry;
-      } else if (productCustomizations[product['modelGender']] is List)
-        {customs = productCustomizations[product['modelGender']];}
-      else if (product['customizations'] is List)
-        {customs = product['customizations'];}
+      } else if (productCustomizations[product['modelGender']] is List) {
+        customs = productCustomizations[product['modelGender']];
+      } else if (product['customizations'] is List) {
+        customs = product['customizations'];
+      }
 
       for (final c in customs) {
         try {
@@ -276,7 +283,6 @@ class CustomizationPdfGeneratorAlt {
           final num repR = _safeNum(cust['repairingTempleR']);
           final num repL = _safeNum(cust['repairingTempleL']);
 
-          // final base = _extractBaseMaterialFromCustomization(cust);
           final pri = _priorityIndexForBase(base);
 
           colorPriority.putIfAbsent(color, () => pri);
@@ -316,7 +322,7 @@ class CustomizationPdfGeneratorAlt {
   }
 
   // --------------------------------------------------
-  // TABLES + SUMMARY + HEADER — UNCHANGED
+  // TABLES + SUMMARY + HEADER — PRINT-OPTIMIZED
   // --------------------------------------------------
 
   pw.Widget _buildHeader(Map<String, dynamic> data) {
@@ -332,7 +338,6 @@ class CustomizationPdfGeneratorAlt {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text('Order: ${data['orderNumber'] ?? '-'}', style: pw.TextStyle(fontSize: 10)),
-            // pw.Text('Customer: ${data['customerName'] ?? '-'}', style: pw.TextStyle(fontSize: 10)),
             pw.Text('Date: ${_formatNow()}', style: pw.TextStyle(fontSize: 10)),
           ],
         ),
@@ -355,46 +360,62 @@ class CustomizationPdfGeneratorAlt {
     final receivedMap = _toNumMap(focusMatrix['receivedMap']);
     final repairingMap = _toNumMap(focusMatrix['repairingMap']);
 
-    final headerCells = <pw.Widget>[];
-    headerCells.add(_headerCell('Focus Color'));
-    for (final pn in productNames) {
-      headerCells.add(_headerCell(pn));
-    }
-    headerCells.add(_headerCell('Total'));
-    headerCells.add(_headerCell('Received'));
-    headerCells.add(_headerCell('Repairing'));
+    final headerTitles = <String>[];
+    headerTitles.add('Focus Color');
+    headerTitles.addAll(productNames);
+    headerTitles.addAll(['Total', 'Received', 'Repairing']);
 
-    final rows = <pw.TableRow>[
+    // Table rows
+    final rows = <pw.TableRow>[];
+
+    // Header row (dark background, white text)
+    rows.add(
       pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-        children: headerCells,
+        decoration: pw.BoxDecoration(color: PdfColors.grey800),
+        children: headerTitles.map((t) => _headerCellWidget(t)).toList(),
       ),
-    ];
+    );
 
-    for (final color in colors) {
+    // Body rows with zebra striping
+    for (int i = 0; i < colors.length; i++) {
+      final color = colors[i];
+      final isEven = i % 2 == 0;
       final cells = <pw.Widget>[];
-      cells.add(_bodyCell(color));
+      cells.add(_bodyCellWidget(color));
 
       num rowTotal = 0;
-
       for (final pn in productNames) {
         final v = matrix[color]?[pn] ?? 0;
         rowTotal += v;
-        cells.add(_bodyCell(v == 0 ? '' : v.toStringAsFixed(0)));
+        cells.add(_bodyCellWidget(v == 0 ? '' : v.toStringAsFixed(0)));
       }
 
       final rec = receivedMap[color] ?? 0;
       final rep = repairingMap[color] ?? 0;
 
-      cells.add(_bodyCell(rowTotal == 0 ? '' : rowTotal.toStringAsFixed(0)));
-      cells.add(_bodyCell(rec == 0 ? '' : rec.toStringAsFixed(0)));
-      cells.add(_bodyCell(rep == 0 ? '' : rep.toStringAsFixed(0)));
+      cells.add(_bodyCellWidget(rowTotal == 0 ? '' : rowTotal.toStringAsFixed(0), bold: true));
+      cells.add(_bodyCellWidget(rec == 0 ? '' : rec.toStringAsFixed(0), bold: true));
+      cells.add(_bodyCellWidget(rep == 0 ? '' : rep.toStringAsFixed(0), bold: true));
 
-      rows.add(pw.TableRow(children: cells));
+      rows.add(
+        pw.TableRow(
+          decoration: pw.BoxDecoration(
+            color: isEven ? PdfColors.grey200 : PdfColors.white,
+          ),
+          children: cells,
+        ),
+      );
     }
 
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.6),
+      border: pw.TableBorder(
+        top: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        bottom: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        left: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        right: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        horizontalInside: pw.BorderSide(color: PdfColors.grey700, width: 0.6),
+        verticalInside: pw.BorderSide(color: PdfColors.grey700, width: 0.6),
+      ),
       columnWidths: {
         0: const pw.FlexColumnWidth(2),
         ..._buildProductColumnWidths(productNames.length),
@@ -418,46 +439,76 @@ class CustomizationPdfGeneratorAlt {
     final repRMap = _toNumMap(templeMatrix['repRMap']);
     final repLMap = _toNumMap(templeMatrix['repLMap']);
 
-    final headerCells = <pw.Widget>[
-      _headerCell('Temple Color'),
-      ...genders.map(_headerCell),
-      _headerCell('Total'),
-      _headerCell('Rec R'),
-      _headerCell('Rec L'),
-      _headerCell('Rep R'),
-      _headerCell('Rep L'),
-    ];
+    final headerTitles = <String>[];
+    headerTitles.add('Temple Color');
+    headerTitles.addAll(genders);
+    headerTitles.addAll(['Total', 'Rec R', 'Rec L', 'Rep R', 'Rep L']);
 
-    final rows = <pw.TableRow>[
+    final rows = <pw.TableRow>[];
+
+    // Header row
+    rows.add(
       pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-        children: headerCells,
-      )
-    ];
+        decoration: pw.BoxDecoration(color: PdfColors.grey800),
+        children: headerTitles.map((t) => _headerCellWidget(t)).toList(),
+      ),
+    );
 
-    for (final color in colors) {
+    for (int i = 0; i < colors.length; i++) {
+      final color = colors[i];
+      final isEven = i % 2 == 0;
       final cells = <pw.Widget>[];
-      cells.add(_bodyCell(color));
+      cells.add(_bodyCellWidget(color));
 
       num rowTotal = 0;
 
       for (final g in genders) {
         final v = matrix[color]?[g] ?? 0;
         rowTotal += v;
-        cells.add(_bodyCell(v == 0 ? '' : v.toStringAsFixed(0)));
+        cells.add(_bodyCellWidget(v == 0 ? '' : v.toStringAsFixed(0)));
       }
 
-      cells.add(_bodyCell(rowTotal == 0 ? '' : rowTotal.toStringAsFixed(0)));
-      cells.add(_bodyCell((recRMap[color] ?? 0).toStringAsFixed(0)));
-      cells.add(_bodyCell((recLMap[color] ?? 0).toStringAsFixed(0)));
-      cells.add(_bodyCell((repRMap[color] ?? 0).toStringAsFixed(0)));
-      cells.add(_bodyCell((repLMap[color] ?? 0).toStringAsFixed(0)));
+      cells.add(_bodyCellWidget(rowTotal == 0 ? '' : rowTotal.toStringAsFixed(0), bold: true));
+      cells.add(_bodyCellWidget(
+        (recRMap[color] ?? 0) == 0 ? '' : (recRMap[color]!.toStringAsFixed(0)),
+        bold: true,
+      ));
 
-      rows.add(pw.TableRow(children: cells));
+      cells.add(_bodyCellWidget(
+        (recLMap[color] ?? 0) == 0 ? '' : (recLMap[color]!.toStringAsFixed(0)),
+        bold: true,
+      ));
+
+      cells.add(_bodyCellWidget(
+        (repRMap[color] ?? 0) == 0 ? '' : (repRMap[color]!.toStringAsFixed(0)),
+        bold: true,
+      ));
+
+      cells.add(_bodyCellWidget(
+        (repLMap[color] ?? 0) == 0 ? '' : (repLMap[color]!.toStringAsFixed(0)),
+        bold: true,
+      ));
+
+
+      rows.add(
+        pw.TableRow(
+          decoration: pw.BoxDecoration(
+            color: isEven ? PdfColors.grey200 : PdfColors.white,
+          ),
+          children: cells,
+        ),
+      );
     }
 
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.6),
+      border: pw.TableBorder(
+        top: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        bottom: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        left: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        right: pw.BorderSide(color: PdfColors.black, width: 1.2),
+        horizontalInside: pw.BorderSide(color: PdfColors.grey700, width: 0.6),
+        verticalInside: pw.BorderSide(color: PdfColors.grey700, width: 0.6),
+      ),
       columnWidths: {
         0: const pw.FlexColumnWidth(2),
         ..._buildGenderColumnWidths(genders.length),
@@ -478,10 +529,11 @@ class CustomizationPdfGeneratorAlt {
         .fold<num>(0, (s, v) => s + v);
 
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
+      padding: const pw.EdgeInsets.all(10),
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
+        border: pw.Border.all(color: PdfColors.black, width: 1.0),
         borderRadius: pw.BorderRadius.circular(6),
+        color: PdfColors.grey100,
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -495,9 +547,9 @@ class CustomizationPdfGeneratorAlt {
               ),
               pw.SizedBox(height: 6),
               pw.Text('Total Focus Qty: ${totalFocus.toStringAsFixed(0)}',
-                  style: pw.TextStyle(fontSize: 10)),
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
               pw.Text('Total Temple Qty: ${totalTemple.toStringAsFixed(0)}',
-                  style: pw.TextStyle(fontSize: 10)),
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
             ],
           ),
           pw.Text(
@@ -509,9 +561,56 @@ class CustomizationPdfGeneratorAlt {
     );
   }
 
+  pw.Widget _buildMiniSummaryForFocus(Map<String, dynamic> focusMatrix) {
+    final totalFocus = _toNumMap(focusMatrix['totalMap'])
+        .values
+        .fold<num>(0, (s, v) => s + v);
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 1.0),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text('Focus Total: ${totalFocus.toStringAsFixed(0)}',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(width: 6),
+          pw.Text('Prepared: ${_formatNow()}', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+        ],
+      ),
+    );
+  }
+
   // --------------------------------------------------
-  // Small Helpers
+  // Small Helpers (updated cell widgets for print)
   // --------------------------------------------------
+
+  pw.Widget _headerCellWidget(String title) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      child: pw.Text(
+        title,
+        style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+      ),
+    );
+  }
+
+  pw.Widget _bodyCellWidget(String value, {bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      child: pw.Text(
+        value,
+        style: pw.TextStyle(
+          fontSize: 10,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: PdfColors.black,
+        ),
+      ),
+    );
+  }
 
   String _productDisplayName(Map<String, dynamic> product) {
     final pn = (product['productName'] ?? '').toString().trim();
@@ -572,23 +671,6 @@ class CustomizationPdfGeneratorAlt {
     map[base + 3] = const pw.FlexColumnWidth(1);
     map[base + 4] = const pw.FlexColumnWidth(1);
     return map;
-  }
-
-  pw.Widget _headerCell(String title) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(6),
-      child: pw.Text(
-        title,
-        style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
-      ),
-    );
-  }
-
-  pw.Widget _bodyCell(String value) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(6),
-      child: pw.Text(value, style: pw.TextStyle(fontSize: 9)),
-    );
   }
 
   String _formatNow() {
