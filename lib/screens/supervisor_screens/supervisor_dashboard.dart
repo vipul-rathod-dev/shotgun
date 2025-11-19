@@ -49,12 +49,40 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     final userEmail = FirebaseAuth.instance.currentUser?.email ?? 'Supervisor';
 
     final List<DashboardItem> dashboardItems = const [
-      DashboardItem(icon: Icons.inventory_2_rounded, title: 'Manage Inventory', route: '/supervisor/view-inventory'),
-      DashboardItem(icon: Icons.production_quantity_limits, title: 'Manage Products', route: '/supervisor/products'),
-      DashboardItem(icon: Icons.people_outline, title: 'Manage Suppliers', route: '/supervisor/suppliers'),
-      DashboardItem(icon: Icons.bar_chart, title: 'Manage Orders', route: '/supervisor/orders'),
-      DashboardItem(icon: Icons.badge_outlined, title: 'Manage Staff', route: '/supervisor/view-staff'),
+      DashboardItem(
+        icon: Icons.inventory_2_rounded,
+        title: 'Manage Inventory',
+        route: '/supervisor/view-inventory',
+      ),
+      DashboardItem(
+        icon: Icons.production_quantity_limits,
+        title: 'Manage Products',
+        route: '/supervisor/products',
+      ),
+      DashboardItem(
+        icon: Icons.people_outline,
+        title: 'Manage Suppliers',
+        route: '/supervisor/suppliers',
+      ),
+      DashboardItem(
+        icon: Icons.bar_chart,
+        title: 'Manage Orders',
+        route: '/supervisor/orders',
+      ),
+      DashboardItem(
+        icon: Icons.badge_outlined,
+        title: 'Manage Staff',
+        route: '/supervisor/view-staff',
+      ),
+
+      // ⭐ NEW CARD — Color Templates
+      DashboardItem(
+        icon: Icons.palette_outlined,
+        title: 'Color Templates',
+        route: '/supervisor/color-templates',
+      ),
     ];
+
 
     final fabItems = [
       FabMenuItem(

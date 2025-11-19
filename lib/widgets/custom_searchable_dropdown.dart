@@ -60,6 +60,7 @@ class _SearchableDropdownState extends State<SearchableDropdown> {
               icon: Icon(_isExpanded ? Icons.arrow_drop_up : Icons.arrow_drop_down),
               onPressed: () => setState(() => _isExpanded = !_isExpanded),
             ),
+            border: OutlineInputBorder(),
           ),
           onChanged: _filterItems,
           readOnly: false,
