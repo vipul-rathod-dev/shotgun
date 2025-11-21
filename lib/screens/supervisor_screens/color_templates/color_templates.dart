@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'add_color_template_page.dart';
 import 'color_template_details_page.dart';
 
@@ -40,6 +39,75 @@ class _ColorTemplatesPageState extends State<ColorTemplatesPage> {
       .doc(companyId)
       .collection("color_templates");
 
+  Future<void> _deleteTemplate(String docId, String templateName) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete template"),
+        content: Text("Delete \"$templateName\"? This action cannot be undone."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ref.doc(docId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Template deleted")));
+      // No need to setState, StreamBuilder will update. But return true in case caller wants it.
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
+    }
+  }
+
+  Future<void> _duplicateTemplate(
+    String docId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final newData = Map<String, dynamic>.from(data);
+
+      // Update name
+      final name = newData["name"] ?? "Unnamed Template";
+      newData["name"] = "$name (copy)";
+
+      // New timestamp
+      newData["createdAt"] = FieldValue.serverTimestamp();
+
+      await ref.add(newData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Template duplicated")),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Duplicate failed: $e")),
+      );
+    }
+  }
+
+
+  Future<void> _editTemplate(String docId, Map<String, dynamic> data) async {
+    final result = await Navigator.push<bool?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddColorTemplatePage(
+          templateId: docId,
+          initialData: data,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      // StreamBuilder will update automatically; optional feedback:
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Template updated")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -56,10 +124,14 @@ class _ColorTemplatesPageState extends State<ColorTemplatesPage> {
 
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          await Navigator.push(
+          final result = await Navigator.push<bool?>(
             context,
             MaterialPageRoute(builder: (_) => const AddColorTemplatePage()),
           );
+
+          if (result == true) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Template saved")));
+          }
         },
         child: const Icon(Icons.add),
       ),
@@ -132,7 +204,43 @@ class _ColorTemplatesPageState extends State<ColorTemplatesPage> {
                     ],
                   ),
 
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        await _editTemplate(doc.id, data);
+                      } 
+                      else if (value == 'duplicate') {
+                        await _duplicateTemplate(doc.id, data);
+                      }
+                      else if (value == 'delete') {
+                        await _deleteTemplate(doc.id, templateName);
+                      }
+                    },
+
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          leading: Icon(Icons.edit),
+                          title: Text('Edit'),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'duplicate',
+                        child: ListTile(
+                          leading: Icon(Icons.copy),
+                          title: Text('Duplicate'),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete, color: Colors.red),
+                          title: Text('Delete'),
+                        ),
+                      ),
+                    ],
+                  ),
 
                   onTap: () {
                     Navigator.push(
@@ -145,7 +253,7 @@ class _ColorTemplatesPageState extends State<ColorTemplatesPage> {
                         ),
                       ),
                     );
-                  }
+                  },
                 ),
               );
             },
