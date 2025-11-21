@@ -109,6 +109,7 @@ class AddOrderController extends ChangeNotifier {
   // 🔹 Customizations
   // ────────────────────────────────
   void addCustomization(String gender, Map<String, dynamic> customization) {
+    print("Cusomization added for $gender: $customization");
     if (!productCustomizations.containsKey(gender)) {
       productCustomizations[gender] = [];
     }
