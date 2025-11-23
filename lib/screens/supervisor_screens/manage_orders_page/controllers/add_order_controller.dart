@@ -33,17 +33,16 @@ class AddOrderController extends ChangeNotifier {
   String? brandName;
   DateTime? orderDate;
   DateTime? shippingDate;
-
   List<Map<String, dynamic>> products = [];
   Map<String, List<Map<String, dynamic>>> productCustomizations = {};
-
   bool _isInitialized = false;
-
   String? orderType; // e.g., 'Standard' or 'Customized'
-
   bool get showColorCustomization => orderType == 'Customized';
-
   Map<String, int> boxQuantity = {};
+  String? gentsDefaultTemplate;
+  String? ladiesDefaultTemplate;
+  String? babyDefaultTemplate;
+
 
   // ────────────────────────────────
   // 🔹 Helper: Get Company ID
@@ -54,6 +53,13 @@ class AddOrderController extends ChangeNotifier {
     if (id == null) throw Exception('No cached company ID found.');
     return id;
   }
+
+  void setDefaultTemplates(Map<String, dynamic>? templates) {
+    gentsDefaultTemplate = templates?['gents'];
+    ladiesDefaultTemplate = templates?['ladies'];
+    babyDefaultTemplate = templates?['baby'];
+  }
+
 
   // ────────────────────────────────
   // 🔹 Setters / Updaters
@@ -400,73 +406,77 @@ class AddOrderController extends ChangeNotifier {
   // ────────────────────────────────
   // 🔹 Edit Mode Initialization
   // ────────────────────────────────
-  Future<void> initEditMode(bool editMode, String? id) async {
-    if (!editMode || id == null || _isInitialized) return;
+  void initEditMode({
+    required bool isEditMode,
+    String? orderId,
+    String? companyId,
+  }) async {
+    if (!isEditMode || orderId == null || _isInitialized) return;
 
-    isEditMode = editMode;
-    orderId = id;
-    final companyId = await _getCompanyId();
+    // ✅ Ensure widget is still mounted before doing async operations
+    await Future.delayed(Duration.zero);
+    if (!isEditMode) return;
+
+    // ✅ Use passed companyId OR fallback to prefs
+    final cid = companyId ?? await _getCompanyId();
+    if (cid.isEmpty) return;
 
     final doc = await FirebaseFirestore.instance
         .collection('companies')
-        .doc(companyId)
+        .doc(cid)
         .collection('orders')
-        .doc(id)
+        .doc(orderId)
         .get();
 
     if (!doc.exists) return;
 
     final data = doc.data()!;
 
-    // 🔹 Basic fields
+    // -------------------------------
+    // 🔹 Restore Basic Fields
+    // -------------------------------
     customerNameController.text = data['customerName'] ?? '';
     customerPhoneController.text = data['customerPhone'] ?? '';
     brandNameController.text = data['brandName'] ?? '';
+
     customerName = data['customerName'];
     customerPhone = data['customerPhone'];
     brandName = data['brandName'];
     orderType = data['orderType'] ?? 'Standard';
+
     orderDate = (data['orderDate'] as Timestamp?)?.toDate();
     shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();
 
-    // 🔹 Load products
+    // -------------------------------
+    // 🔹 Restore Products
+    // -------------------------------
     products = List<Map<String, dynamic>>.from(data['products'] ?? []);
 
-    // 🔹 Load per-product customizations (if any)
-    for (var p in products) {
-      final pid = p['productId'];
-      productCustomizations[pid] =
-          List<Map<String, dynamic>>.from(p['customizations'] ?? []);
-    }
-
+    // -------------------------------
     // 🔹 Restore gender-level customizations
+    // -------------------------------
     if (data.containsKey('productCustomizations')) {
-      productCustomizations
-        ..clear()
-        ..addAll(
-          (data['productCustomizations'] as Map).map(
-            (k, v) => MapEntry(
-              k.toString(),
-              List<Map<String, dynamic>>.from(v ?? []),
-            ),
-          ),
-        );
+      productCustomizations.clear();
+      (data['productCustomizations'] as Map).forEach((key, value) {
+        productCustomizations[key.toString()] =
+            List<Map<String, dynamic>>.from(value ?? []);
+      });
     }
 
-    // 🔹 Restore box quantities
+    // -------------------------------
+    // 🔹 Restore Box Quantities
+    // -------------------------------
     if (data.containsKey('boxQuantity')) {
-      boxQuantity
-        ..clear()
-        ..addAll(
-          (data['boxQuantity'] as Map).map(
-            (k, v) => MapEntry(k.toString(), (v as num).toInt()),
-          ),
-        );
+      boxQuantity.clear();
+      (data['boxQuantity'] as Map).forEach((key, value) {
+        boxQuantity[key.toString()] = (value as num).toInt();
+      });
     }
 
     _isInitialized = true;
     notifyListeners();
   }
+
 
 
   // ────────────────────────────────

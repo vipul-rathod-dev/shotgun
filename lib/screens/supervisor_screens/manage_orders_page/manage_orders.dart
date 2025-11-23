@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/order_card.dart';
 
+import 'add_orders_page.dart';
+
 class ManageOrdersPage extends StatefulWidget {
   const ManageOrdersPage({super.key});
 
@@ -40,7 +42,15 @@ class _ManageOrdersPageState extends State<ManageOrdersPage> {
         backgroundColor: Colors.lightBlue,
         actions: [
           TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/supervisor/orders/new'),
+            // onPressed: () => Navigator.pushNamed(context, '/supervisor/orders/new'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddOrdersPage(companyId: _companyId),
+                ),
+              );
+            },
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               "New Order",

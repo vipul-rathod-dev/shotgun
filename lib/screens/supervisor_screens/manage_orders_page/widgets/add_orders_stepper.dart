@@ -8,7 +8,8 @@ import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/pr
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/summary_section.dart';
 
 class AddOrdersStepper extends StatefulWidget {
-  const AddOrdersStepper({super.key});
+  final String? companyId;
+  const AddOrdersStepper({super.key, required this.companyId});
 
   @override
   State<AddOrdersStepper> createState() => _AddOrdersStepperState();
@@ -94,7 +95,7 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CustomerDetailsForm(controller: controller),
+            CustomerDetailsForm(controller: controller, companyId: widget.companyId,),
             const SizedBox(height: 20),
             // 🔹 New Order Type Dropdown
             DropdownButtonFormField<String>(

@@ -20,14 +20,18 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
   List<Map<String, dynamic>> _colorTemplates = [];
 
   bool _isLoading = true;
+  bool _dataLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _fetchData().then((_) {
+      _applyDefaultTemplates();  // ⭐ after data is fetched
+    });
   }
 
   Future<void> _fetchData() async {
+    if (_dataLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final companyId = prefs.getString('cachedCompanyId');
@@ -58,29 +62,23 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
           .orderBy('name')
           .get();
 
-      print(templateSnapshot.docs[0].data());
-
       setState(() {
-        _availableColors = colorSnapshot.docs
-            .map((d) => {
-                  'id': d.id,
-                  'name': d['name'] ?? 'Unnamed',
-                  'focusBaseMaterial': d['focusBaseMaterial']
-                })
-            .toList();
+        if (!mounted) return;
 
-        _availableTemples = templeSnapshot.docs
-            .map((d) => {
-                  'id': d.id,
-                  'name': d['name'] ?? 'Unnamed',
-                  'templeBaseMaterial': d['templeBaseMaterial']
-                })
-            .toList();
+        _availableColors = colorSnapshot.docs.map((d) => {
+          'id': d.id,
+          'name': d['name'] ?? 'Unnamed',
+          'focusBaseMaterial': d['focusBaseMaterial']
+        }).toList();
+
+        _availableTemples = templeSnapshot.docs.map((d) => {
+          'id': d.id,
+          'name': d['name'] ?? 'Unnamed',
+          'templeBaseMaterial': d['templeBaseMaterial']
+        }).toList();
 
         _colorTemplates = templateSnapshot.docs.map((d) {
           final data = d.data();
-          print(data);
-
           return {
             'id': d.id,
             'name': data['name'] ?? 'Unnamed Template',
@@ -89,7 +87,9 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
         }).toList();
 
         _isLoading = false;
+        _dataLoaded = true;
       });
+
     } catch (e) {
       debugPrint('⚠️ Failed to load data: $e');
       if (mounted) {
@@ -99,6 +99,50 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
       }
       setState(() => _isLoading = false);
     }
+  }
+
+  void _applyDefaultTemplates() {
+    if (!mounted) return;  // REQUIRED
+
+    final ctrl = widget.controller;
+
+    final templateMap = {
+      'Gents': ctrl.gentsDefaultTemplate,
+      'Ladies': ctrl.ladiesDefaultTemplate,
+      'Baby': ctrl.babyDefaultTemplate,
+    };
+
+    templateMap.forEach((gender, templateId) {
+      if (templateId == null) return;
+
+      final template = _colorTemplates.firstWhere(
+        (t) => t['id'] == templateId,
+        orElse: () => {},
+      );
+
+      if (template.isEmpty) return;
+
+      final genderKey = gender.toLowerCase();
+      final customList = template['productCustomizations'][genderKey];
+
+      if (customList == null) return;
+
+      for (final c in customList) {
+        widget.controller.addCustomization(gender, {
+          'focusColorId': c['focusColorId'],
+          'focusColor': c['focusColor'],
+          'focusQty': c['focusQty'],
+          'focusBaseMaterial': c['focusBaseMaterial'],
+          'templeColorId': c['templeColorId'],
+          'templeColor': c['templeColor'],
+          'templeQty': c['templeQty'],
+          'templeBaseMaterial': c['templeBaseMaterial'],
+        });
+      }
+    });
+
+    if (!mounted) return;  
+    setState(() {});  // SAFE REFRESH
   }
 
   @override
@@ -187,15 +231,17 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                         ),
                                         onChanged: (value) {
                                           if (value == null) return;
+                                          if (!mounted) return;
+
                                           setState(() {
                                             data['focusColorId'] = value['id'];
                                             data['focusColor'] = value['name'];
-                                            data['focusBaseMaterial'] =
-                                                value['focusBaseMaterial'];
+                                            data['focusBaseMaterial'] = value['focusBaseMaterial'];
                                           });
-                                          widget.controller.updateCustomization(
-                                              gender, index, data);
+
+                                          widget.controller.updateCustomization(gender, index, data);
                                         },
+
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -220,12 +266,12 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           return null;
                                         },
                                         onChanged: (value) {
-                                          final newQty =
-                                              int.tryParse(value) ?? 0;
-                                          setState(() =>
-                                              data['focusQty'] = newQty);
-                                          widget.controller.updateCustomization(
-                                              gender, index, data);
+                                          final newQty = int.tryParse(value) ?? 0;
+
+                                          if (!mounted) return;
+                                          setState(() => data['focusQty'] = newQty);
+
+                                          widget.controller.updateCustomization(gender, index, data);
                                         },
                                       ),
                                     ),
@@ -251,6 +297,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                         ),
                                         onChanged: (value) {
                                           if (value == null) return;
+                                          if (!mounted) return;
                                           setState(() {
                                             data['templeColorId'] = value['id'];
                                             data['templeColor'] =
@@ -287,6 +334,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                         onChanged: (value) {
                                           final newQty =
                                               int.tryParse(value) ?? 0;
+                                          if (!mounted) return;
                                           setState(() =>
                                               data['templeQty'] = newQty);
                                           widget.controller.updateCustomization(
@@ -308,6 +356,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(20),
                             onTap: () {
+                              if (!mounted) return;
                               setState(() {
                                 widget.controller
                                     .removeCustomization(gender, index);
