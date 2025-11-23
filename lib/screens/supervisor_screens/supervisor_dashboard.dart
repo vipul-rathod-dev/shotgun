@@ -60,6 +60,11 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
         route: '/supervisor/products',
       ),
       DashboardItem(
+        icon: Icons.person_outline,
+        title: 'Manage Customers',
+        route: '/supervisor/customers',
+      ),
+      DashboardItem(
         icon: Icons.people_outline,
         title: 'Manage Suppliers',
         route: '/supervisor/suppliers',

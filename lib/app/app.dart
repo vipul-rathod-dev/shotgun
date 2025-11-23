@@ -6,6 +6,8 @@ import 'package:shotgun/screens/auth_screens/company_login_page.dart';
 import 'package:shotgun/screens/staff_screens/tasks_page/tasks_page.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_focus_color.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_temple_color.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_customers_page/customers_list_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_customers_page/add_customers_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_staff/add_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/manage_orders.dart';
 import 'package:shotgun/screens/auth_screens/login_page.dart';
@@ -69,6 +71,8 @@ class MyApp extends StatelessWidget {
         '/supervisor/execute-order': (context) => const ExecuteOrder(),
         '/supervisor/manage-inventory': (context) => const ManageInventoryPage(),
         '/supervisor/color-templates': (context) => const ColorTemplatesPage(),
+        '/supervisor/customers': (context) => const CustomersListPage(),
+        '/supervisor/add-customer': (context) => const AddCustomersPage(),
 
         // STAFF ROUTES
         '/staff': (context) => const StaffDashboard(),
