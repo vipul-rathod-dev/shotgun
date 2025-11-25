@@ -57,7 +57,8 @@ class _AddFocusColorState extends State<AddFocusColor> {
 
     try {
       final colorData = {
-        'name': colorName,
+        'name': colorName.trim().toLowerCase(),
+        'displayName': "${colorName} - ${_selectedMaterial!}",
         'imagePath': _selectedImage?.path,
         'focusBaseMaterial': _selectedMaterial,
         'createdAt': Timestamp.now(),
@@ -529,7 +530,7 @@ class _AddFocusColorState extends State<AddFocusColor> {
                                               ),
                                             ),
                                     title: Text(
-                                      data['name'] ?? '',
+                                      data['displayName'] ?? '',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),

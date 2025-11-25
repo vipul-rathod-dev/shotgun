@@ -7,8 +7,7 @@ class AddColorTemplatePage extends StatefulWidget {
   final String? templateId;
   final Map<String, dynamic>? initialData;
 
-const AddColorTemplatePage({super.key, this.templateId, this.initialData});
-
+  const AddColorTemplatePage({super.key, this.templateId, this.initialData});
 
   @override
   State<AddColorTemplatePage> createState() => _AddColorTemplatePageState();
@@ -118,7 +117,6 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
       _populateFromInitialData(widget.initialData!);
     }
 
-
     setState(() => loading = false);
   }
 
@@ -126,33 +124,41 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
   List<Map<String, String>> templeColors = [];
 
   Future<void> _fetchFocusColors() async {
-    final snap = await FirebaseFirestore.instance
-        .collection("companies")
-        .doc(companyId)
-        .collection("focus_colors")
-        .get();
+    final snap =
+        await FirebaseFirestore.instance
+            .collection("companies")
+            .doc(companyId)
+            .collection("focus_colors")
+            .get();
 
-    focusColors = snap.docs
-        .map((d) => {
-              "id": d.id,
-              "name": (d.data()["name"] ?? "").toString().trim(),
-            })
-        .toList();
+    focusColors =
+        snap.docs
+            .map(
+              (d) => {
+                "id": d.id,
+                "name": (d.data()["displayName"] ?? "").toString().trim(),
+              },
+            )
+            .toList();
   }
 
   Future<void> _fetchTempleColors() async {
-    final snap = await FirebaseFirestore.instance
-        .collection("companies")
-        .doc(companyId)
-        .collection("temple_colors")
-        .get();
+    final snap =
+        await FirebaseFirestore.instance
+            .collection("companies")
+            .doc(companyId)
+            .collection("temple_colors")
+            .get();
 
-    templeColors = snap.docs
-        .map((d) => {
-              "id": d.id,
-              "name": (d.data()["name"] ?? "").toString().trim(),
-            })
-        .toList();
+    templeColors =
+        snap.docs
+            .map(
+              (d) => {
+                "id": d.id,
+                "name": (d.data()["displayName"] ?? "").toString().trim(),
+              },
+            )
+            .toList();
   }
 
   void _populateFromInitialData(Map<String, dynamic> doc) {
@@ -168,7 +174,6 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
       final genderKey = productCustomizations.keys.first;
       selectedGender = genderKey;
       print("genderKey detected = $genderKey");
-
 
       final combos = productCustomizations[genderKey] as List? ?? [];
 
@@ -200,8 +205,10 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
       int pc = 0;
 
       for (var card in expandedCards) {
-        final focusBase = card["focusBaseMaterial"]?.toString().toLowerCase() ?? "";
-        final templeBase = card["templeBaseMaterial"]?.toString().toLowerCase() ?? "";
+        final focusBase =
+            card["focusBaseMaterial"]?.toString().toLowerCase() ?? "";
+        final templeBase =
+            card["templeBaseMaterial"]?.toString().toLowerCase() ?? "";
         final base = focusBase == templeBase ? focusBase : "";
 
         if (base == "black") black++;
@@ -236,7 +243,9 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
 
     if (!showCards || cards.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter quantities to generate color combinations")),
+        const SnackBar(
+          content: Text("Enter quantities to generate color combinations"),
+        ),
       );
       return;
     }
@@ -245,25 +254,30 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     for (var card in cards) {
       if (card["focusColor"] == null || card["templeColor"] == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please select focus and temple colors for all cards")),
+          const SnackBar(
+            content: Text(
+              "Please select focus and temple colors for all cards",
+            ),
+          ),
         );
         return;
       }
     }
 
     // 🔥 NO MERGING — each card is treated individually
-    final List<Map<String, dynamic>> combosToSave = cards.map((card) {
-      return {
-        "focusBaseMaterial": card["focusBaseMaterial"],
-        "focusColor": card["focusColor"],
-        "focusColorId": card["focusColorId"],
-        "focusQty": 1,
-        "templeBaseMaterial": card["templeBaseMaterial"],
-        "templeColor": card["templeColor"],
-        "templeColorId": card["templeColorId"],
-        "templeQty": 1,
-      };
-    }).toList();
+    final List<Map<String, dynamic>> combosToSave =
+        cards.map((card) {
+          return {
+            "focusBaseMaterial": card["focusBaseMaterial"],
+            "focusColor": card["focusColor"],
+            "focusColorId": card["focusColorId"],
+            "focusQty": 1,
+            "templeBaseMaterial": card["templeBaseMaterial"],
+            "templeColor": card["templeColor"],
+            "templeColorId": card["templeColorId"],
+            "templeQty": 1,
+          };
+        }).toList();
 
     // Get gender name
     final genderEntry = genderOptions.firstWhere(
@@ -277,9 +291,7 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
       "name": "${nameController.text.trim()} - $genderName",
       "createdAt": FieldValue.serverTimestamp(),
       "status": "active",
-      "productCustomizations": {
-        selectedGender!: combosToSave,
-      },
+      "productCustomizations": {selectedGender!: combosToSave},
     };
 
     try {
@@ -302,96 +314,11 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving template: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error saving template: $e")));
     }
   }
-
-  // Future<void> _saveTemplate() async {
-  //   if (nameController.text.trim().isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("Template name is required")),
-  //     );
-  //     return;
-  //   }
-  //   if (selectedGender == null) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("Please select Model Gender")),
-  //     );
-  //     return;
-  //   }
-  //   if (!showCards || cards.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("Enter quantities to generate color combinations")),
-  //     );
-  //     return;
-  //   }
-  //   // Validate each card has selections
-  //   for (var card in cards) {
-  //     if (card["focusColor"] == null || card["templeColor"] == null) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text("Please select focus and temple colors for all cards")),
-  //       );
-  //       return;
-  //     }
-  //   }
-  //   // 🔥 MERGE DUPLICATES
-  //   final Map<String, Map<String, dynamic>> merged = {};
-  //   for (var card in cards) {
-  //     final key =
-  //         "${card["focusBaseMaterial"]}_${card["focusColorId"]}_${card["templeBaseMaterial"]}_${card["templeColorId"]}";
-  //     if (!merged.containsKey(key)) {
-  //       merged[key] = {
-  //         "focusBaseMaterial": card["focusBaseMaterial"],
-  //         "focusColor": card["focusColor"],
-  //         "focusColorId": card["focusColorId"],
-  //         "focusQty": 1, // initial count
-  //         "templeBaseMaterial": card["templeBaseMaterial"],
-  //         "templeColor": card["templeColor"],
-  //         "templeColorId": card["templeColorId"],
-  //         "templeQty": 1, // initial count
-  //       };
-  //     } else {
-  //       merged[key]!["focusQty"] += 1; // increment count
-  //       merged[key]!["templeQty"] += 1; // increment count
-  //     }
-  //   }
-  //   if (merged.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("No valid color combinations to save")),
-  //     );
-  //     return;
-  //   }
-  //   // Get human-readable gender name for display
-  //   final genderEntry = genderOptions.firstWhere((g) => g["id"] == selectedGender, orElse: () => {"id": selectedGender!, "name": selectedGender!});
-  //   final genderName = genderEntry["name"] ?? selectedGender;
-  //   final data = {
-  //     "name": "${nameController.text.trim()} - $genderName",
-  //     "createdAt": FieldValue.serverTimestamp(),
-  //     "status": "active",
-  //     // keep the id as the key (e.g. "gents") and the merged list as value
-  //     "productCustomizations": {selectedGender!: merged.values.toList()},
-  //   };
-  //   try {
-  //     final collectionRef = FirebaseFirestore.instance
-  //         .collection("companies")
-  //         .doc(companyId)
-  //         .collection("color_templates");
-  //     if (widget.templateId != null) {
-  //       // Update existing doc
-  //       await collectionRef.doc(widget.templateId).update(data);
-  //       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Template updated successfully")));
-  //     } else {
-  //       // Create new
-  //       await collectionRef.add(data);
-  //       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Template saved successfully")));
-  //     }
-  //     Navigator.pop(context, true); // signal success to caller
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving template: $e")));
-  //   }
-  // }
 
   @override
   void dispose() {
@@ -402,13 +329,10 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -468,11 +392,16 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
                 labelText: "Model Gender",
                 keyName: "name",
                 items: genderOptions,
-                value: selectedGender == null
-                  ? null
-                  : genderOptions.where((g) => g["id"] == selectedGender).isNotEmpty
-                      ? genderOptions.firstWhere((g) => g["id"] == selectedGender)
-                      : null,
+                value:
+                    selectedGender == null
+                        ? null
+                        : genderOptions
+                            .where((g) => g["id"] == selectedGender)
+                            .isNotEmpty
+                        ? genderOptions.firstWhere(
+                          (g) => g["id"] == selectedGender,
+                        )
+                        : null,
                 onChanged: (value) {
                   setState(() {
                     selectedGender = value?["id"];
@@ -514,8 +443,9 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: cards.length,
-                    itemBuilder: (context, index) =>
-                        _animatedCardWrapper(_buildColorCard(index)),
+                    itemBuilder:
+                        (context, index) =>
+                            _animatedCardWrapper(_buildColorCard(index)),
                   ),
                 ),
 
@@ -543,15 +473,16 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     );
   }
 
-
   Widget _animatedSaveButton() {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 300),
-      opacity: (selectedGender != null && showCards && cards.isNotEmpty) ? 1 : 0.5,
+      opacity:
+          (selectedGender != null && showCards && cards.isNotEmpty) ? 1 : 0.5,
       child: ElevatedButton(
-        onPressed: (selectedGender != null && showCards && cards.isNotEmpty)
-            ? _saveTemplate
-            : null,
+        onPressed:
+            (selectedGender != null && showCards && cards.isNotEmpty)
+                ? _saveTemplate
+                : null,
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 55),
           backgroundColor: Colors.blue,
@@ -568,7 +499,6 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     );
   }
 
-
   Widget _qtyField(String label, TextEditingController controller) {
     return Expanded(
       child: TextField(
@@ -582,7 +512,10 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
         ),
         keyboardType: TextInputType.number,
       ),
@@ -602,7 +535,6 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     );
   }
 
-
   Widget _sectionLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -617,7 +549,6 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     );
   }
 
-
   // CARD WIDGET
   Widget _buildColorCard(int index) {
     final item = cards[index];
@@ -625,9 +556,7 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
     return Card(
       elevation: 1,
       color: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -635,10 +564,7 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
           children: [
             Text(
               "${item["focusBaseMaterial"]} – Color Combination",
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
 
             const SizedBox(height: 18),
@@ -647,11 +573,16 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
               labelText: "Focus Color",
               keyName: "name",
               items: focusColors,
-              value: item["focusColorId"] != null
-                ? focusColors.where((c) => c["id"] == item["focusColorId"]).isNotEmpty
-                    ? focusColors.firstWhere((c) => c["id"] == item["focusColorId"])
-                    : null
-                : null,
+              value:
+                  item["focusColorId"] != null
+                      ? focusColors
+                              .where((c) => c["id"] == item["focusColorId"])
+                              .isNotEmpty
+                          ? focusColors.firstWhere(
+                            (c) => c["id"] == item["focusColorId"],
+                          )
+                          : null
+                      : null,
               onChanged: (selected) {
                 if (selected != null) {
                   setState(() {
@@ -668,11 +599,16 @@ class _AddColorTemplatePageState extends State<AddColorTemplatePage> {
               labelText: "Temple Color",
               keyName: "name",
               items: templeColors,
-              value: item["templeColorId"] != null
-                ? templeColors.where((c) => c["id"] == item["templeColorId"]).isNotEmpty
-                    ? templeColors.firstWhere((c) => c["id"] == item["templeColorId"])
-                    : null
-                : null,
+              value:
+                  item["templeColorId"] != null
+                      ? templeColors
+                              .where((c) => c["id"] == item["templeColorId"])
+                              .isNotEmpty
+                          ? templeColors.firstWhere(
+                            (c) => c["id"] == item["templeColorId"],
+                          )
+                          : null
+                      : null,
               onChanged: (selected) {
                 if (selected != null) {
                   setState(() {

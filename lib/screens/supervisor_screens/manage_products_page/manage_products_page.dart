@@ -16,6 +16,8 @@ class _ManageProductPageState extends State<ManageProductPage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
+
 
   String selectedCategory = 'Raw';
   String? selectedRawType; // 🔹 for Raw products
@@ -46,6 +48,14 @@ class _ManageProductPageState extends State<ManageProductPage>
     if (baseName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Product name is required')),
+      );
+      return;
+    }
+    final productCode = _codeController.text.trim();
+
+    if (selectedCategory == 'Finished' && productCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product code is required for Finished products')),
       );
       return;
     }
@@ -130,6 +140,7 @@ class _ManageProductPageState extends State<ManageProductPage>
     final productData = {
       'name': lowercaseName,
       'displayName': name,
+      if (selectedCategory == 'Finished') 'productCode': productCode,
       'price': price,
       'category': selectedCategory,
       if (selectedCategory == 'Raw') 'type': selectedRawType,
@@ -141,6 +152,7 @@ class _ManageProductPageState extends State<ManageProductPage>
 
     _nameController.clear();
     _priceController.clear();
+    _codeController.clear();
     setState(() {
       _reloadKey++;
       selectedRawType = null;
@@ -150,6 +162,16 @@ class _ManageProductPageState extends State<ManageProductPage>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Product added successfully')),
     );
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    _tabController.dispose();
+    _nameController.dispose();
+    _priceController.dispose();
+    _codeController.dispose();
   }
 
   @override
@@ -188,6 +210,16 @@ class _ManageProductPageState extends State<ManageProductPage>
                       ),
                     ),
                     const SizedBox(height: 12),
+                    if (selectedCategory == 'Finished') ...[
+                      TextField(
+                        controller: _codeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Product Code',
+                          prefixIcon: Icon(Icons.confirmation_number),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextField(
                       controller: _priceController,
                       keyboardType: TextInputType.number,

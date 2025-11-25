@@ -96,28 +96,6 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CustomerDetailsForm(controller: controller, companyId: widget.companyId,),
-            const SizedBox(height: 20),
-            // 🔹 New Order Type Dropdown
-            DropdownButtonFormField<String>(
-              value: controller.orderType,
-              decoration: const InputDecoration(
-                labelText: 'Order Type',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(
-                    value: 'Stock', child: Text('Stock Order')),
-                DropdownMenuItem(
-                    value: 'Customized', child: Text('Customized Order')),
-              ],
-              onChanged: (value) {
-                controller.setOrderType(value);
-                // Reset step index if user switches order type mid-way
-                if (!controller.showColorCustomization && _currentStep > 2) {
-                  setState(() => _currentStep = 2);
-                }
-              },
-            ),
           ],
         ),
       ),

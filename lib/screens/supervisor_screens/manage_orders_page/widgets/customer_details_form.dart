@@ -17,7 +17,7 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
   late TextEditingController _phoneController;
   late TextEditingController _brandNameController;
   List<Map<String, dynamic>> _customers = [];
-  String? _selectedCustomerId;
+  // String? _selectedCustomerId;
   bool _loadingCustomers = true;
 
   @override
@@ -75,16 +75,17 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
                 items: _customers,
                 keyName: "name",
                 labelText: "Select Customer",
-                value: _selectedCustomerId == null
+                value: widget.controller.selectedCustomerId == null
                   ? null
-                  : _customers.where((c) => c["id"] == _selectedCustomerId).isNotEmpty
-                      ? _customers.firstWhere((c) => c["id"] == _selectedCustomerId)
-                      : null,
+                  : _customers.firstWhere(
+                      (c) => c["id"] == widget.controller.selectedCustomerId,
+                      orElse: () => {},
+                    ),
+
                 onChanged: (selected) {
                   if (selected == null) return;
-                  setState(() {
-                    _selectedCustomerId = selected["id"];
-                  });
+                  widget.controller.selectedCustomerId = selected["id"];
+                  setState(() {});
 
                   // 🔥 Auto-fill the controller fields
                   widget.controller.setCustomerName(selected["name"]);
@@ -134,6 +135,33 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
               return null;
             },
           ),
+          const SizedBox(height: 20),
+          // 🔹 New Order Type Dropdown
+          ValueListenableBuilder(
+            valueListenable: widget.controller.orderTypeNotifier,
+            builder: (_, value, __) {
+              return SearchableDropdown(
+                labelText: "Order Type",
+                keyName: "label",
+                items: const [
+                  {"value": "Stock", "label": "Stock Order"},
+                  {"value": "Customized", "label": "Customized Order"},
+                ],
+                value: value == null
+                    ? null
+                    : {
+                        "value": value,
+                        "label": value == "Stock"
+                            ? "Stock Order"
+                            : "Customized Order",
+                      },
+                onChanged: (selected) {
+                  if (selected == null) return;
+                  widget.controller.setOrderType(selected["value"]);
+                },
+              );
+            },
+          )
         ],
       ),
     );

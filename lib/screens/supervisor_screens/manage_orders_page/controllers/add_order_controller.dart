@@ -42,7 +42,18 @@ class AddOrderController extends ChangeNotifier {
   String? gentsDefaultTemplate;
   String? ladiesDefaultTemplate;
   String? babyDefaultTemplate;
+  String? selectedCustomerId;
+  ValueNotifier<String?> orderTypeNotifier = ValueNotifier(null);
 
+  void setOrderType(String? type) {
+    orderTypeNotifier.value = type;
+    orderType = type;
+    if (orderType == 'Stock') productCustomizations.clear();
+  }
+
+  void setSelectedCustomer(String? id) {
+    selectedCustomerId = id;
+  }
 
   // ────────────────────────────────
   // 🔹 Helper: Get Company ID
@@ -64,11 +75,11 @@ class AddOrderController extends ChangeNotifier {
   // ────────────────────────────────
   // 🔹 Setters / Updaters
   // ────────────────────────────────
-  void setOrderType(String? type) {
-    orderType = type;
-    if (type == 'Standard') productCustomizations.clear();
-    notifyListeners();
-  }
+  // void setOrderType(String? type) {
+  //   orderType = type;
+  //   if (type == 'Stock') productCustomizations.clear();
+  //   notifyListeners();
+  // }
 
   void setCustomerName(String name) {
     customerNameController.text = name;
@@ -115,7 +126,6 @@ class AddOrderController extends ChangeNotifier {
   // 🔹 Customizations
   // ────────────────────────────────
   void addCustomization(String gender, Map<String, dynamic> customization) {
-    print("Cusomization added for $gender: $customization");
     if (!productCustomizations.containsKey(gender)) {
       productCustomizations[gender] = [];
     }
@@ -442,7 +452,7 @@ class AddOrderController extends ChangeNotifier {
     customerName = data['customerName'];
     customerPhone = data['customerPhone'];
     brandName = data['brandName'];
-    orderType = data['orderType'] ?? 'Standard';
+    orderType = data['orderType'] ?? 'Stock';
 
     orderDate = (data['orderDate'] as Timestamp?)?.toDate();
     shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();

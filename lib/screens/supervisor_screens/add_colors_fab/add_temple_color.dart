@@ -58,6 +58,7 @@ class _AddTempleColorState extends State<AddTempleColor> {
     try {
       final colorData = {
         'name': colorName,
+        'displayName': "$colorName - ${_selectedMaterial!}",
         'imagePath': _selectedImage?.path,
         'templeBaseMaterial': _selectedMaterial,
         'createdAt': Timestamp.now(),
@@ -529,7 +530,7 @@ class _AddTempleColorState extends State<AddTempleColor> {
                                               ),
                                             ),
                                     title: Text(
-                                      data['name'] ?? '',
+                                      data['displayName'] ?? '',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
