@@ -6,8 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/models/dashboard_item.dart';
 import 'package:shotgun/widgets/session_aware_page.dart';
 
-import 'assigned_task_page/assigned_task_page.dart';
-
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
 
