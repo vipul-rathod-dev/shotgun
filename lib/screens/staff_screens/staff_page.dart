@@ -3,7 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shotgun/models/dashboard_item.dart';
 import 'package:shotgun/widgets/session_aware_page.dart';
+
+import 'assigned_task_page/assigned_task_page.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -16,25 +19,17 @@ class _StaffDashboardState extends State<StaffDashboard> {
   String fullName = '';
   bool isLoading = true;
 
-  final List<Map<String, dynamic>> dashboardItems = [
-    // {
-    //   'title': 'Manage Inventory',
-    //   'icon': Icons.inventory_2_rounded,
-    //   'color': Colors.blueAccent,
-    //   'route': '/manage-inventory',
-    // },
-    // {
-    //   'title': 'Track Orders',
-    //   'icon': Icons.local_shipping_rounded,
-    //   'color': Colors.orangeAccent,
-    //   'route': '/orders',
-    // },
-    {
-      'title': 'My Tasks',
-      'icon': Icons.task_alt_rounded,
-      'color': Colors.tealAccent,
-      'route': '/staff/tasks',
-    }
+  final List<DashboardItem> dashboardItems = [
+    DashboardItem(
+      icon: Icons.task_alt_rounded,
+      title: 'Assigned Tasks',
+      route: '/staff/tasks',
+    ),
+    DashboardItem(
+      icon: Icons.play_circle_fill_rounded,
+      title: 'Execute Process',
+      route: '/staff/process',
+    ),
   ];
 
   @override
@@ -43,50 +38,102 @@ class _StaffDashboardState extends State<StaffDashboard> {
     fetchUserName();
   }
 
-  Future<void> fetchUserName() async {
+  Future<void> fetchUserName({bool forceRefresh = false}) async {
+    setState(() => isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('No user logged in');
 
       final prefs = await SharedPreferences.getInstance();
+
+      // Use cached displayName unless forceRefresh requested
+      if (!forceRefresh) {
+        final cached = prefs.getString('cachedDisplayName');
+        if (cached != null && cached.trim().isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            fullName = cached;
+            isLoading = false;
+          });
+          return;
+        }
+      }
+
       final companyId = prefs.getString('cachedCompanyId');
-      if (companyId == null) throw Exception('No companyId found in cache');
 
-      // 🔹 Fetch from company namespace
-      final userDoc = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      String displayName = user.displayName?.trim() ?? '';
 
-      if (!userDoc.exists) throw Exception('User document not found');
+      if (companyId != null && companyId.trim().isNotEmpty) {
+        // Try company namespace fetch
+        final userDoc = await FirebaseFirestore.instance
+            .collection('companies')
+            .doc(companyId)
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-      final data = userDoc.data();
-      final displayName = (data?['name'] ?? '').toString().trim();
+        if (userDoc.exists) {
+          final data = userDoc.data();
+          final nameFromDoc = (data?['name'] ?? '').toString().trim();
+          if (nameFromDoc.isNotEmpty) displayName = nameFromDoc;
+        }
+      }
 
+      // Fallback to email username if nothing else
+      if (displayName.isEmpty) {
+        displayName = user.email?.split('@').first ?? 'Staff Member';
+      }
+
+      // cache
+      await prefs.setString('cachedDisplayName', displayName);
+
+      if (!mounted) return;
       setState(() {
-        fullName = displayName.isNotEmpty ? displayName : 'Staff Member';
+        fullName = displayName;
         isLoading = false;
       });
-    } catch (e, stack) {
-      debugPrint('Error fetching user name: $e\n$stack');
+    } catch (e, st) {
+      debugPrint('Error fetching user name: $e\n$st');
+      if (!mounted) return;
       setState(() {
         fullName = 'Staff Member';
         isLoading = false;
       });
     }
   }
+
   Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Logout')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/company-login');
   }
 
-  void _navigateTo(String routeName) {
-    Navigator.pop(context);
-    Navigator.pushNamed(context, routeName);
+  void _navigateForItem(DashboardItem item) {
+    // Safely close drawer if open
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+
+    // Navigate using named route if provided
+    if (item.route.isNotEmpty) {
+      Navigator.pushNamed(context, item.route);
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +151,11 @@ class _StaffDashboardState extends State<StaffDashboard> {
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
           actions: [
+            IconButton(
+              tooltip: 'Refresh profile',
+              onPressed: () => fetchUserName(forceRefresh: true),
+              icon: const Icon(Icons.refresh, color: Colors.white),
+            ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white),
               onSelected: (value) {
@@ -139,7 +191,6 @@ class _StaffDashboardState extends State<StaffDashboard> {
             ),
           ],
         ),
-
         drawer: _buildDrawer(primaryColor),
         body: Column(
           children: [
@@ -192,9 +243,9 @@ class _StaffDashboardState extends State<StaffDashboard> {
           ),
           ...dashboardItems.map(
             (item) => ListTile(
-              leading: Icon(item['icon'], color: primaryColor),
-              title: Text(item['title'], style: GoogleFonts.poppins(fontSize: 15)),
-              onTap: () => _navigateTo(item['route']),
+              leading: Icon(item.icon, color: primaryColor),
+              title: Text(item.title, style: GoogleFonts.poppins(fontSize: 15)),
+              onTap: () => _navigateForItem(item),
             ),
           ),
           const Spacer(),
@@ -261,10 +312,10 @@ class _StaffDashboardState extends State<StaffDashboard> {
             child: child,
           ),
           child: StaffDashboardCard(
-            title: item['title'],
-            icon: item['icon'],
-            color: (item['color'] ?? Theme.of(context).colorScheme.primary),
-            onTap: () => _navigateTo(item['route']),
+            title: item.title,
+            icon: item.icon,
+            color: (Theme.of(context).colorScheme.primary),
+            onTap: () => _navigateForItem(item),
           ),
         );
       },
@@ -272,12 +323,13 @@ class _StaffDashboardState extends State<StaffDashboard> {
   }
 
   Widget _buildFooter() {
+    final year = DateTime.now().year;
     return Container(
       padding: const EdgeInsets.all(14),
       color: Colors.grey.shade200,
       alignment: Alignment.center,
       child: Text(
-        '© 2025 A1Specto • Staff Panel v2.0',
+        '© $year A1Specto • Staff Panel v2.0',
         style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54),
       ),
     );

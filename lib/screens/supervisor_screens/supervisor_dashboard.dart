@@ -51,8 +51,8 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     final List<DashboardItem> dashboardItems = const [
       DashboardItem(
         icon: Icons.inventory_2_rounded,
-        title: 'Manage Inventory',
-        route: '/supervisor/view-inventory',
+        title: 'Manage Tasks',
+        route: '/supervisor/tasks',
       ),
       DashboardItem(
         icon: Icons.production_quantity_limits,
@@ -75,16 +75,19 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
         route: '/supervisor/orders',
       ),
       DashboardItem(
-        icon: Icons.badge_outlined,
-        title: 'Manage Staff',
-        route: '/supervisor/view-staff',
-      ),
-
-      // ⭐ NEW CARD — Color Templates
-      DashboardItem(
         icon: Icons.palette_outlined,
         title: 'Color Templates',
         route: '/supervisor/color-templates',
+      ),
+      DashboardItem(
+        icon: Icons.inventory_2_rounded,
+        title: 'Manage Inventory',
+        route: '/supervisor/view-inventory',
+      ),
+      DashboardItem(
+        icon: Icons.badge_outlined,
+        title: 'Manage Staff',
+        route: '/supervisor/view-staff',
       ),
     ];
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_orders_page/widgets/create_task_page.dart';
 import '../helpers/status_color.dart';
 import 'order_details_insights/order_details_insights_page.dart'; // ✅ new import
 
@@ -57,18 +58,19 @@ class OrderCard extends StatelessWidget {
         trailing: Wrap(
           spacing: 8,
           children: [
+            // VIEW
             IconButton(
               tooltip: 'View',
               icon: const Icon(Icons.visibility, color: Colors.blue),
-              onPressed:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => OrderDetailsInsightsPage(orderId: orderId),
-                    ),
-                  ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OrderDetailsInsightsPage(orderId: orderId),
+                ),
+              ),
             ),
+
+            // EDIT + DELETE (Only if createdBy)
             if (currentUser?.uid == createdByUid) ...[
               IconButton(
                 tooltip: 'Edit',
@@ -77,13 +79,12 @@ class OrderCard extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) =>
-                              AddOrdersPage(isEditMode: true, orderId: orderId),
+                      builder: (_) => AddOrdersPage(isEditMode: true, orderId: orderId),
                     ),
                   );
                 },
               ),
+
               IconButton(
                 tooltip: 'Delete',
                 icon: const Icon(Icons.delete, color: Colors.red),
@@ -117,7 +118,6 @@ class OrderCard extends StatelessWidget {
                         throw Exception('Missing user or company info.');
                       }
 
-                      // 🔹 Fetch the order document to verify creator
                       final orderRef = FirebaseFirestore.instance
                           .collection('companies')
                           .doc(companyId)
@@ -133,7 +133,6 @@ class OrderCard extends StatelessWidget {
                       final orderData = orderSnap.data()!;
                       final createdBy = orderData['createdByUid'];
 
-                      // 🔒 Check if current user is the creator
                       if (createdBy != currentUser.uid) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -144,7 +143,6 @@ class OrderCard extends StatelessWidget {
                         return;
                       }
 
-                      // ✅ Authorized → proceed to delete
                       await orderRef.delete();
 
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,12 +155,46 @@ class OrderCard extends StatelessWidget {
                       );
                     }
                   }
-                }
-
+                },
               ),
-            ]
+            ],
+
+            /// -------------------------------------------------------------
+            ///  POPUP MENU - Added AFTER DELETE ICON
+            /// -------------------------------------------------------------
+            PopupMenuButton<String>(
+              tooltip: "More",
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                if (value == "create_task") {
+                  // Navigate to your Create Task screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CreateTaskPage(
+                        orderId: orderId,
+                        orderData: orderData,
+                      ),
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: "create_task",
+                  child: Row(
+                    children: [
+                      Icon(Icons.task_alt, size: 18),
+                      SizedBox(width: 8),
+                      Text("Create Task"),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+
       ),
     );
   }

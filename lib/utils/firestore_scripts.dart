@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shotgun/models/task_model.dart';
 
 class FirestoreScripts {
   /// Adds a new field to all documents where `category == "Finished"`
@@ -47,4 +48,29 @@ class FirestoreScripts {
     await batch.commit();
     debugPrint("✅ Added '$fieldName' to $counter documents in $subCollectionName.");
   }
+
+  Future<List<TaskModel>> getAllTasks(String companyId) async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('companies')
+        .doc(companyId)
+        .collection('tasks')
+        .get();
+
+    return snapshot.docs.map((d) => TaskModel.fromFirestore(d)).toList();
+  }
+
+    /// Returns the cached companyId stored in SharedPreferences.
+    /// Throws an exception if not found.
+    static Future<String> getCachedCompanyId() async {
+      final prefs = await SharedPreferences.getInstance();
+      final companyId = prefs.getString('cachedCompanyId');
+
+      if (companyId == null || companyId.isEmpty) {
+        throw Exception("Company ID not found in SharedPreferences");
+      }
+
+      return companyId;
+    }
+
+
 }
