@@ -267,6 +267,8 @@ class AddOrderController extends ChangeNotifier {
               'quantity': p['quantity'],
               'price': p['price'],
               'lineTotal': (p['quantity'] ?? 0) * (p['price'] ?? 0),
+              'focusBaseMaterialQuantities': p['focusBaseMaterialQuantities'],
+              'templeBaseMaterialQuantities': p['templeBaseMaterialQuantities'],
               'customizations':
                   customizations
                       .map(
@@ -361,6 +363,8 @@ class AddOrderController extends ChangeNotifier {
           'price': p['price'],
           'lineTotal': (p['quantity'] ?? 0) * (p['price'] ?? 0),
           'modelGender': p['modelGender'],
+          'focusBaseMaterialQuantities': p['focusBaseMaterialQuantities'],
+          'templeBaseMaterialQuantities': p['templeBaseMaterialQuantities'],
         };
       }).toList();
 

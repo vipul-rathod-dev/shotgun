@@ -18,6 +18,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
   List<Map<String, dynamic>> _availableColors = [];
   List<Map<String, dynamic>> _availableTemples = [];
   List<Map<String, dynamic>> _colorTemplates = [];
+  final Set<String> _defaultAppliedForGender = {};
 
   bool _isLoading = true;
   bool _dataLoaded = false;
@@ -62,33 +63,33 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
           .orderBy('name')
           .get();
 
-      setState(() {
-        if (!mounted) return;
+      if (!mounted) return;
+        setState(() {
 
-        _availableColors = colorSnapshot.docs.map((d) => {
-          'id': d.id,
-          'name': d['name'] ?? 'Unnamed',
-          'focusBaseMaterial': d['focusBaseMaterial']
-        }).toList();
-
-        _availableTemples = templeSnapshot.docs.map((d) => {
-          'id': d.id,
-          'name': d['name'] ?? 'Unnamed',
-          'templeBaseMaterial': d['templeBaseMaterial']
-        }).toList();
-
-        _colorTemplates = templateSnapshot.docs.map((d) {
-          final data = d.data();
-          return {
+          _availableColors = colorSnapshot.docs.map((d) => {
             'id': d.id,
-            'name': data['name'] ?? 'Unnamed Template',
-            'productCustomizations': data['productCustomizations'] ?? {},
-          };
-        }).toList();
+            'name': d['name'] ?? 'Unnamed',
+            'focusBaseMaterial': d['focusBaseMaterial']
+          }).toList();
 
-        _isLoading = false;
-        _dataLoaded = true;
-      });
+          _availableTemples = templeSnapshot.docs.map((d) => {
+            'id': d.id,
+            'name': d['name'] ?? 'Unnamed',
+            'templeBaseMaterial': d['templeBaseMaterial']
+          }).toList();
+
+          _colorTemplates = templateSnapshot.docs.map((d) {
+            final data = d.data();
+            return {
+              'id': d.id,
+              'name': data['name'] ?? 'Unnamed Template',
+              'productCustomizations': data['productCustomizations'] ?? {},
+            };
+          }).toList();
+
+          _isLoading = false;
+          _dataLoaded = true;
+        });
 
     } catch (e) {
       debugPrint('⚠️ Failed to load data: $e');
@@ -113,6 +114,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
     };
 
     templateMap.forEach((gender, templateId) {
+      if (_defaultAppliedForGender.contains(gender)) return;
       if (templateId == null) return;
 
       final template = _colorTemplates.firstWhere(
@@ -139,6 +141,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
           'templeBaseMaterial': c['templeBaseMaterial'],
         });
       }
+      _defaultAppliedForGender.add(gender);
     });
 
     if (!mounted) return;  

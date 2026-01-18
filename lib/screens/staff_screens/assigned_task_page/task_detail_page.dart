@@ -370,9 +370,41 @@ class _TaskDetailPageState extends State<TaskDetailPage>
 
     final taskSnap = await taskRef.get();
     final taskData = taskSnap.data() ?? {};
-    final orderType = (taskData["orderType"] ?? "stock").toString();
+    final orderType = (taskData["orderType"] ?? "stock").toString().toLowerCase();
     final stages = _getStages(orderType);
     final isLast = stage.trim().toLowerCase() == stages.last.trim().toLowerCase();
+
+    // ------------------------------------------------------
+    // 🔥 RAW PROCESS VALIDATION
+    // ------------------------------------------------------
+    if (stage.trim().toLowerCase() == "raw process") {
+      final orderRef = FirebaseFirestore.instance
+          .collection("companies")
+          .doc(companyId)
+          .collection("orders")
+          .doc(orderId);
+
+      final orderSnap = await orderRef.get();
+      final orderData = orderSnap.data() ?? {};
+
+      final rawUsed = orderData["rawUsed"];
+
+      if (rawUsed == null || rawUsed is! Map || rawUsed.isEmpty) {
+        // ❌ STOP PROCESS HERE
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Cannot complete Raw Process. No raw material usage found.",
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return; // ← DO NOT COMPLETE STAGE
+      }
+    }
+    // ------------------------------------------------------
 
     final batch = FirebaseFirestore.instance.batch();
 
@@ -400,8 +432,7 @@ class _TaskDetailPageState extends State<TaskDetailPage>
       });
 
       // final history entry
-      final finalDoc =
-      taskRef.collection("history").doc("task_completed");
+      final finalDoc = taskRef.collection("history").doc("task_completed");
       batch.set(finalDoc, {
         "process": "Task Completed",
         "status": "Completed",

@@ -38,6 +38,8 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
         .orderBy('name')
         .get();
 
+    if (!mounted) return;
+
     setState(() {
       _customers = snapshot.docs.map((doc) {
         final data = doc.data();

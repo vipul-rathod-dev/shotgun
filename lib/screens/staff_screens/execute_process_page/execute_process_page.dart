@@ -115,6 +115,8 @@ class _ExecuteProcessPageState extends State<ExecuteProcessPage> {
         }
       }
 
+      if (!mounted) return;
+
       setState(() {});
     });
   }

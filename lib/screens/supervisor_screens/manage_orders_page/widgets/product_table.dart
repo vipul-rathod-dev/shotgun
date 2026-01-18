@@ -45,6 +45,55 @@ class _ProductTableState extends State<ProductTable> {
     }
   }
 
+  Map<String, dynamic> computeMaterialBreakdown(
+    Map<String, dynamic> p,
+    Map<String, int> boxQuantity,
+    Map<String, List<Map<String, dynamic>>> productCustomizations,
+  ) {
+    final gender = p['modelGender'];
+    final qty = (p['quantity'] ?? 0).toDouble();
+
+    final genderBoxQty = (boxQuantity[gender] ?? 0).toDouble();
+    final ratio = genderBoxQty > 0 ? qty / genderBoxQty : 0.0;
+
+    double fBlack = 0, fClear = 0, fPC = 0;
+    double tBlack = 0, tClear = 0, tPC = 0;
+
+    final customList = productCustomizations[gender] ?? [];
+
+    for (final c in customList) {
+      // ----------- FOCUS -----------
+      final focusMat = c['focusBaseMaterial'];
+      final fQty = ((c['focusQty'] ?? 0).toDouble() * ratio);
+
+      if (focusMat == "Black") fBlack += fQty;
+      if (focusMat == "Clear") fClear += fQty;
+      if (focusMat == "PC")    fPC += fQty;
+
+      // ----------- TEMPLE -----------
+      final templeMat = c['templeBaseMaterial'];
+      final tQty = ((c['templeQty'] ?? 0).toDouble() * ratio);
+
+      if (templeMat == "Black") tBlack += tQty;
+      if (templeMat == "Clear") tClear += tQty;
+      if (templeMat == "PC")    tPC += tQty;
+    }
+
+    return {
+      "focusBaseMaterialQuantities": {
+        if (fBlack > 0) "Black": double.parse(fBlack.toStringAsFixed(1)),
+        if (fClear > 0) "Clear": double.parse(fClear.toStringAsFixed(1)),
+        if (fPC > 0)    "PC": double.parse(fPC.toStringAsFixed(1)),
+      },
+      "templeBaseMaterialQuantities": {
+        if (tBlack > 0) "Black": double.parse(tBlack.toStringAsFixed(1)),
+        if (tClear > 0) "Clear": double.parse(tClear.toStringAsFixed(1)),
+        if (tPC > 0)    "PC": double.parse(tPC.toStringAsFixed(1)),
+      }
+    };
+  }
+
+
   /// ✅ Add Product
   Future<void> _addProduct() async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
@@ -61,8 +110,19 @@ class _ProductTableState extends State<ProductTable> {
         );
       } else {
         setState(() {
-          _productSelections.add(result);
-          widget.controller.addProduct(result);
+          final breakdown = computeMaterialBreakdown(
+            result,
+            widget.controller.boxQuantity,
+            widget.controller.productCustomizations,
+          );
+
+          final updatedProduct = {
+            ...result,
+            ...breakdown,
+          };
+          _productSelections.add(updatedProduct);
+          widget.controller.addProduct(updatedProduct);
+          // Product Result: {productId: RgGqHRItCyGo8GDh0uwk, productName: M:4045, modelGender: Ladies, quantity: 150, price: 45.0}
         });
       }
     }

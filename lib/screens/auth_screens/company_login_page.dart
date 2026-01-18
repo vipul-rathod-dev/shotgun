@@ -8,6 +8,7 @@ class CompanyLoginPage extends StatelessWidget {
 
   void _navigateByRole(BuildContext context, String role) {
     final routes = {
+      'admin': '/supervisor',
       'supervisor': '/supervisor',
       'staff': '/staff',
     };

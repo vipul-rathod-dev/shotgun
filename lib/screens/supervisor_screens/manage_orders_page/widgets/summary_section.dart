@@ -246,6 +246,113 @@ class ProductTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 🔥 Focus & Temple Base Material totals (Black / Clear / PC)
+                    if (customizations.isNotEmpty)
+                      Builder(builder: (_) {
+                        double focusBlack = 0, focusClear = 0, focusPC = 0;
+                        double templeBlack = 0, templeClear = 0, templePC = 0;
+
+                        for (final c in customizations) {
+                          // --- FOCUS MATERIAL ---
+                          final focusMaterial = c['focusBaseMaterial'] ?? '';
+                          final focusBaseQty = (c['focusQty'] ?? 0).toDouble();
+                          final focusComputed = focusBaseQty * ratio;
+
+                          if (focusMaterial == 'Black') focusBlack += focusComputed;
+                          if (focusMaterial == 'Clear') focusClear += focusComputed;
+                          if (focusMaterial == 'PC') focusPC += focusComputed;
+
+                          // --- TEMPLE MATERIAL ---
+                          final templeMaterial = c['templeBaseMaterial'] ?? '';
+                          final templeBaseQty = (c['templeQty'] ?? 0).toDouble();
+                          final templeComputed = templeBaseQty * ratio;
+
+                          if (templeMaterial == 'Black') templeBlack += templeComputed;
+                          if (templeMaterial == 'Clear') templeClear += templeComputed;
+                          if (templeMaterial == 'PC') templePC += templeComputed;
+                        }
+
+                        final showFocus = focusBlack > 0 || focusClear > 0 || focusPC > 0;
+                        final showTemple = templeBlack > 0 || templeClear > 0 || templePC > 0;
+
+                        return Column(
+                          children: [
+                            // ---------------- FOCUS MATERIAL TOTALS ----------------
+                            if (showFocus)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Focus Black: ${focusBlack.toStringAsFixed(1)}',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Focus Clear: ${focusClear.toStringAsFixed(1)}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Focus PC: ${focusPC.toStringAsFixed(1)}',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // ---------------- TEMPLE MATERIAL TOTALS ----------------
+                            if (showTemple)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Temple Black: ${templeBlack.toStringAsFixed(1)}',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Temple Clear: ${templeClear.toStringAsFixed(1)}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Temple PC: ${templePC.toStringAsFixed(1)}',
+                                        textAlign: TextAlign.end,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        );
+                      }),
+
+
                     const Text(
                       'Color Customizations',
                       style: TextStyle(
