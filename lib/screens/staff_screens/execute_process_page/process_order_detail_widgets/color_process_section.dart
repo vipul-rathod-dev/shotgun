@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/pdf/customization_pdf_generator_alt.dart';
 
-import 'sub_pages/color_goods_table_page.dart';
+import 'sub_pages/color_goods/color_goods_table_page.dart';
 
 class ColorProcessSection extends StatefulWidget {
   final List products; // ← coming from parent
