@@ -1,3 +1,5 @@
+// Custom Searchable Dropdown Widget
+
 import 'package:flutter/material.dart';
 
 class SearchableDropdown extends StatefulWidget {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -13,46 +14,25 @@ class CompanyLoginController extends ChangeNotifier {
   bool isLoading = false;
   bool rememberMe = false;
 
+  int _failedAttempts = 0;
+  DateTime? _lockUntil;
+
   CompanyLoginController() {
-    _loadSavedCredentials();
+    _loadSafeCache();
   }
 
-  // 🔹 Load cached credentials and companyId
-  Future<void> _loadSavedCredentials() async {
+  /* ---------------- SAFE CACHE ---------------- */
+
+  Future<void> _loadSafeCache() async {
     final prefs = await SharedPreferences.getInstance();
     rememberMe = prefs.getBool('rememberMe') ?? false;
 
     if (rememberMe) {
       companyController.text = prefs.getString('company') ?? '';
       emailController.text = prefs.getString('email') ?? '';
-      passwordController.text = prefs.getString('password') ?? '';
-    }
-
-    final cachedCompanyId = prefs.getString('cachedCompanyId');
-    if (cachedCompanyId != null && cachedCompanyId.isNotEmpty) {
-      debugPrint('✅ Cached companyId loaded: $cachedCompanyId');
     }
 
     notifyListeners();
-  }
-
-  // 🔹 Save credentials + companyId if Remember Me enabled
-  Future<void> _saveCredentials({String? companyId}) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (rememberMe) {
-      await prefs.setString('company', companyController.text.trim());
-      await prefs.setString('email', emailController.text.trim());
-      await prefs.setString('password', passwordController.text.trim());
-      await prefs.setBool('rememberMe', true);
-      if (companyId != null) {
-        await prefs.setString('cachedCompanyId', companyId);
-      }
-    } else {
-      await prefs.remove('company');
-      await prefs.remove('email');
-      await prefs.remove('password');
-      await prefs.setBool('rememberMe', false);
-    }
   }
 
   void toggleRememberMe(bool? value) {
@@ -60,65 +40,110 @@ class CompanyLoginController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 🔹 Optimized login with cached companyId
-  Future<String> login(String company, String email, String password) async {
+  /* ---------------- SECURITY CORE ---------------- */
+
+  Future<void> login() async {
+    // 🔐 Brute-force protection
+    if (_lockUntil != null &&
+        DateTime.now().isBefore(_lockUntil!)) {
+      throw Exception(
+        'Too many attempts. Try again later.',
+      );
+    }
+
     isLoading = true;
     notifyListeners();
 
     try {
+      // 1️⃣ Authenticate FIRST (never trust company before auth)
+      final credential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      debugPrint('USER UID: ${FirebaseAuth.instance.currentUser?.uid}');
+
+      final user = credential.user!;
       final prefs = await SharedPreferences.getInstance();
 
-      // Try cached companyId first
-      String? companyId = prefs.getString('cachedCompanyId');
+      // 2️⃣ Resolve company AFTER auth
+      final companySnapshot = await FirebaseFirestore.instance
+          .collection('companies')
+          .where('name', isEqualTo: companyController.text.trim())
+          .limit(1)
+          .get();
 
-      if (companyId == null || companyId.isEmpty) {
-        // Fetch from Firestore if not cached
-        final companySnapshot = await FirebaseFirestore.instance
-            .collection('companies')
-            .where('name', isEqualTo: company)
-            .limit(1)
-            .get();
-
-        if (companySnapshot.docs.isEmpty) {
-          throw Exception("Company not found");
-        }
-
-        companyId = companySnapshot.docs.first.id;
-
-        // Cache it
-        await prefs.setString('cachedCompanyId', companyId);
+      if (companySnapshot.docs.isEmpty) {
+        await FirebaseAuth.instance.signOut();
+        throw Exception('Invalid company');
       }
 
-      // Sign in
-      final userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: password);
+      final companyId = companySnapshot.docs.first.id;
 
-      final user = userCredential.user!;
-      await _saveCredentials(companyId: companyId);
-
-      // 🔹 Fetch from company namespace
-      DocumentSnapshot<Map<String, dynamic>> userDoc = await FirebaseFirestore.instance
+      // 3️⃣ Verify user belongs to this company
+      final companyUserDoc = await FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
           .collection('users')
           .doc(user.uid)
           .get();
 
-      // 🔹 Fallback to global users if not found
-      if (!userDoc.exists) {
-        userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+      if (!companyUserDoc.exists) {
+        await FirebaseAuth.instance.signOut();
+        throw Exception('User not authorized for this company');
       }
 
-      final role = userDoc.data()?['role'] ?? 'staff';
-      return role;
+      // 4️⃣ Save NON-SENSITIVE cache only
+      if (rememberMe) {
+        await prefs.setString('company', companyController.text.trim());
+        await prefs.setString('email', emailController.text.trim());
+        await prefs.setBool('rememberMe', true);
+        await prefs.setString('cachedCompanyId', companyId);
+      } else {
+        await prefs.clear();
+      }
+
+      // Reset brute-force counter
+      _failedAttempts = 0;
+      _lockUntil = null;
+    } on FirebaseAuthException catch (e) {
+      _registerFailure();
+      throw Exception(_mapAuthError(e));
     } catch (e) {
-      throw Exception("Login failed: ${e.toString()}");
+      _registerFailure();
+      throw Exception(e.toString());
     } finally {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  void _registerFailure() {
+    _failedAttempts++;
+
+    if (_failedAttempts >= 5) {
+      _lockUntil = DateTime.now().add(const Duration(minutes: 5));
+    }
+  }
+
+  String _mapAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+      case 'wrong-password':
+        return 'Invalid email or password';
+      case 'too-many-requests':
+        return 'Too many attempts. Try later.';
+      default:
+        return 'Login failed';
+    }
+  }
+
+  @override
+  void dispose() {
+    companyController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 }

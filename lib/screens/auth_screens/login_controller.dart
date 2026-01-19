@@ -5,20 +5,57 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginController extends ChangeNotifier {
+  // UI Controllers
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+
   bool rememberMe = false;
-  bool isLoaded = false;
+  bool isLoading = false;
 
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final int sessionDuration = 24; // hours
-  Timer? _sessionTimer; // 🟢 session timer
-  VoidCallback? onSessionExpired; // 🟢 optional callback for auto-logout
+  StreamSubscription<User?>? _authSubscription;
 
-  LoginController({this.onSessionExpired}) {
-    _loadSavedCredentials();
+  LoginController() {
+    _init();
+  }
+
+  // -------------------- INIT --------------------
+
+  Future<void> _init() async {
+    await _loadRememberedEmail();
+    _listenAuthChanges();
+  }
+
+  void _listenAuthChanges() {
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      if (user == null) {
+        // User logged out or token revoked
+        notifyListeners();
+      }
+    });
+  }
+
+  // -------------------- REMEMBER EMAIL ONLY --------------------
+
+  Future<void> _loadRememberedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    emailController.text = prefs.getString('email') ?? '';
+    rememberMe = prefs.getBool('rememberMe') ?? false;
+    notifyListeners();
+  }
+
+  Future<void> _persistEmailIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (rememberMe) {
+      await prefs.setString('email', emailController.text);
+      await prefs.setBool('rememberMe', true);
+    } else {
+      await prefs.remove('email');
+      await prefs.setBool('rememberMe', false);
+    }
   }
 
   void toggleRememberMe(bool? value) {
@@ -26,133 +63,94 @@ class LoginController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    emailController.text = prefs.getString('email') ?? '';
-    passwordController.text = prefs.getString('password') ?? '';
-    rememberMe = prefs.getBool('rememberMe') ?? false;
+  // -------------------- AUTH --------------------
 
-    final sessionTimestamp = prefs.getInt('sessionTimestamp');
-    if (sessionTimestamp != null) {
-      final expiry =
-          DateTime.fromMillisecondsSinceEpoch(sessionTimestamp);
-
-      // 🟢 Start session timer if still valid
-      if (DateTime.now().isBefore(expiry)) {
-        _startSessionTimer(expiry);
-      } else {
-        await logout(clearCredentials: true);
-      }
-    }
-
-    isLoaded = true;
+  Future<String> login() async {
+    isLoading = true;
     notifyListeners();
-  }
 
-  Future<void> _saveSession(String role) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    if (rememberMe) {
-      await prefs.setString('email', emailController.text);
-      await prefs.setString('password', passwordController.text);
-      await prefs.setBool('rememberMe', true);
-    }
-
-    final expiry = DateTime.now().add(Duration(hours: sessionDuration));
-    await prefs.setInt('sessionTimestamp', expiry.millisecondsSinceEpoch);
-    await prefs.setString('role', role);
-
-    // 🟢 Start or restart session timer
-    _startSessionTimer(expiry);
-  }
-
-  // 🟢 Start session timer to auto-logout when time is up
-  void _startSessionTimer(DateTime expiry) {
-    _sessionTimer?.cancel();
-    final duration = expiry.difference(DateTime.now());
-    _sessionTimer = Timer(duration, () async {
-      await logout();
-      onSessionExpired?.call(); // notify listener (e.g., show dialog)
-    });
-  }
-
-  Future<String> login(String email, String password) async {
     try {
       final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: emailController.text.trim(),
+        password: passwordController.text,
       );
 
-      final userDoc =
-          await _firestore.collection('users').doc(credential.user!.uid).get();
+      final role = await _fetchUserRole(credential.user!.uid);
+      await _persistEmailIfNeeded();
 
-      if (!userDoc.exists) throw Exception('User role not found');
-
-      final role = userDoc.data()?['role'] ?? 'staff';
-      await _saveSession(role);
       return role;
     } on FirebaseAuthException catch (e) {
-      throw Exception(_getFirebaseError(e));
-    } catch (e) {
-      throw Exception(e.toString());
+      throw Exception(_mapAuthError(e));
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
-  Future<void> logout({bool clearCredentials = false}) async {
+  Future<void> logout() async {
     await _auth.signOut();
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('sessionTimestamp');
-    await prefs.remove('role');
-
-    if (clearCredentials || !rememberMe) {
-      await prefs.remove('email');
-      await prefs.remove('password');
-      await prefs.setBool('rememberMe', false);
-    }
-
-    _sessionTimer?.cancel();
     notifyListeners();
   }
+
+  // -------------------- ROLE --------------------
+
+  Future<String> _fetchUserRole(String uid) async {
+    final snapshot =
+        await _firestore.collection('users').doc(uid).get();
+
+    if (!snapshot.exists) {
+      throw Exception('User role not found');
+    }
+
+    return snapshot.data()?['role'] ?? 'staff';
+  }
+
+  static Future<String?> getCurrentUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    return snapshot.data()?['role'];
+  }
+
+  // -------------------- PASSWORD RESET --------------------
 
   Future<void> resetPassword(String email) async {
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      await _auth.sendPasswordResetEmail(email: email.trim());
     } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'user-not-found':
-          throw Exception('No user found for that email.');
-        case 'invalid-email':
-          throw Exception('Invalid email address.');
-        default:
-          throw Exception('Failed to send reset email. Please try again.');
-      }
-    } catch (e) {
-      throw Exception('Error: ${e.toString()}');
+      throw Exception(_mapAuthError(e));
     }
   }
 
-  String _getFirebaseError(FirebaseAuthException e) {
+  // -------------------- ERROR HANDLING --------------------
+
+  String _mapAuthError(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
         return 'Invalid email address.';
       case 'user-not-found':
-        return 'No user found for that email.';
+        return 'No account found with this email.';
       case 'wrong-password':
         return 'Incorrect password.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
       default:
-        return 'Login failed. Please try again.';
+        return 'Authentication failed. Please try again.';
     }
   }
 
-  static Future<String?> getSavedRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    final timestamp = prefs.getInt('sessionTimestamp');
-    if (timestamp == null) return null;
+  // -------------------- CLEANUP --------------------
 
-    final expiry = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    if (DateTime.now().isAfter(expiry)) return null;
-
-    return prefs.getString('role');
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }

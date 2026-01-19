@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:shotgun/screens/admin_screens/admin_page.dart';
 import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
-import 'package:shotgun/screens/auth_screens/company_login_page.dart';
 import 'package:shotgun/screens/staff_screens/assigned_task_page/assigned_task_page.dart';
 import 'package:shotgun/screens/staff_screens/execute_process_page/execute_process_page.dart';
-// import 'package:shotgun/screens/staff_screens/tasks_page/tasks_page.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_focus_color.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_temple_color.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_customers_page/customers_list_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_customers_page/add_customers_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_staff/add_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/manage_orders.dart';
-import 'package:shotgun/screens/auth_screens/login_page.dart';
-// import 'package:shotgun/screens/staff_screens/manage_inventory/manage_inventory_page.dart';
 import 'package:shotgun/screens/staff_screens/order_details/order_details_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_products_page/manage_products_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/color_process_page.dart';
@@ -23,7 +18,6 @@ import 'package:shotgun/screens/staff_screens/process_page/packing_process_page.
 import 'package:shotgun/screens/staff_screens/process_page/quality_check_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/raw_process_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/shipping_process_page.dart';
-import 'package:shotgun/screens/staff_screens/staff_page.dart';
 import 'package:shotgun/screens/staff_screens/track_orders/track_orders_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_supervisor_tasks/manage_supervisor_tasks.dart';
@@ -32,72 +26,144 @@ import 'package:shotgun/screens/supervisor_screens/manage_inventory_page/manage_
 import '../screens/supervisor_screens/color_templates/color_templates.dart';
 import '../screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import '../screens/register_page.dart';
-import '../screens/supervisor_screens/supervisor_dashboard.dart';
 import '../screens/supervisor_screens/widgets/execute_order.dart';
+import '../screens/auth_screens/auth_gate.dart';
+import '../screens/auth_screens/route_guard.dart';
 
 class MyApp extends StatelessWidget {
-  final String initialRoute;
-  const MyApp({super.key, required this.initialRoute});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Shotgun App',
-      theme: ThemeData(primarySwatch: Colors.blue),
       debugShowCheckedModeBanner: false,
-      initialRoute: '/company-login',
-      routes: {
-        '/login': (context) => const LoginPage(),
-        '/company-login': (context) => const CompanyLoginPage(),
-        '/register': (context) => const RegisterPage(),
+      theme: ThemeData(primarySwatch: Colors.blue),
 
-        // ADMIN ROUTES
-        '/admin': (context) => const AdminDashboard(),
-        '/admin/create-company': (context) => const CreateCompanyPage(),
-        '/admin/view-companies': (context) => const ViewCompaniesPage(),
+      home: AuthGate(),
 
-        // SUPERVISOR ROUTES
-        '/supervisor': (context) => const SupervisorDashboard(),
-        '/supervisor/tasks': (context) => const SupervisorTasksPage(),
-        '/supervisor/products': (context) => const ManageProductPage(),
-        '/supervisor/customers': (context) => const CustomersListPage(),
-        '/supervisor/add-customer': (context) => const AddCustomersPage(),
-        '/supervisor/suppliers': (context) => const ManageSuppliersPage(),
-        '/supervisor/orders': (context) => const ManageOrdersPage(),
-        '/supervisor/orders/new': (context) => const AddOrdersPage(),
-        '/supervisor/orders/edit': (context) => const AddOrdersPage(isEditMode: true),
-        '/supervisor/color-templates': (context) => const ColorTemplatesPage(),
-        '/supervisor/manage-inventory': (context) => const ManageInventoryPage(),
-        '/supervisor/view-staff': (context) => const ViewStaffPage(),
-        '/supervisor/add-staff': (context) {
-          final companyId = ModalRoute.of(context)!.settings.arguments as String;
-          return AddStaffPage(companyId: companyId);
-        },
-
-        // FAB Menu routes
-        '/supervisor/add-focus-color': (context) => const AddFocusColor(),
-        '/supervisor/add-temple-color': (context) => const AddTempleColor(),
-        '/supervisor/execute-order': (context) => const ExecuteOrder(),
-        // '/manage-inventory': (context) => const ManageProductPage1(),
-        
-
-        // STAFF ROUTES
-        '/staff': (context) => const StaffDashboard(),
-        '/staff/process': (_) => const ExecuteProcessPage(),
-        '/staff/tasks': (_) => const AssignedTaskPage(),
-
-        '/orders': (context) => const TrackOrdersPage(),
-        '/order-details': (context) => const OrderDetailsPage(),
-        '/staff/rawProcess': (context) => const RawProcessPage(),
-        '/staff/colorProcess': (context) => const ColorProcessPage(),
-        '/staff/qualityCheck': (context) => const QualityCheckPage(),
-        '/staff/fittingProcess': (context) => const FittingProcessPage(),
-        '/staff/demoProcess': (context) => const DemoProcessPage(),
-        '/staff/packing': (context) => const PackingPage(),
-        '/staff/shipping': (context) => const ShippingPage(),
-        // '/staff/tasks': (context) => const TasksPage(),
-      },
+      routes: _secureRoutes,
     );
   }
 }
 
+final Map<String, WidgetBuilder> _secureRoutes = {
+  '/register': (_) => const RegisterPage(),
+
+  // ADMIN
+  '/admin/create-company':
+      (_) => const RoleGuard(requiredRole: 'admin', child: CreateCompanyPage()),
+  '/admin/view-companies':
+      (_) => const RoleGuard(requiredRole: 'admin', child: ViewCompaniesPage()),
+
+  // SUPERVISOR
+  '/supervisor/tasks':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: SupervisorTasksPage(),
+      ),
+  '/supervisor/products':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: ManageProductPage(),
+      ),
+  '/supervisor/customers':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: CustomersListPage(),
+      ),
+  '/supervisor/add-customer':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: AddCustomersPage(),
+      ),
+  '/supervisor/suppliers':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: ManageSuppliersPage(),
+      ),
+  '/supervisor/orders':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: ManageOrdersPage(),
+      ),
+  '/supervisor/orders/new':
+      (_) =>
+          const RoleGuard(requiredRole: 'supervisor', child: AddOrdersPage()),
+  '/supervisor/orders/edit':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: AddOrdersPage(isEditMode: true),
+      ),
+  '/supervisor/color-templates':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: ColorTemplatesPage(),
+      ),
+  '/supervisor/manage-inventory':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: ManageInventoryPage(),
+      ),
+  '/supervisor/view-staff':
+      (_) =>
+          const RoleGuard(requiredRole: 'supervisor', child: ViewStaffPage()),
+
+  '/supervisor/add-staff': (context) {
+    final companyId = ModalRoute.of(context)!.settings.arguments as String;
+    return RoleGuard(
+      requiredRole: 'supervisor',
+      child: AddStaffPage(companyId: companyId),
+    );
+  },
+
+  // FAB
+  '/supervisor/add-focus-color':
+      (_) =>
+          const RoleGuard(requiredRole: 'supervisor', child: AddFocusColor()),
+  '/supervisor/add-temple-color':
+      (_) =>
+          const RoleGuard(requiredRole: 'supervisor', child: AddTempleColor()),
+  '/supervisor/execute-order':
+      (_) => const RoleGuard(requiredRole: 'supervisor', child: ExecuteOrder()),
+
+  '/orders': (_) => const TrackOrdersPage(),
+  '/order-details': (_) => const OrderDetailsPage(),
+
+  // STAFF
+  '/staff/process':
+      (_) => const RoleGuard(
+        requiredRole: 'staff',
+        child: ExecuteProcessPage(),
+      ),
+  '/staff/tasks':
+      (_) => const RoleGuard(
+        requiredRole: 'staff',
+        child: AssignedTaskPage(),
+      ),
+  '/staff/rawProcess':
+      (_) =>
+          const RoleGuard(requiredRole: 'staff', child: RawProcessPage()),
+  '/staff/colorProcess':
+      (_) => const RoleGuard(
+        requiredRole: 'staff',
+        child: ColorProcessPage(),
+      ),
+  '/staff/qualityCheck':
+      (_) => const RoleGuard(
+        requiredRole: 'staff',
+        child: QualityCheckPage(),
+      ),
+  '/staff/fittingProcess':
+      (_) => const RoleGuard(
+        requiredRole: 'staff',
+        child: FittingProcessPage(),
+      ),
+  '/staff/demoProcess':
+      (_) =>
+          const RoleGuard(requiredRole: 'staff', child: DemoProcessPage()),
+  '/staff/packing':
+      (_) => const RoleGuard(requiredRole: 'staff', child: PackingPage()),
+  '/staff/shipping':
+      (_) => const RoleGuard(requiredRole: 'staff', child: ShippingPage()),
+};

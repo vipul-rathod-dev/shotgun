@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -17,7 +18,10 @@ class AdminDashboard extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              // DO NOTHING ELSE
+            },
           ),
         ],
       ),
@@ -80,7 +84,7 @@ class AdminDashboard extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
-            onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+            onTap: () async => await FirebaseAuth.instance.signOut()
           ),
         ],
       ),

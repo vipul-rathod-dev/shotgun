@@ -5,151 +5,213 @@ import 'package:shotgun/screens/auth_screens/login_controller.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
-
-  void _navigateByRole(BuildContext context, String role) {
-    final routes = {
-      'admin': '/admin',
-      'supervisor': '/supervisor',
-      'staff': '/staff',
-    };
-    Navigator.pushReplacementNamed(context, routes[role] ?? '/staff');
-  }
+  final VoidCallback onSwitchToCompany;
+  const LoginPage({super.key, required this.onSwitchToCompany});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => LoginController(),
-      builder: (context, _) {
-        final controller = context.watch<LoginController>();
+      child: Consumer<LoginController>(
+        builder: (context, controller, _) {
+          return Scaffold(
+            backgroundColor: Colors.grey[100],
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth >= 900;
+                final isTablet = constraints.maxWidth >= 600;
 
-        return Scaffold(
-          backgroundColor: Colors.grey[100],
-          body: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: (!controller.isLoaded)
-                  ? const Center(child: CircularProgressIndicator())
-                  : Form(
-                      child: Column(
-                        children: [
-                          Text(
-                            "Login",
-                            style: GoogleFonts.poppins(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 30),
+                final maxWidth = isDesktop
+                    ? 420.0
+                    : isTablet
+                        ? 460.0
+                        : double.infinity;
 
-                          // 🔹 Email field
-                          CustomTextField(
-                            controller: controller.emailController,
-                            label: "Email",
-                            icon: Icons.email,
-                            validator: (value) =>
-                                value!.isEmpty ? "Enter your email" : null,
-                          ),
-                          const SizedBox(height: 16),
+                final horizontalPadding = isDesktop
+                    ? 32.0
+                    : isTablet
+                        ? 28.0
+                        : 20.0;
 
-                          // 🔹 Password field
-                          CustomTextField(
-                            controller: controller.passwordController,
-                            label: "Password",
-                            isPassword: true,
-                            icon: Icons.lock,
-                            validator: (value) =>
-                                value!.isEmpty ? "Enter your password" : null,
-                          ),
-                          const SizedBox(height: 10),
+                final titleSize = isDesktop
+                    ? 34.0
+                    : isTablet
+                        ? 32.0
+                        : 28.0;
 
-                          // 🔹 Remember Me + Forgot Password
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: controller.rememberMe,
-                                    onChanged: controller.toggleRememberMe,
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: 40,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: Card(
+                        elevation: isDesktop ? 8 : 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Form(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  "Login",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: titleSize,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  const Text("Remember Me"),
-                                ],
-                              ),
-                              TextButton(
-                                onPressed: () async {
-                                  final email =
-                                      controller.emailController.text.trim();
-                                  if (email.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content:
-                                            Text("Enter your email first"),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  try {
-                                    await controller.resetPassword(email);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content:
-                                            Text("Password reset email sent"),
-                                      ),
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(e.toString())),
-                                    );
-                                  }
-                                },
-                                child: const Text("Forgot Password?"),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
+                                ),
+                                const SizedBox(height: 30),
 
-                          // 🔹 Login button
-                          ElevatedButton(
-                            onPressed: () async {
-                              try {
-                                final role = await controller.login(
-                                  controller.emailController.text.trim(),
-                                  controller.passwordController.text.trim(),
-                                );
-                                if (context.mounted) {
-                                  _navigateByRole(context, role);
-                                }
-                              } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(e.toString())),
-                                );
-                              }
-                            },
-                            child: const Text('Login'),
-                          ),
+                                // Email
+                                CustomTextField(
+                                  controller: controller.emailController,
+                                  label: "Email",
+                                  icon: Icons.email,
+                                  keyboardType:
+                                      TextInputType.emailAddress,
+                                  validator: (value) =>
+                                      value!.isEmpty
+                                          ? "Enter your email"
+                                          : null,
+                                ),
+                                const SizedBox(height: 16),
 
-                          const SizedBox(height: 30),
+                                // Password
+                                CustomTextField(
+                                  controller: controller.passwordController,
+                                  label: "Password",
+                                  isPassword: true,
+                                  icon: Icons.lock,
+                                  validator: (value) =>
+                                      value!.isEmpty
+                                          ? "Enter your password"
+                                          : null,
+                                ),
+                                const SizedBox(height: 10),
 
-                          // 🔹 Switch to Company Login
-                          TextButton.icon(
-                            onPressed: () {
-                              Navigator.pushReplacementNamed(
-                                  context, '/company-login');
-                            },
-                            icon: const Icon(Icons.business_outlined),
-                            label: const Text(
-                              "Login to Company Account",
-                              style: TextStyle(fontSize: 16),
+                                // Remember + Forgot
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Checkbox(
+                                          value: controller.rememberMe,
+                                          onChanged:
+                                              controller.toggleRememberMe,
+                                        ),
+                                        const Text("Remember Me"),
+                                      ],
+                                    ),
+                                    TextButton(
+                                      onPressed: () async {
+                                        final email = controller
+                                            .emailController.text
+                                            .trim();
+                                        if (email.isEmpty) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  "Enter your email first"),
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        try {
+                                          await controller
+                                              .resetPassword(email);
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  "Password reset email sent"),
+                                            ),
+                                          );
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content:
+                                                    Text(e.toString())),
+                                          );
+                                        }
+                                      },
+                                      child:
+                                          const Text("Forgot Password?"),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Login Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 48,
+                                  child: ElevatedButton(
+                                    onPressed: controller.isLoading
+                                        ? null
+                                        : () async {
+                                            try {
+                                              await controller.login();
+                                              // AuthGate handles navigation
+                                            } catch (e) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content:
+                                                      Text(e.toString()),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                    child: controller.isLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child:
+                                                CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text("Login"),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                // Company Login
+                                TextButton.icon(
+                                  onPressed: () {
+                                    onSwitchToCompany();
+                                  },
+                                  icon: const Icon(
+                                      Icons.business_outlined),
+                                  label: const Text(
+                                    "Login to Company Account",
+                                    style: TextStyle(fontSize: 15),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
+                  ),
+                );
+              },
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

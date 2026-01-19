@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/models/dashboard_item.dart';
-import 'package:shotgun/widgets/session_aware_page.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -138,8 +137,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    return SessionAwarePage(
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: Colors.grey.shade100,
         appBar: AppBar(
           elevation: 0,
@@ -198,8 +196,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
             _buildFooter(),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Drawer _buildDrawer(Color primaryColor) {

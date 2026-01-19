@@ -2,7 +2,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shotgun/utils/firestore_scripts.dart';
-import 'package:shotgun/widgets/session_aware_page.dart';
 import 'models/dashboard_item.dart';
 import 'models/fab_menu_item_model.dart';
 import 'widgets/dashboard_card.dart';
@@ -110,8 +109,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       ),
     ];
 
-    return SessionAwarePage(
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F7FB),
         drawer: SupervisorDrawer(userEmail: userEmail),
         appBar: _buildAppBar(context),
@@ -146,8 +144,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
           items: fabItems,
         ),
         bottomNavigationBar: _buildFooter(),
-      ),
-    );
+      );
   }
 
   AppBar _buildAppBar(BuildContext context) {

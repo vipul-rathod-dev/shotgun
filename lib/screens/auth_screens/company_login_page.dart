@@ -4,181 +4,190 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shotgun/screens/auth_screens/company_login_controller.dart';
 
 class CompanyLoginPage extends StatelessWidget {
-  const CompanyLoginPage({super.key});
-
-  void _navigateByRole(BuildContext context, String role) {
-    final routes = {
-      'admin': '/supervisor',
-      'supervisor': '/supervisor',
-      'staff': '/staff',
-    };
-    Navigator.pushReplacementNamed(context, routes[role] ?? '/staff');
-  }
+  final VoidCallback onSwitchToAdmin;
+  const CompanyLoginPage({super.key, required this.onSwitchToAdmin});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => CompanyLoginController(),
-      builder: (context, _) {
-        final controller = context.watch<CompanyLoginController>();
+      child: Consumer<CompanyLoginController>(
+        builder: (context, controller, _) {
+          return Scaffold(
+            backgroundColor: Colors.grey[100],
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final maxWidth = isWide ? 420.0 : double.infinity;
 
-        return Scaffold(
-          backgroundColor: Colors.grey[100],
-          body: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: Form(
-                key: controller.formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Text(
-                        "Company Login",
-                        style: GoogleFonts.poppins(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 0 : 20,
+                      vertical: 32,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: Card(
+                        elevation: isWide ? 6 : 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Form(
+                            key: controller.formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  "Company Login",
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: isWide ? 28 : 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
 
-                    // Company Name
-                    TextFormField(
-                      controller: controller.companyController,
-                      decoration: const InputDecoration(
-                        labelText: "Company Name",
-                        prefixIcon: Icon(Icons.business),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return "Please enter your company name";
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller.companyController,
+                                  label: "Company Name",
+                                  icon: Icons.business,
+                                  validator: (v) => v == null || v.trim().isEmpty
+                                      ? "Please enter company name"
+                                      : null,
+                                ),
 
-                    // Email
-                    TextFormField(
-                      controller: controller.emailController,
-                      decoration: const InputDecoration(
-                        labelText: "Email",
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return "Please enter your email";
-                        }
-                        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                        if (!emailRegex.hasMatch(value.trim())) {
-                          return "Please enter a valid email";
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                                const SizedBox(height: 16),
 
-                    // Password
-                    TextFormField(
-                      controller: controller.passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: "Password",
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return "Please enter your password";
-                        }
-                        if (value.length < 6) {
-                          return "Password must be at least 6 characters";
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // ✅ Remember Me Checkbox
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: controller.rememberMe,
-                          onChanged: controller.toggleRememberMe,
-                        ),
-                        const Text("Remember Me"),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: controller.isLoading
-                            ? null
-                            : () async {
-                                if (controller.formKey.currentState!
-                                    .validate()) {
-                                  try {
-                                    final role = await controller.login(
-                                      controller.companyController.text.trim(),
-                                      controller.emailController.text.trim(),
-                                      controller.passwordController.text.trim(),
-                                    );
-
-                                    if (context.mounted) {
-                                      _navigateByRole(context, role);
+                                _buildTextField(
+                                  controller.emailController,
+                                  label: "Email",
+                                  icon: Icons.email,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return "Enter email";
                                     }
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(e.toString())),
-                                    );
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                        child: controller.isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text("Login"),
-                      ),
-                    ),
+                                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                                        .hasMatch(v)) {
+                                      return "Invalid email";
+                                    }
+                                    return null;
+                                  },
+                                ),
 
-                    const SizedBox(height: 20),
+                                const SizedBox(height: 16),
 
-                    // 🧭 Admin Login Button
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        },
-                        icon: const Icon(Icons.admin_panel_settings),
-                        label: const Text(
-                          "Admin Login",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                                _buildTextField(
+                                  controller.passwordController,
+                                  label: "Password",
+                                  icon: Icons.lock,
+                                  obscureText: true,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? "Enter password"
+                                      : null,
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                Row(
+                                  children: [
+                                    Checkbox(
+                                      value: controller.rememberMe,
+                                      onChanged: controller.toggleRememberMe,
+                                    ),
+                                    const Text("Remember Me"),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                SizedBox(
+                                  height: 48,
+                                  child: ElevatedButton(
+                                    onPressed: controller.isLoading
+                                        ? null
+                                        : () async {
+                                            if (!controller.formKey.currentState!
+                                                .validate()) {
+                                              return;
+                                            }
+
+                                            try {
+                                              await controller.login();
+                                            } catch (e) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content:
+                                                      Text(e.toString()),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                    child: controller.isLoading
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text("Login"),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                TextButton.icon(
+                                  onPressed: onSwitchToAdmin,
+                                  icon: const Icon(
+                                      Icons.admin_panel_settings),
+                                  label: const Text(
+                                    "Admin Login",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller, {
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }

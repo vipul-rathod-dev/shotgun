@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shotgun/screens/staff_screens/staff_page.dart';
+import 'package:shotgun/screens/staff_screens/staff_dashboard.dart';
 
 // Focus library imports
 import 'color_goods_pdf_generator.dart';
