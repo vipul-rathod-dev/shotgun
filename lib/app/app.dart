@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shotgun/auth/widgets/auth_gate.dart';
+import 'package:shotgun/core/theme/app_theme.dart';
 import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
 import 'package:shotgun/screens/staff_screens/assigned_task_page/assigned_task_page.dart';
@@ -27,8 +29,7 @@ import '../screens/supervisor_screens/color_templates/color_templates.dart';
 import '../screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import '../screens/register_page.dart';
 import '../screens/supervisor_screens/widgets/execute_order.dart';
-import '../screens/auth_screens/auth_gate.dart';
-import '../screens/auth_screens/route_guard.dart';
+import '../auth/widgets/route_guard.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -38,7 +39,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Shotgun App',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: AppTheme.light,
 
       home: AuthGate(),
 

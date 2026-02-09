@@ -2,12 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shotgun/auth/widgets/session_watcher.dart';
+import 'package:shotgun/screens/admin_screens/admin_page.dart';
+import 'package:shotgun/screens/auth_screens/company_login_page.dart';
+import 'package:shotgun/screens/auth_screens/admin_login_page.dart';
+import 'package:shotgun/screens/staff_screens/staff_dashboard.dart';
+import 'package:shotgun/screens/supervisor_screens/supervisor_dashboard.dart';
+import 'package:shotgun/utils/logout_helper.dart';
 
-import '../admin_screens/admin_page.dart';
-import 'company_login_page.dart';
-import 'login_page.dart';
-import '../staff_screens/staff_dashboard.dart';
-import '../supervisor_screens/supervisor_dashboard.dart';
 
 enum LoginMode {
   admin,
@@ -60,28 +62,40 @@ class _AuthGateState extends State<AuthGate> {
 
 class RoleResolver extends StatelessWidget {
   const RoleResolver({super.key});
-
   Future<String> _getRole() async {
     final user = FirebaseAuth.instance.currentUser!;
     final prefs = await SharedPreferences.getInstance();
     final companyId = prefs.getString('cachedCompanyId');
 
-    if (companyId == null) {
-      throw Exception('Company not selected');
+    // 🔹 First: check global users (admin)
+    final globalDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (globalDoc.exists) {
+      final role = (globalDoc.data()?['role'] as String?)?.toLowerCase();
+      if (role != null) return role;
     }
 
-    final doc = await FirebaseFirestore.instance
+    // 🔹 Then: company users
+    if (companyId == null) {
+      await FirebaseAuth.instance.signOut();
+      throw Exception('Company session expired. Please login again.');
+    }
+
+    final companyDoc = await FirebaseFirestore.instance
         .collection('companies')
         .doc(companyId)
         .collection('users')
         .doc(user.uid)
         .get();
 
-    if (!doc.exists) {
+    if (!companyDoc.exists) {
       throw Exception('User not found in company');
     }
 
-    final role = doc.data()?['role'];
+    final role = companyDoc.data()?['role'];
     if (role == null) {
       throw Exception('Role not assigned');
     }
@@ -103,21 +117,45 @@ class RoleResolver extends StatelessWidget {
         if (snapshot.hasError) {
           return Scaffold(
             body: Center(
-              child: Text(
-                snapshot.error.toString(),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Access error. Please login again.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await logout();
+                    },
+                    child: const Text('Go to Login'),
+                  ),
+                ],
               ),
             ),
           );
+
         }
 
         switch (snapshot.data) {
           case 'admin':
-            return const AdminDashboard();
+            return const SessionWatcher(
+              child: AdminDashboard(),
+            );
+
           case 'supervisor':
-            return const SupervisorDashboard();
+            return const SessionWatcher(
+              child: SupervisorDashboard(),
+            );
+
+          case 'staff':
           default:
-            return const StaffDashboard();
+            return const SessionWatcher(
+              child: StaffDashboard(),
+            );
         }
       },
     );

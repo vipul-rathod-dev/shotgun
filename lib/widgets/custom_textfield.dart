@@ -1,7 +1,6 @@
 // Custom TextField Widget
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class CustomTextField extends StatefulWidget {
   final String? label;
@@ -48,49 +47,28 @@ class _CustomTextFieldState extends State<CustomTextField> {
         controller: widget.controller,
         
         obscureText: widget.isPassword ? _obscure : false,
-        style: GoogleFonts.poppins(fontSize: 15),
         validator: widget.validator,
         keyboardType: widget.keyboardType,
         textInputAction: widget.textInputAction ?? TextInputAction.next,
         autofillHints: widget.autofillHints,
         onChanged: widget.onChanged,
         maxLines: widget.maxLines,
+        style: theme.textTheme.bodyMedium,
         decoration: InputDecoration(
           labelText: widget.label,
-          labelStyle: GoogleFonts.poppins(color: Colors.grey[700]),
           prefixIcon: widget.icon != null
-            ? Icon(widget.icon, color: theme.colorScheme.primary)
+            ? Icon(widget.icon)
             : null,
           suffixIcon: widget.isPassword
             ? IconButton(
                 tooltip: _obscure ? 'Show password' : 'Hide password',
                 icon: Icon(
                   _obscure ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey[600],
                 ),
                 onPressed: () => setState(() => _obscure = !_obscure),
               )
             : null,
 
-          filled: true,
-          fillColor: Colors.grey[100],
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.colorScheme.error, width: 1.5),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           hintText: widget.hintText
         ),
       ),

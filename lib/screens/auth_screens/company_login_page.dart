@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shotgun/screens/auth_screens/company_login_controller.dart';
+import 'package:shotgun/auth/controllers/company_login_controller.dart';
 
 class CompanyLoginPage extends StatelessWidget {
   final VoidCallback onSwitchToAdmin;
@@ -14,7 +14,6 @@ class CompanyLoginPage extends StatelessWidget {
       child: Consumer<CompanyLoginController>(
         builder: (context, controller, _) {
           return Scaffold(
-            backgroundColor: Colors.grey[100],
             body: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 600;
@@ -116,7 +115,7 @@ class CompanyLoginPage extends StatelessWidget {
                                             }
 
                                             try {
-                                              await controller.login();
+                                              await controller.login(context);
                                             } catch (e) {
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
@@ -148,8 +147,6 @@ class CompanyLoginPage extends StatelessWidget {
                                       Icons.admin_panel_settings),
                                   label: const Text(
                                     "Admin Login",
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               ],

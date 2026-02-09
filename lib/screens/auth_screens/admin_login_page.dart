@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:shotgun/screens/auth_screens/login_controller.dart';
+import 'package:shotgun/auth/controllers/admin_login_controller.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class LoginPage extends StatelessWidget {
@@ -11,11 +10,10 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => LoginController(),
-      child: Consumer<LoginController>(
+      create: (_) => AdminLoginController(),
+      child: Consumer<AdminLoginController>(
         builder: (context, controller, _) {
           return Scaffold(
-            backgroundColor: Colors.grey[100],
             body: LayoutBuilder(
               builder: (context, constraints) {
                 final isDesktop = constraints.maxWidth >= 900;
@@ -33,12 +31,6 @@ class LoginPage extends StatelessWidget {
                         ? 28.0
                         : 20.0;
 
-                final titleSize = isDesktop
-                    ? 34.0
-                    : isTablet
-                        ? 32.0
-                        : 28.0;
-
                 return Center(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.symmetric(
@@ -49,20 +41,22 @@ class LoginPage extends StatelessWidget {
                       constraints: BoxConstraints(maxWidth: maxWidth),
                       child: Card(
                         elevation: isDesktop ? 8 : 0,
+                        surfaceTintColor: Theme.of(context).colorScheme.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Form(
+                            key: controller.formKey,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   "Login",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: titleSize,
-                                    fontWeight: FontWeight.bold,
+                                  // style: Theme.of(context).textTheme.headlineSmall,
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: 30),
@@ -103,8 +97,7 @@ class LoginPage extends StatelessWidget {
                                       children: [
                                         Checkbox(
                                           value: controller.rememberMe,
-                                          onChanged:
-                                              controller.toggleRememberMe,
+                                          onChanged: controller.toggleRememberMe,
                                         ),
                                         const Text("Remember Me"),
                                       ],
@@ -153,13 +146,12 @@ class LoginPage extends StatelessWidget {
                                 // Login Button
                                 SizedBox(
                                   width: double.infinity,
-                                  height: 48,
                                   child: ElevatedButton(
                                     onPressed: controller.isLoading
                                         ? null
                                         : () async {
                                             try {
-                                              await controller.login();
+                                              await controller.login(context);
                                               // AuthGate handles navigation
                                             } catch (e) {
                                               ScaffoldMessenger.of(context)
@@ -178,7 +170,6 @@ class LoginPage extends StatelessWidget {
                                             child:
                                                 CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              color: Colors.white,
                                             ),
                                           )
                                         : const Text("Login"),
@@ -194,9 +185,12 @@ class LoginPage extends StatelessWidget {
                                   },
                                   icon: const Icon(
                                       Icons.business_outlined),
-                                  label: const Text(
+                                  label: Text(
                                     "Login to Company Account",
-                                    style: TextStyle(fontSize: 15),
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                    // style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    //   fontWeight: FontWeight.w600,
+                                    // ),
                                   ),
                                 ),
                               ],
