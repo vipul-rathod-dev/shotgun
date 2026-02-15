@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shotgun/core/constants/app_colors.dart';
 import 'package:shotgun/utils/firestore_scripts.dart';
 import 'models/dashboard_item.dart';
 import 'models/fab_menu_item_model.dart';
@@ -110,7 +111,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     ];
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         drawer: SupervisorDrawer(userEmail: userEmail),
         appBar: _buildAppBar(context),
         body: SafeArea(
@@ -124,7 +125,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: Colors.white),
+                        CircularProgressIndicator(color: AppColors.primary),
                         SizedBox(height: 12),
                         Text(
                           "Running update script...",
@@ -149,51 +150,37 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      automaticallyImplyLeading: true,
-      elevation: 4,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        ),
-      ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      title: const Text(
+      title: Text(
         'Supervisor Dashboard',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
-          color: Colors.white,
-          letterSpacing: 0.4,
-        ),
       ),
-      centerTitle: true,
       actions: [
         PopupMenuButton<String>(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           onSelected: (value) async {
             if (value == 'logout') {
               final confirm = await _showLogoutDialog(context);
               if (confirm == true) {
                 await FirebaseAuth.instance.signOut();
-                Navigator.pushReplacementNamed(context, '/company-login');
               }
             } else if (value == 'run_script') {
               await _showRunScriptDialog(context);
             }
           },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 'run_script', child: Text('Run Update Script')),
-            PopupMenuItem(value: 'logout', child: Text('Logout')),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'run_script',
+              child: Text(
+                'Run Update Script',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'logout',
+              child: Text(
+                'Logout',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
           ],
-          icon: const Icon(Icons.more_vert, color: Colors.white),
         ),
       ],
     );
@@ -215,14 +202,17 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
           Text(
             "Welcome back 👋",
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A237E),
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
             "What would you like to manage today?",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            )
           ),
           const SizedBox(height: 30),
           Expanded(
@@ -249,12 +239,8 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
                   ),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Colors.white, Color(0xFFE3F2FD)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.blueGrey.withOpacity(0.1),
@@ -266,7 +252,18 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
                     child: DashboardCard(
                       icon: item.icon,
                       title: item.title,
-                      onTap: () => Navigator.pushNamed(context, item.route),
+                      onTap: () {
+                        if (_isMenuOpen) {
+                          _animationController.reverse();
+                          setState(() => _isMenuOpen = false);
+                        }
+
+                        if (Scaffold.of(context).isDrawerOpen) {
+                          Navigator.pop(context);
+                        }
+
+                        Navigator.pushNamed(context, item.route);
+                      },
                     ),
                   ),
                 );
@@ -282,11 +279,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     return Container(
       padding: const EdgeInsets.all(14),
       color: const Color(0xFFE8EDF4),
-      child: const Text(
+      child: Text(
         "© 2025 Supervisor Panel • v1.5",
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.black54,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
         ),
@@ -300,17 +296,26 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        title: Text(
+          'Logout',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1565C0),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout'),
+            child: Text(
+              'Logout',
+              style: Theme.of(context).textTheme.titleMedium,
+            )
           ),
         ],
       ),
@@ -322,11 +327,14 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Run Firestore Update Script'),
+        title: Text(
+          'Run Firestore Update Script',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.auto_fix_high_rounded, size: 60, color: Colors.blueAccent),
+          children: [
+            Icon(Icons.auto_fix_high_rounded, size: 60, color: Theme.of(context).colorScheme.primary),
             SizedBox(height: 14),
             Text(
               'This will add or update the “stock” field in all finished products. Proceed?',
@@ -335,14 +343,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1565C0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Run'),
+            child: Text('Run'),
           ),
         ],
       ),
@@ -359,10 +363,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle_outline, color: Colors.white),
+              Icon(Icons.check_circle_outline, color: Theme.of(context).colorScheme.primary),
               SizedBox(width: 8),
               Text('Script completed successfully!'),
             ],
@@ -375,12 +379,12 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.error_outline, color: Colors.white),
+              Icon(Icons.error_outline, color: Theme.of(context).colorScheme.primary),
               SizedBox(width: 8),
               Text('Error: $e'),
             ],
           ),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } finally {

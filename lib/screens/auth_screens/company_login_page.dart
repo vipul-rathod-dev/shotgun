@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shotgun/auth/controllers/company_login_controller.dart';
 
 class CompanyLoginPage extends StatelessWidget {
@@ -42,8 +41,7 @@ class CompanyLoginPage extends StatelessWidget {
                                 Text(
                                   "Company Login",
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: isWide ? 28 : 24,
+                                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -106,17 +104,21 @@ class CompanyLoginPage extends StatelessWidget {
                                 SizedBox(
                                   height: 48,
                                   child: ElevatedButton(
-                                    onPressed: controller.isLoading
+                                    onPressed: (!controller.isInitialized || controller.isLoading)
                                         ? null
                                         : () async {
-                                            if (!controller.formKey.currentState!
-                                                .validate()) {
-                                              return;
-                                            }
+                                            // FocusScope.of(context).unfocus(); 
+
+                                            // if (!controller.formKey.currentState!
+                                            //     .validate()) {
+                                            //   return;
+                                            // }
 
                                             try {
-                                              await controller.login(context);
+                                              await controller.login();
+                                              if (!context.mounted) return;
                                             } catch (e) {
+                                              if (!context.mounted) return;
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
                                                 SnackBar(

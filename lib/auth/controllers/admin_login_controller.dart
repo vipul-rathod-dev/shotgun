@@ -3,7 +3,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shotgun/core/constants/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/remember_me_service.dart';
 
@@ -21,19 +20,20 @@ class AdminLoginController extends ChangeNotifier {
   }
 
   Future<void> _loadRemembered() async {
-    final data = await RememberMeService.load();
-    emailController.text = data['email'] ?? '';
-    rememberMe = data.isNotEmpty;
+    final email = await RememberMeService.loadAdminEmail();
+    emailController.text = email ?? '';
+    rememberMe = email != null;
     notifyListeners();
   }
 
   void toggleRememberMe(bool? v) {
     rememberMe = v ?? false;
     if (!rememberMe) {
-      RememberMeService.clear();
+      RememberMeService.clearAdmin();
     }
     notifyListeners();
   }
+
 
   Future<void> resetPassword(String email) async {
     await AuthService.resetPassword(email.trim());
@@ -66,11 +66,8 @@ class AdminLoginController extends ChangeNotifier {
         throw Exception('Not an admin account');
       }
 
-      // ✅ CONVERT STRING → ENUM
-      final role = UserRoleX.fromString(roleString);
-
       if (rememberMe) {
-        await RememberMeService.save(
+        await RememberMeService.saveAdmin(
           email: emailController.text.trim(),
         );
       }

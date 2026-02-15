@@ -54,9 +54,9 @@ class LoginPage extends StatelessWidget {
                               children: [
                                 Text(
                                   "Login",
-                                  // style: Theme.of(context).textTheme.headlineSmall,
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 30),
@@ -99,7 +99,10 @@ class LoginPage extends StatelessWidget {
                                           value: controller.rememberMe,
                                           onChanged: controller.toggleRememberMe,
                                         ),
-                                        const Text("Remember Me"),
+                                        Text(
+                                          "Remember Me",
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                        ),
                                       ],
                                     ),
                                     TextButton(
@@ -137,7 +140,10 @@ class LoginPage extends StatelessWidget {
                                         }
                                       },
                                       child:
-                                          const Text("Forgot Password?"),
+                                          Text(
+                                            "Forgot Password?",
+                                            style: Theme.of(context).textTheme.bodyMedium,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -164,13 +170,16 @@ class LoginPage extends StatelessWidget {
                                             }
                                           },
                                     child: controller.isLoading
-                                        ? const SizedBox(
+                                        ? SizedBox(
                                             height: 20,
                                             width: 20,
                                             child:
                                                 CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                                    Theme.of(context).colorScheme.onPrimary,
+                                                  ),
+                                                ),
                                           )
                                         : const Text("Login"),
                                   ),
@@ -187,7 +196,6 @@ class LoginPage extends StatelessWidget {
                                       Icons.business_outlined),
                                   label: Text(
                                     "Login to Company Account",
-                                    style: Theme.of(context).textTheme.titleMedium,
                                     // style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     //   fontWeight: FontWeight.w600,
                                     // ),

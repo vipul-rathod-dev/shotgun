@@ -1,6 +1,7 @@
 // File: company_login_controller.dart
 // Reusable: Yes
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,87 +18,150 @@ class CompanyLoginController extends ChangeNotifier {
   bool rememberMe = false;
   bool isLoading = false;
 
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+
   CompanyLoginController() {
     _loadRemembered();
   }
 
   Future<void> _loadRemembered() async {
-    final data = await RememberMeService.load();
+    final data = await RememberMeService.loadCompany();
     emailController.text = data['email'] ?? '';
     companyController.text = data['company'] ?? '';
-    rememberMe = data.isNotEmpty;
+    rememberMe = data['email'] != null;
+    _isInitialized = true;
     notifyListeners();
   }
 
   void toggleRememberMe(bool? v) {
     rememberMe = v ?? false;
     if (!rememberMe) {
-      RememberMeService.clear();
+      RememberMeService.clearCompany();
     }
     notifyListeners();
   }
 
-  Future<void> login(BuildContext context) async {
+  Future<void> login() async {
+    if (!_isInitialized) return;
     if (!formKey.currentState!.validate()) return;
 
     isLoading = true;
     notifyListeners();
 
     try {
-      final user = await AuthService.login(
-        email: emailController.text.trim(),
-        password: passwordController.text,
-      );
+      final companyName = companyController.text.trim();
 
-      // 2️⃣ Resolve company AFTER auth
+      // 1️⃣ Resolve company BEFORE login
       final companySnapshot = await FirebaseFirestore.instance
           .collection('companies')
-          .where('name', isEqualTo: companyController.text.toString().trim())
+          .where('name', isEqualTo: companyName)
           .limit(1)
           .get();
+
       if (companySnapshot.docs.isEmpty) {
-        await AuthService.logout();
         throw Exception('Invalid company');
       }
 
       final companyId = companySnapshot.docs.first.id;
 
-      // 3️⃣ Verify user belongs to this company
+      // 2️⃣ Login user
+      final user = await AuthService.login(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      // 🔥 WAIT FOR AUTH STATE TO STABILIZE
+      await FirebaseAuth.instance.authStateChanges().first;
+
+      // 3️⃣ Verify user belongs to company
       final companyUserDoc = await FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       if (!companyUserDoc.exists) {
         await AuthService.logout();
         throw Exception('User not authorized for this company');
       }
 
+      // 4️⃣ Remember Me
       if (rememberMe) {
-        await RememberMeService.save(
-          company: companyController.text,
+        await RememberMeService.saveCompany(
+          company: companyName,
           email: emailController.text.trim(),
         );
       }
 
       final prefs = await SharedPreferences.getInstance();
-      print("Company ID: ${companyId}");
       await prefs.setString('cachedCompanyId', companyId);
 
-      // ✅ ROLE-BASED NAVIGATION (SAME AS ADMIN)
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/',
-        (route) => false,
-      );
-
+    } catch (e) {
+      rethrow;
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
+
+
+  // Future<void> login() async {
+  //   if (!_isInitialized) return;
+  //   isLoading = true;
+  //   print("Initialized: $_isInitialized");
+  //   notifyListeners();
+
+  //   try {
+  //     final user = await AuthService.login(
+  //       email: emailController.text.trim(),
+  //       password: passwordController.text,
+  //     );
+
+  //     // 2️⃣ Resolve company AFTER auth
+  //     final companySnapshot = await FirebaseFirestore.instance
+  //         .collection('companies')
+  //         .where('name', isEqualTo: companyController.text.toString().trim())
+  //         .limit(1)
+  //         .get();
+  //     if (companySnapshot.docs.isEmpty) {
+  //       await AuthService.logout();
+  //       throw Exception('Invalid company');
+  //     }
+
+  //     final companyId = companySnapshot.docs.first.id;
+
+  //     // 3️⃣ Verify user belongs to this company
+  //     final companyUserDoc = await FirebaseFirestore.instance
+  //         .collection('companies')
+  //         .doc(companyId)
+  //         .collection('users')
+  //         .doc(user.uid)
+  //         .get();
+      
+  //     if (!companyUserDoc.exists) {
+  //       await AuthService.logout();
+  //       throw Exception('User not authorized for this company');
+  //     }
+
+  //     if (rememberMe) {
+  //       await RememberMeService.saveCompany(
+  //         company: companyController.text,
+  //         email: emailController.text.trim(),
+  //       );
+  //     }
+
+  //     final prefs = await SharedPreferences.getInstance();
+  //     print("Company ID: ${companyId}");
+  //     await prefs.setString('cachedCompanyId', companyId);
+
+  //   } finally {
+  //     isLoading = false;
+  //     notifyListeners();
+  //   }
+  // }
 
   // Future<void> login() async {
   //   if (!formKey.currentState!.validate()) return;

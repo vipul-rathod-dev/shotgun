@@ -5,6 +5,41 @@ import 'package:shotgun/core/constants/app_colors.dart';
 class AppTheme {
   static ThemeData light = ThemeData(
     useMaterial3: true,
+    primaryColor: AppColors.primary,
+
+    cardTheme: CardTheme(
+      color: Colors.white,
+      elevation: 6,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+    ),
+
+    appBarTheme: AppBarTheme(
+      elevation: 0,
+      centerTitle: true,
+
+      // 🎨 Background (NOT white)
+      backgroundColor: AppColors.primary.withOpacity(0.08),
+      surfaceTintColor: AppColors.primary.withOpacity(0.08),
+
+      // 🎯 Icons
+      iconTheme: IconThemeData(
+        color: AppColors.textPrimary,
+      ),
+      actionsIconTheme: IconThemeData(
+        color: AppColors.textPrimary,
+      ),
+
+      // 🖋 Title text (Poppins)
+      titleTextStyle: GoogleFonts.poppins(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+        letterSpacing: 0.3,
+      ),
+    ),
 
     // 🌈 COLOR SCHEME
     colorScheme: ColorScheme.fromSeed(
@@ -12,6 +47,9 @@ class AppTheme {
       background: AppColors.background,
       brightness: Brightness.light,
     ),
+
+    // ✅ GLOBAL FONT
+    fontFamily: GoogleFonts.poppins().fontFamily,
 
     // 🖋 TYPOGRAPHY
     textTheme: GoogleFonts.poppinsTextTheme(),
@@ -108,8 +146,9 @@ class AppTheme {
         ),
 
         textStyle: MaterialStateProperty.all(
-          const TextStyle(
+          GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
+            fontSize: 15,
           ),
         ),
 
@@ -128,7 +167,7 @@ class AppTheme {
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
         foregroundColor: MaterialStateProperty.all(
-          AppColors.textSecondary,
+          AppColors.primary,
         ),
         iconColor: MaterialStateProperty.all(
           AppColors.textSecondary,
@@ -140,11 +179,28 @@ class AppTheme {
     ),
 
     checkboxTheme: CheckboxThemeData(
-      fillColor: MaterialStateProperty.resolveWith(
-        (states) => states.contains(MaterialState.selected)
-            ? AppColors.primary
-            : AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
       ),
+
+      // ✅ BORDER COLOR (unchecked)
+      side: BorderSide(
+        color: AppColors.textSecondary, // same as TextField border
+        width: 1.4,
+      ),
+
+      // ✅ FILL COLOR (checked)
+      fillColor: MaterialStateProperty.resolveWith(
+        (states) {
+          if (states.contains(MaterialState.selected)) {
+            return AppColors.primary;
+          }
+          return Colors.transparent;
+        },
+      ),
+
+      // ✅ CHECK ICON COLOR
+      checkColor: MaterialStateProperty.all(Colors.white),
     ),
   );
 }

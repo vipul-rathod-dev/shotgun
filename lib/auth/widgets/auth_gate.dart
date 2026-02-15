@@ -65,7 +65,7 @@ class RoleResolver extends StatelessWidget {
   Future<String> _getRole() async {
     final user = FirebaseAuth.instance.currentUser!;
     final prefs = await SharedPreferences.getInstance();
-    final companyId = prefs.getString('cachedCompanyId');
+    String? companyId = prefs.getString('cachedCompanyId');
 
     // 🔹 First: check global users (admin)
     final globalDoc = await FirebaseFirestore.instance
@@ -78,30 +78,41 @@ class RoleResolver extends StatelessWidget {
       if (role != null) return role;
     }
 
-    // 🔹 Then: company users
+    // 🔹 If companyId not ready yet, retry once
+    if (companyId == null) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      final retryPrefs = await SharedPreferences.getInstance();
+      companyId = retryPrefs.getString('cachedCompanyId');
+    }
+
     if (companyId == null) {
       await FirebaseAuth.instance.signOut();
       throw Exception('Company session expired. Please login again.');
     }
 
-    final companyDoc = await FirebaseFirestore.instance
-        .collection('companies')
-        .doc(companyId)
-        .collection('users')
-        .doc(user.uid)
-        .get();
-
-    if (!companyDoc.exists) {
-      throw Exception('User not found in company');
-    }
-
-    final role = companyDoc.data()?['role'];
-    if (role == null) {
-      throw Exception('Role not assigned');
-    }
-
-    return role;
+    return _resolveCompanyRole(user.uid, companyId);
   }
+
+
+  Future<String> _resolveCompanyRole(String uid, String companyId) async {
+      final companyDoc = await FirebaseFirestore.instance
+          .collection('companies')
+          .doc(companyId)
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      if (!companyDoc.exists) {
+        throw Exception('User not found in company');
+      }
+
+      final role = companyDoc.data()?['role'];
+      if (role == null) {
+        throw Exception('Role not assigned');
+      }
+
+      return role;
+    }
 
   @override
   Widget build(BuildContext context) {
