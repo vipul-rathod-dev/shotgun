@@ -96,38 +96,71 @@ class _ProductTableState extends State<ProductTable> {
 
   /// ✅ Add Product
   Future<void> _addProduct() async {
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
+    final result =
+        await showModalBottomSheet<List<Map<String, dynamic>>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const ProductSelectorSheet(),
     );
 
-    if (result != null) {
-      if (_productSelections.any((p) => p['productId'] == result['productId'])) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product already added')),
-        );
-      } else {
-        setState(() {
-          final breakdown = computeMaterialBreakdown(
-            result,
-            widget.controller.boxQuantity,
-            widget.controller.productCustomizations,
-          );
+    if (result == null || result.isEmpty) {
+      return;
+    }
 
-          final updatedProduct = {
-            ...result,
-            ...breakdown,
-          };
-          _productSelections.add(updatedProduct);
-          widget.controller.addProduct(updatedProduct);
-          // Product Result: {productId: RgGqHRItCyGo8GDh0uwk, productName: M:4045, modelGender: Ladies, quantity: 150, price: 45.0}
-        });
+    final List<Map<String, dynamic>> productsToAdd = [];
+
+    for (final product in result) {
+      final productId = product['productId'];
+
+      final alreadyExists = _productSelections.any(
+        (p) => p['productId'] == productId,
+      );
+
+      if (alreadyExists) {
+        continue;
       }
+
+      final breakdown = computeMaterialBreakdown(
+        product,
+        widget.controller.boxQuantity,
+        widget.controller.productCustomizations,
+      );
+
+      final updatedProduct = {
+        ...product,
+        ...breakdown,
+      };
+
+      productsToAdd.add(updatedProduct);
+    }
+
+    if (productsToAdd.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All selected products are already added'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      for (final product in productsToAdd) {
+        _productSelections.add(product);
+        widget.controller.addProduct(product);
+      }
+    });
+
+    if (productsToAdd.length < result.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${result.length - productsToAdd.length} product(s) were already added',
+          ),
+        ),
+      );
     }
   }
-
   /// ✅ Remove Product
   void _removeProduct(Map<String, dynamic> product) {
     setState(() {

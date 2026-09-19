@@ -18,7 +18,7 @@ class ProductCustomizationsList extends StatelessWidget {
 
     return Column(
       children: customizations.map<Widget>((c) {
-        final focusColor = (c['focusColor'] ?? '').toString().trim();
+        final focusColor = ("${c['focusColor']} - ${c['focusBaseMaterial']}").toString().trim();
         final templeColor = (c['templeColor'] ?? '').toString().trim();
         final focusQty = ((c['focusQty'] ?? 0) as num) * perModelOrderQty;
         final templeQty = ((c['templeQty'] ?? 0) as num) * perModelOrderQty;

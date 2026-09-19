@@ -68,13 +68,13 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
 
           _availableColors = colorSnapshot.docs.map((d) => {
             'id': d.id,
-            'name': d['name'] ?? 'Unnamed',
+            'name': d['displayName'] ?? 'Unnamed',
             'focusBaseMaterial': d['focusBaseMaterial']
           }).toList();
 
           _availableTemples = templeSnapshot.docs.map((d) => {
             'id': d.id,
-            'name': d['name'] ?? 'Unnamed',
+            'name': d['displayName'] ?? 'Unnamed',
             'templeBaseMaterial': d['templeBaseMaterial']
           }).toList();
 
