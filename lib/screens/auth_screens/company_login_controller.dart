@@ -43,7 +43,7 @@ class CompanyLoginController extends ChangeNotifier {
   /* ---------------- SECURITY CORE ---------------- */
 
   Future<void> login() async {
-    // 🔐 Brute-force protection
+    // Brute-force protection
     if (_lockUntil != null &&
         DateTime.now().isBefore(_lockUntil!)) {
       throw Exception(
@@ -55,20 +55,26 @@ class CompanyLoginController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1️⃣ Authenticate FIRST (never trust company before auth)
-      final credential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(
+      // 1. Authenticate user first
+      final credential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text,
       );
 
-      final user = credential.user!;
-      final prefs = await SharedPreferences.getInstance();
+      final user = credential.user;
 
-      // 2️⃣ Resolve company AFTER auth
+      if (user == null) {
+        throw Exception('Unable to authenticate user');
+      }
+
+      // 2. Find company
       final companySnapshot = await FirebaseFirestore.instance
           .collection('companies')
-          .where('name', isEqualTo: companyController.text.trim())
+          .where(
+            'name',
+            isEqualTo: companyController.text.trim(),
+          )
           .limit(1)
           .get();
 
@@ -79,7 +85,7 @@ class CompanyLoginController extends ChangeNotifier {
 
       final companyId = companySnapshot.docs.first.id;
 
-      // 3️⃣ Verify user belongs to this company
+      // 3. Verify user belongs to company
       final companyUserDoc = await FirebaseFirestore.instance
           .collection('companies')
           .doc(companyId)
@@ -89,20 +95,43 @@ class CompanyLoginController extends ChangeNotifier {
 
       if (!companyUserDoc.exists) {
         await FirebaseAuth.instance.signOut();
-        throw Exception('User not authorized for this company');
+        throw Exception(
+          'User not authorized for this company',
+        );
       }
 
-      // 4️⃣ Save NON-SENSITIVE cache only
+      // 4. Save session/company information
+      final prefs = await SharedPreferences.getInstance();
+
+      // Remember-me information
       if (rememberMe) {
-        await prefs.setString('company', companyController.text.trim());
-        await prefs.setString('email', emailController.text.trim());
-        await prefs.setBool('rememberMe', true);
-        await prefs.setString('cachedCompanyId', companyId);
+        await prefs.setString(
+          'company',
+          companyController.text.trim(),
+        );
+
+        await prefs.setString(
+          'email',
+          emailController.text.trim(),
+        );
+
+        await prefs.setBool(
+          'rememberMe',
+          true,
+        );
       } else {
-        await prefs.clear();
+        await prefs.remove('company');
+        await prefs.remove('email');
+        await prefs.setBool('rememberMe', false);
       }
 
-      // Reset brute-force counter
+      // Always save company for current authenticated session
+      await prefs.setString(
+        'cachedCompanyId',
+        companyId,
+      );
+
+      // Reset failed attempts
       _failedAttempts = 0;
       _lockUntil = null;
     } on FirebaseAuthException catch (e) {
@@ -110,6 +139,12 @@ class CompanyLoginController extends ChangeNotifier {
       throw Exception(_mapAuthError(e));
     } catch (e) {
       _registerFailure();
+
+      // Don't add "Exception:" multiple times
+      if (e is Exception) {
+        rethrow;
+      }
+
       throw Exception(e.toString());
     } finally {
       isLoading = false;

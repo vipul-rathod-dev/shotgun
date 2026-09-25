@@ -118,11 +118,14 @@ class CompanyLoginPage extends StatelessWidget {
                                             try {
                                               await controller.login();
                                             } catch (e) {
+                                              if (!context.mounted) {
+                                                return;
+                                              }
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
                                                 SnackBar(
                                                   content:
-                                                      Text(e.toString()),
+                                                      Text(e.toString().replaceFirst('Exception: ', '')),
                                                 ),
                                               );
                                             }

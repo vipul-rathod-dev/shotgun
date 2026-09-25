@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/utils/firestore_scripts.dart';
 import 'models/dashboard_item.dart';
 import 'models/fab_menu_item_model.dart';
@@ -183,7 +184,11 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
               final confirm = await _showLogoutDialog(context);
               if (confirm == true) {
                 await FirebaseAuth.instance.signOut();
-                Navigator.pushReplacementNamed(context, '/company-login');
+
+                if (!context.mounted) return;
+
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('cachedCompanyId');
               }
             } else if (value == 'run_script') {
               await _showRunScriptDialog(context);
@@ -199,85 +204,223 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
     );
   }
 
-  Widget _buildDashboardContent(BuildContext context, List<DashboardItem> items) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth > 1200
-        ? 4
-        : screenWidth > 800
-            ? 3
-            : 2;
+  Widget _buildDashboardContent(
+    BuildContext context,
+    List<DashboardItem> items,
+  ) {
+    final width = MediaQuery.sizeOf(context).width;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Welcome back 👋",
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A237E),
-                ),
+    // ------------------------------------------------------------
+    // RESPONSIVE BREAKPOINTS
+    // ------------------------------------------------------------
+
+    final bool isSmallMobile = width < 400;
+    final bool isMobile = width < 600;
+    final bool isTablet = width >= 600 && width < 1100;
+    final bool isDesktop = width >= 1100;
+
+    // Number of columns
+    final int crossAxisCount;
+
+    if (width < 600) {
+      crossAxisCount = 2;
+    } else if (width < 1100) {
+      crossAxisCount = 3;
+    } else {
+      crossAxisCount = 4;
+    }
+
+    // Responsive horizontal padding
+    final double horizontalPadding;
+
+    if (isSmallMobile) {
+      horizontalPadding = 10;
+    } else if (isMobile) {
+      horizontalPadding = 14;
+    } else if (isTablet) {
+      horizontalPadding = 24;
+    } else {
+      horizontalPadding = 32;
+    }
+
+    // Responsive vertical padding
+    final double verticalPadding = isMobile ? 16 : 24;
+
+    // Grid spacing
+    final double gridSpacing = isSmallMobile
+        ? 10
+        : isMobile
+            ? 12
+            : isTablet
+                ? 16
+                : 20;
+
+    // Card aspect ratio
+    final double cardAspectRatio = isSmallMobile
+        ? 1.05
+        : isMobile
+            ? 1.10
+            : isTablet
+                ? 1.15
+                : 1.20;
+
+    // Responsive heading
+    final double headingSize = isSmallMobile
+        ? 20
+        : isMobile
+            ? 22
+            : 25;
+
+    // Maximum width on desktop
+    final double maxContentWidth = isDesktop ? 1400 : double.infinity;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxContentWidth,
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
           ),
-          const SizedBox(height: 10),
-          Text(
-            "What would you like to manage today?",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 30),
-          Expanded(
-            child: GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
-                childAspectRatio: 1.1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --------------------------------------------------
+              // HEADER
+              // --------------------------------------------------
+
+              Text(
+                'Welcome back 👋',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(
+                      fontSize: headingSize,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1A237E),
+                    ),
               ),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return TweenAnimationBuilder<double>(
-                  duration: Duration(milliseconds: 400 + (index * 120)),
-                  tween: Tween(begin: 0, end: 1),
-                  builder: (context, value, child) => Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 30 * (1 - value)),
-                      child: child,
+
+              SizedBox(
+                height: isSmallMobile ? 5 : 8,
+              ),
+
+              Text(
+                'What would you like to manage today?',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(
+                      fontSize: isSmallMobile ? 12 : 14,
+                      color: Colors.grey[700],
                     ),
+              ),
+
+              SizedBox(
+                height: isSmallMobile ? 18 : 26,
+              ),
+
+              // --------------------------------------------------
+              // GRID
+              // --------------------------------------------------
+
+              Expanded(
+                child: GridView.builder(
+                  physics: const BouncingScrollPhysics(),
+
+                  padding: EdgeInsets.only(
+                    bottom: isMobile ? 90 : 100,
                   ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Colors.white, Color(0xFFE3F2FD)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+
+                  gridDelegate:
+                      SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: gridSpacing,
+                    mainAxisSpacing: gridSpacing,
+                    childAspectRatio: cardAspectRatio,
+                  ),
+
+                  itemCount: items.length,
+
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+
+                    return TweenAnimationBuilder<double>(
+                      duration: Duration(
+                        milliseconds: 300 + (index * 80),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blueGrey.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
+                      tween: Tween(
+                        begin: 0,
+                        end: 1,
+                      ),
+                      builder: (
+                        context,
+                        value,
+                        child,
+                      ) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(
+                              0,
+                              20 * (1 - value),
+                            ),
+                            child: child,
+                          ),
+                        );
+                      },
+
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            isSmallMobile ? 14 : 18,
+                          ),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Colors.white,
+                              Color(0xFFE3F2FD),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blueGrey.withOpacity(
+                                0.10,
+                              ),
+                              blurRadius: isMobile ? 8 : 12,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: DashboardCard(
-                      icon: item.icon,
-                      title: item.title,
-                      onTap: () => Navigator.pushNamed(context, item.route),
-                    ),
-                  ),
-                );
-              },
-            ),
+                        child: DashboardCard(
+                          icon: item.icon,
+                          title: item.title,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              item.route,
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
-
+    
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(14),

@@ -63,10 +63,22 @@ class RoleResolver extends StatelessWidget {
 
   Future<String> _getRole() async {
     final user = FirebaseAuth.instance.currentUser!;
+    
     final prefs = await SharedPreferences.getInstance();
-    final companyId = prefs.getString('cachedCompanyId');
 
-    if (companyId == null) {
+    String? companyId;
+
+    for (int i = 0; i < 20; i++) {
+      companyId = prefs.getString('cachedCompanyId');
+
+      if (companyId != null && companyId.isNotEmpty) {
+        break;
+      }
+
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (companyId == null || companyId.isEmpty) {
       throw Exception('Company not selected');
     }
 
@@ -82,6 +94,7 @@ class RoleResolver extends StatelessWidget {
     }
 
     final role = doc.data()?['role'];
+
     if (role == null) {
       throw Exception('Role not assigned');
     }
@@ -96,16 +109,21 @@ class RoleResolver extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
           );
         }
 
         if (snapshot.hasError) {
           return Scaffold(
             body: Center(
-              child: Text(
-                snapshot.error.toString(),
-                textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  snapshot.error.toString(),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           );
@@ -114,8 +132,13 @@ class RoleResolver extends StatelessWidget {
         switch (snapshot.data) {
           case 'admin':
             return const AdminDashboard();
+
           case 'supervisor':
             return const SupervisorDashboard();
+
+          case 'staff':
+            return const StaffDashboard();
+
           default:
             return const StaffDashboard();
         }
