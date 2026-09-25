@@ -31,24 +31,33 @@ class AddOrderController extends ChangeNotifier {
   String? customerName;
   String? customerPhone;
   String? brandName;
-  DateTime? orderDate;
+  DateTime orderDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
   DateTime? shippingDate;
   List<Map<String, dynamic>> products = [];
   Map<String, List<Map<String, dynamic>>> productCustomizations = {};
   bool _isInitialized = false;
-  String? orderType; // e.g., 'Standard' or 'Customized'
+  String? orderType = 'Stock'; // e.g., 'Standard' or 'Customized'
   bool get showColorCustomization => orderType == 'Customized';
   Map<String, int> boxQuantity = {};
   String? gentsDefaultTemplate;
   String? ladiesDefaultTemplate;
   String? babyDefaultTemplate;
   String? selectedCustomerId;
-  ValueNotifier<String?> orderTypeNotifier = ValueNotifier(null);
+  ValueNotifier<String?> orderTypeNotifier = ValueNotifier<String?>("Stock");
 
-  void setOrderType(String? type) {
-    orderTypeNotifier.value = type;
-    orderType = type;
-    if (orderType == 'Stock') productCustomizations.clear();
+  void setOrderType(String? value) {
+    orderType = value ?? "Stock";
+    orderTypeNotifier.value = orderType;
+
+    if (orderType == "Stock") {
+      productCustomizations.clear();
+    }
+
+    notifyListeners();
   }
 
   void setSelectedCustomer(String? id) {
@@ -82,21 +91,18 @@ class AddOrderController extends ChangeNotifier {
   // }
 
   void setCustomerName(String name) {
-    customerNameController.text = name;
     customerName = name;
-    notifyListeners();
+    // notifyListeners();
   }
 
   void setCustomerPhone(String phone) {
-    customerPhoneController.text = phone;
     customerPhone = phone;
-    notifyListeners();
+    // notifyListeners();
   }
 
   void setBrandName(String name) {
-    brandNameController.text = name;
     brandName = name;
-    notifyListeners();
+    // notifyListeners();
   }
 
   void setOrderDate(DateTime date) {
@@ -240,11 +246,11 @@ class AddOrderController extends ChangeNotifier {
       _showSnack(context, 'Please add at least one product');
       return;
     }
-    if (orderDate == null || shippingDate == null) {
-      _showSnack(context, 'Please select order and shipping dates');
+    if (shippingDate == null) {
+      _showSnack(context, 'Please select shipping dates');
       return;
     }
-    if (shippingDate!.isBefore(orderDate!)) {
+    if (shippingDate!.isBefore(orderDate)) {
       _showSnack(context, 'Shipping date cannot be before order date');
       return;
     }
@@ -296,7 +302,7 @@ class AddOrderController extends ChangeNotifier {
             'customerName': customerName,
             'customerPhone': customerPhone,
             'brandName': brandName,
-            'orderDate': Timestamp.fromDate(orderDate!),
+            'orderDate': Timestamp.fromDate(orderDate),
             'shippingDate': Timestamp.fromDate(shippingDate!),
             'products': finalProducts,
             'totalAmount': total,
@@ -319,8 +325,14 @@ class AddOrderController extends ChangeNotifier {
       customerName = null;
       customerPhone = null;
       brandName = null;
-      orderType = null;
-      orderDate = null;
+      orderType = 'Stock';
+      orderTypeNotifier.value = 'Stock';
+
+      orderDate = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
       shippingDate = null;
       notifyListeners();
     } catch (e, stack) {
@@ -339,11 +351,11 @@ class AddOrderController extends ChangeNotifier {
       _showSnack(context, 'Please add at least one product');
       return;
     }
-    if (orderDate == null || shippingDate == null) {
-      _showSnack(context, 'Please select order and shipping dates');
+    if (shippingDate == null) {
+      _showSnack(context, 'Please select shipping dates');
       return;
     }
-    if (shippingDate!.isBefore(orderDate!)) {
+    if (shippingDate!.isBefore(orderDate)) {
       _showSnack(context, 'Shipping date cannot be before order date');
       return;
     }
@@ -383,7 +395,7 @@ class AddOrderController extends ChangeNotifier {
             'customerName': customerName,
             'customerPhone': customerPhone,
             'brandName': brandName,
-            'orderDate': Timestamp.fromDate(orderDate!),
+            'orderDate': Timestamp.fromDate(orderDate),
             'shippingDate': Timestamp.fromDate(shippingDate!),
             'products': finalProducts,
             'totalAmount': total,
@@ -405,8 +417,14 @@ class AddOrderController extends ChangeNotifier {
       customerName = null;
       customerPhone = null;
       brandName = null;
-      orderType = null;
-      orderDate = null;
+      orderType = 'Stock';
+      orderTypeNotifier.value = 'Stock';
+
+      orderDate = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
       shippingDate = null;
       notifyListeners();
     } catch (e, stack) {
@@ -458,7 +476,12 @@ class AddOrderController extends ChangeNotifier {
     brandName = data['brandName'];
     orderType = data['orderType'] ?? 'Stock';
 
-    orderDate = (data['orderDate'] as Timestamp?)?.toDate();
+    orderDate = (data['orderDate'] as Timestamp?)?.toDate() ??
+    DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     shippingDate = (data['shippingDate'] as Timestamp?)?.toDate();
 
     // -------------------------------
@@ -527,7 +550,7 @@ class AddOrderController extends ChangeNotifier {
       'customerPhone': customerPhoneController.text.trim(),
       'brandName': brandNameController.text.trim(),
       'orderType': orderType,
-      'orderDate': Timestamp.fromDate(orderDate ?? DateTime.now()),
+      'orderDate': Timestamp.fromDate(orderDate),
       'shippingDate': Timestamp.fromDate(shippingDate ?? DateTime.now()),
       'products': finalProducts,
       'totalAmount': total,
@@ -641,7 +664,7 @@ extension OrderPdfGenerator on AddOrderController {
           _infoRow('Customer', customerName ?? '-'),
           _infoRow('Phone Number', customerPhone ?? '-'),
           _infoRow('Brand Name', brandName ?? '-'),
-          _infoRow('Order Date', orderDate == null ? '-' : fmt.format(orderDate!)),
+          _infoRow('Order Date', fmt.format(orderDate)),
           _infoRow('Shipping Date', shippingDate == null ? '-' : fmt.format(shippingDate!)),
 
           pw.SizedBox(height: 15),

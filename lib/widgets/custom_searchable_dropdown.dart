@@ -81,17 +81,22 @@ class _SearchableDropdownState extends State<SearchableDropdown> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
               itemCount: _filteredItems.length,
               itemBuilder: (context, index) {
                 final item = _filteredItems[index];
-                return ListTile(
-                  dense: true,
-                  title: Text(item[widget.keyName].toString()),
-                  onTap: () {
-                    widget.onChanged(item);
-                    _controller.text = item[widget.keyName].toString();
-                    setState(() => _isExpanded = false);
-                  },
+                return Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    dense: true,
+                    title: Text(item[widget.keyName].toString()),
+                    onTap: () {
+                      widget.onChanged(item);
+                      _controller.text = item[widget.keyName].toString();
+                      setState(() => _isExpanded = false);
+                    },
+                  ),
                 );
               },
             ),

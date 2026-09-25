@@ -14,8 +14,6 @@ class CustomerDetailsForm extends StatefulWidget {
 }
 
 class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
-  late TextEditingController _phoneController;
-  late TextEditingController _brandNameController;
   List<Map<String, dynamic>> _customers = [];
   // String? _selectedCustomerId;
   bool _loadingCustomers = true;
@@ -26,8 +24,6 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
     if (widget.companyId != null) {
     _loadCustomers();
     }
-    _phoneController = TextEditingController(text: widget.controller.customerPhone);
-    _brandNameController = TextEditingController(text: widget.controller.brandName);
   }
 
   Future<void> _loadCustomers() async {
@@ -59,8 +55,6 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
-    _brandNameController.dispose();
     super.dispose();
   }
 
@@ -86,20 +80,41 @@ class _CustomerDetailsFormState extends State<CustomerDetailsForm> {
 
                 onChanged: (selected) {
                   if (selected == null) return;
-                  widget.controller.selectedCustomerId = selected["id"];
-                  setState(() {});
 
-                  // 🔥 Auto-fill the controller fields
-                  widget.controller.setCustomerName(selected["name"]);
-                  widget.controller.customerNameController.text = selected["name"];
+                  final customerId = selected["id"]?.toString();
+                  final customerName = selected["name"]?.toString() ?? '';
+                  final phone = selected["phone"]?.toString() ?? '';
+                  final brandName = selected["brandName"]?.toString() ?? '';
 
-                  widget.controller.setCustomerPhone(selected["phone"]);
-                  widget.controller.customerPhoneController.text = selected["phone"];
+                  widget.controller.selectedCustomerId = customerId;
 
-                  if (selected["brandName"] != null) {
-                    widget.controller.setBrandName(selected["brandName"]);
-                    widget.controller.brandNameController.text = selected["brandName"];
-                  }
+                  widget.controller.setCustomerName(customerName);
+                  widget.controller.setCustomerPhone(phone);
+                  widget.controller.setBrandName(brandName);
+
+                   widget.controller.customerNameController.value =
+                      TextEditingValue(
+                    text: customerName,
+                    selection: TextSelection.collapsed(
+                      offset: customerName.length,
+                    ),
+                  );
+
+                  widget.controller.customerPhoneController.value =
+                      TextEditingValue(
+                    text: phone,
+                    selection: TextSelection.collapsed(
+                      offset: phone.length,
+                    ),
+                  );
+
+                  widget.controller.brandNameController.value =
+                      TextEditingValue(
+                    text: brandName,
+                    selection: TextSelection.collapsed(
+                      offset: brandName.length,
+                    ),
+                  );
 
                   widget.controller.setDefaultTemplates(
                     selected["defaultTemplates"] ?? {},
