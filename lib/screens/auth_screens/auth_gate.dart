@@ -66,8 +66,6 @@ class RoleResolver extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     final companyId = prefs.getString('cachedCompanyId');
 
-    debugPrint('Company Id: $companyId');
-
     if (companyId == null) {
       throw Exception('Company not selected');
     }

@@ -21,6 +21,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
   String? companyId;
 
   bool isLoading = true;
+  bool isCreatingTask = false;
 
   List<Map<String, dynamic>> allStaff = [];
   Map<String, dynamic>? selectedStaff;
@@ -91,10 +92,16 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
   }
 
   Future<void> createTask() async {
+    if (isCreatingTask) return;
+
     if (companyId == null || widget.orderId == null || selectedStaff == null) {
       debugPrint("❌ Missing required data");
       return;
     }
+
+    setState(() {
+      isCreatingTask = true;
+    });
 
     try {
       // -----------------------------
@@ -150,9 +157,19 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
       Navigator.pop(context);
     } catch (e) {
       debugPrint("❌ Task creation failed: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Task creation failed: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Task creation failed: $e"),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isCreatingTask = false;
+        });
+      }
     }
   }
 
@@ -191,7 +208,15 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                         await updateStatusIfStockOrder();
                         await createTask();
                       },
-                child: const Text("Assign Task"),
+                child: isCreatingTask
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text("Assign Task"),
               ),
             )
           ],

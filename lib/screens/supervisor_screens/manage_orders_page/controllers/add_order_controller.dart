@@ -589,6 +589,25 @@ class AddOrderController extends ChangeNotifier {
       ),
     );
   }
+
+  void updateProductMaterialRequirements(
+    String productId,
+    Map<String, dynamic> breakdown,
+  ) {
+    final index = products.indexWhere(
+      (p) => p['productId'] == productId,
+    );
+
+    if (index == -1) return;
+
+    products[index]['focusBaseMaterialQuantities'] =
+        breakdown['focusBaseMaterialQuantities'];
+
+    products[index]['templeBaseMaterialQuantities'] =
+        breakdown['templeBaseMaterialQuantities'];
+
+    notifyListeners();
+  }
 }
 
 extension OrderPdfGenerator on AddOrderController {

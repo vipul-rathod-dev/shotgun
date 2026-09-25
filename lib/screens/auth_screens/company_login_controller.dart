@@ -62,8 +62,6 @@ class CompanyLoginController extends ChangeNotifier {
         password: passwordController.text,
       );
 
-      debugPrint('USER UID: ${FirebaseAuth.instance.currentUser?.uid}');
-
       final user = credential.user!;
       final prefs = await SharedPreferences.getInstance();
 

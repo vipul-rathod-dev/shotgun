@@ -148,6 +148,95 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
     setState(() {});  // SAFE REFRESH
   }
 
+  Map<String, dynamic> computeMaterialBreakdown(
+    Map<String, dynamic> product,
+  ) {
+    final gender = product['modelGender'];
+
+    final qty = (product['quantity'] ?? 0).toDouble();
+
+    final genderBoxQty =
+        (widget.controller.boxQuantity[gender] ?? 0).toDouble();
+
+    final ratio = genderBoxQty > 0
+        ? qty / genderBoxQty
+        : 0.0;
+
+    double fBlack = 0;
+    double fClear = 0;
+    double fPC = 0;
+
+    double tBlack = 0;
+    double tClear = 0;
+    double tPC = 0;
+
+    final customList =
+        widget.controller.productCustomizations[gender] ?? [];
+
+    for (final c in customList) {
+      // ---------------- FOCUS ----------------
+
+      final focusMat = c['focusBaseMaterial'];
+
+      final focusQty =
+          (c['focusQty'] ?? 0).toDouble() * ratio;
+
+      if (focusMat == 'Black') {
+        fBlack += focusQty;
+      } else if (focusMat == 'Clear') {
+        fClear += focusQty;
+      } else if (focusMat == 'PC') {
+        fPC += focusQty;
+      }
+
+      // ---------------- TEMPLE ----------------
+
+      final templeMat = c['templeBaseMaterial'];
+
+      final templeQty =
+          (c['templeQty'] ?? 0).toDouble() * ratio;
+
+      if (templeMat == 'Black') {
+        tBlack += templeQty;
+      } else if (templeMat == 'Clear') {
+        tClear += templeQty;
+      } else if (templeMat == 'PC') {
+        tPC += templeQty;
+      }
+    }
+
+    return {
+      'focusBaseMaterialQuantities': {
+        if (fBlack > 0)
+          'Black': double.parse(fBlack.toStringAsFixed(1)),
+        if (fClear > 0)
+          'Clear': double.parse(fClear.toStringAsFixed(1)),
+        if (fPC > 0)
+          'PC': double.parse(fPC.toStringAsFixed(1)),
+      },
+
+      'templeBaseMaterialQuantities': {
+        if (tBlack > 0)
+          'Black': double.parse(tBlack.toStringAsFixed(1)),
+        if (tClear > 0)
+          'Clear': double.parse(tClear.toStringAsFixed(1)),
+        if (tPC > 0)
+          'PC': double.parse(tPC.toStringAsFixed(1)),
+      },
+    };
+  }
+
+  void updateProductMaterialRequirements() {
+    for (final product in widget.controller.products) {
+      final breakdown = computeMaterialBreakdown(product);
+
+      widget.controller.updateProductMaterialRequirements(
+        product['productId'],
+        breakdown,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final products = widget.controller.products;
@@ -243,6 +332,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           });
 
                                           widget.controller.updateCustomization(gender, index, data);
+                                          updateProductMaterialRequirements();
                                         },
 
                                       ),
@@ -275,6 +365,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           setState(() => data['focusQty'] = newQty);
 
                                           widget.controller.updateCustomization(gender, index, data);
+                                          updateProductMaterialRequirements();
                                         },
                                       ),
                                     ),
@@ -310,6 +401,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                           });
                                           widget.controller.updateCustomization(
                                               gender, index, data);
+                                          updateProductMaterialRequirements();
                                         },
                                       ),
                                     ),
@@ -342,6 +434,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                               data['templeQty'] = newQty);
                                           widget.controller.updateCustomization(
                                               gender, index, data);
+                                          updateProductMaterialRequirements();
                                         },
                                       ),
                                     ),
@@ -416,7 +509,6 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                         if (selected == null) return;
 
                         setState(() {
-                          print(selected['productCustomizations'][gender.toLowerCase()]);
                           final customizationsForGender = selected['productCustomizations'][gender.toLowerCase()];
                           customizationsForGender.forEach((selected) => {
                             widget.controller.addCustomization(gender, {
@@ -433,6 +525,7 @@ class _ColorTempleRequirementsState extends State<ColorTempleRequirements> {
                                   selected['templeBaseMaterial'],
                             })
                           });
+                          updateProductMaterialRequirements();
                         });
                       },
                     ),

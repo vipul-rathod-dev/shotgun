@@ -29,8 +29,8 @@ class _AssignedTaskPageState extends State<AssignedTaskPage> {
   String searchQuery = "";
   String selectedFilter = "All";
   String selectedSort = "None";
-  final StreamController<List<Map<String, dynamic>>> _taskStreamController =
-    StreamController.broadcast();
+  // final StreamController<List<Map<String, dynamic>>> _taskStreamController =
+  //   StreamController.broadcast();
 
   @override
   void initState() {
@@ -42,7 +42,7 @@ class _AssignedTaskPageState extends State<AssignedTaskPage> {
   void dispose() {
     globalTaskSubscription?.cancel();
     debounceTimer?.cancel();
-    _taskStreamController.close();
+    // _taskStreamController.close();
     super.dispose();
   }
 
@@ -78,33 +78,53 @@ class _AssignedTaskPageState extends State<AssignedTaskPage> {
   final Map<String, StreamSubscription> _liveOrderListeners = {};
 
   Future<void> _syncAllTasksLive(
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> globalTasks) async {
-    
-    // Cancel old listeners
-    for (var sub in _liveOrderListeners.values) {
-      sub.cancel();
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> globalTasks,
+  ) async {
+    // Cancel previous listeners
+    for (final sub in _liveOrderListeners.values) {
+      await sub.cancel();
     }
+
     _liveOrderListeners.clear();
 
-    List<Map<String, dynamic>> latestTaskList = [];
+    // Clear current tasks
+    if (mounted) {
+      setState(() {
+        assignedTasks = [];
+        isLoading = true;
+      });
+    }
 
-    for (var globalDoc in globalTasks) {
-      final taskPath = globalDoc.data()["taskPath"];
-      if (taskPath == null || taskPath.isEmpty) continue;
+    for (final globalDoc in globalTasks) {
+      final globalData = globalDoc.data();
 
-      // Listen to EACH task live
+      final taskPath = globalData["taskPath"];
+
+      if (taskPath == null || taskPath.isEmpty) {
+        debugPrint(
+          "⚠️ Global task ${globalDoc.id} has no taskPath",
+        );
+        continue;
+      }
+
       final sub = FirebaseFirestore.instance
           .doc(taskPath)
           .snapshots()
           .listen((taskSnap) {
-        if (!taskSnap.exists) return;
+        if (!taskSnap.exists) {
+          return;
+        }
 
-        final taskData = taskSnap.data()!;
-        if (taskData["assignedTo"] != currentUserId) return;
+        final taskData = taskSnap.data();
 
-        // Update the local list entry
-        final index = latestTaskList.indexWhere(
-            (t) => t["taskPath"] == taskPath);
+        if (taskData == null) {
+          return;
+        }
+
+        // Assignment is checked on ORDER LEVEL TASK
+        if (taskData["assignedTo"] != currentUserId) {
+          return;
+        }
 
         final newEntry = {
           ...taskData,
@@ -112,20 +132,31 @@ class _AssignedTaskPageState extends State<AssignedTaskPage> {
           "companyId": companyId,
         };
 
-        if (index == -1) {
-          latestTaskList.add(newEntry);
-        } else {
-          latestTaskList[index] = newEntry;
-        }
+        if (!mounted) return;
 
-        // Broadcast updated tasks
-        _taskStreamController.add(List.from(latestTaskList));
+        setState(() {
+          final index = assignedTasks.indexWhere(
+            (task) => task["taskPath"] == taskPath,
+          );
+
+          if (index == -1) {
+            assignedTasks.add(newEntry);
+          } else {
+            assignedTasks[index] = newEntry;
+          }
+
+          isLoading = false;
+        });
       });
 
       _liveOrderListeners[taskPath] = sub;
     }
 
-    setState(() => isLoading = false);
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   List<Map<String, dynamic>> _applyFilters() {
@@ -254,12 +285,8 @@ class _AssignedTaskPageState extends State<AssignedTaskPage> {
 
               // 🟩 FILTERED + SEARCHED + SORTED LIST
               Expanded(
-                child: StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: _taskStreamController.stream,
-                  builder: (context, snap) {
-                    if (!snap.hasData) return Center(child: Text("No tasks found"));
-
-                    assignedTasks = snap.data!;
+                child: Builder(
+                  builder: (context) {
                     final filteredList = _applyFilters();
 
                     if (filteredList.isEmpty) {
