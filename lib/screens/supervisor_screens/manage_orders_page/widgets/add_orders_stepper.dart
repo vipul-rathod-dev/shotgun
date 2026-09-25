@@ -28,14 +28,16 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
             .currentState;
 
     if (currentForm != null && !currentForm.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please complete all required fields before continuing',
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please complete all required fields before continuing',
+            ),
+            behavior: SnackBarBehavior.floating,
           ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        );
+      }
       return;
     }
 
@@ -49,14 +51,16 @@ class _AddOrdersStepperState extends State<AddOrdersStepper> {
       for (var formKey in controller.formKeys) {
         final form = formKey.currentState;
         if (form != null && !form.validate()) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Please fill in all required fields before submitting',
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Please fill in all required fields before submitting',
+                ),
+                behavior: SnackBarBehavior.floating,
               ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+            );
+          }
           return;
         }
       }

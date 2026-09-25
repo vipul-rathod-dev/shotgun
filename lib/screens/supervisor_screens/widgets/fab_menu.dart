@@ -23,8 +23,13 @@ class FabMenu extends StatelessWidget {
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
+        // ─────────────────────────────────────
+        // Background overlay
+        // Only exists when menu is open
+        // ─────────────────────────────────────
         if (isMenuOpen)
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: toggleMenu,
             child: Container(
               color: Colors.black54.withOpacity(0.4),
@@ -33,35 +38,44 @@ class FabMenu extends StatelessWidget {
             ),
           ),
 
-        // Dynamically render each menu item
+        // ─────────────────────────────────────
+        // Menu Items
+        // ─────────────────────────────────────
         ...List.generate(items.length, (index) {
           final item = items[index];
 
-          // auto-stack vertically if no custom position set
           final double bottomPos = item.bottom != 80
               ? item.bottom
               : 80 + (index * 60.0);
 
           return AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
-            bottom: isMenuOpen ? bottomPos : 80,
+            curve: Curves.easeOut,
+            bottom: isMenuOpen ? bottomPos : 16,
             right: item.right,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: isMenuOpen ? 1 : 0,
-              child: _buildFabMenuButton(
-                icon: item.icon,
-                label: item.label,
-                onTap: () {
-                  toggleMenu();
-                  item.onTap();
-                },
+            child: IgnorePointer(
+              // 🔴 Critical fix:
+              // hidden menu items cannot receive taps
+              ignoring: !isMenuOpen,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: isMenuOpen ? 1 : 0,
+                child: _buildFabMenuButton(
+                  icon: item.icon,
+                  label: item.label,
+                  onTap: () {
+                    toggleMenu();
+                    item.onTap();
+                  },
+                ),
               ),
             ),
           );
         }),
 
-        // Main FAB toggle
+        // ─────────────────────────────────────
+        // Main FAB
+        // ─────────────────────────────────────
         Positioned(
           bottom: 16,
           right: 16,
@@ -84,6 +98,7 @@ class FabMenu extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
@@ -97,11 +112,18 @@ class FabMenu extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFF1565C0), size: 20),
+            Icon(
+              icon,
+              color: const Color(0xFF1565C0),
+              size: 20,
+            ),
             const SizedBox(width: 8),
             Text(
               label,

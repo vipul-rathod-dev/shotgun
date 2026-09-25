@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shotgun/screens/supervisor_screens/supervisor-dashboard-details.dart';
 import 'package:shotgun/utils/firestore_scripts.dart';
 import 'models/dashboard_item.dart';
 import 'models/fab_menu_item_model.dart';
@@ -325,6 +326,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
               SizedBox(
                 height: isSmallMobile ? 18 : 26,
               ),
+
+              const SupervisorDashboardDetails(),
+
+              const SizedBox(height: 20),
 
               // --------------------------------------------------
               // GRID
