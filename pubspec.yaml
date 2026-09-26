@@ -49,6 +49,7 @@ dependencies:
   firebase_storage:
   flutter_animate:
   path_provider: ^2.1.5
+  flutter_keyboard_visibility: ^5.4.1
 
 dev_dependencies:
   flutter_test:
