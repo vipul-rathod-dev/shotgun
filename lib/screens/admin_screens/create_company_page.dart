@@ -11,6 +11,7 @@ class CreateCompanyPage extends StatefulWidget {
 
 class _CreateCompanyPageState extends State<CreateCompanyPage> {
   final _formKey = GlobalKey<FormState>();
+
   final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
@@ -20,29 +21,92 @@ class _CreateCompanyPageState extends State<CreateCompanyPage> {
 
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _companyName.dispose();
+    _supervisorEmail.dispose();
+    _supervisorPassword.dispose();
+    super.dispose();
+  }
+
   Future<void> _createCompany() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final companyName = _companyName.text.trim();
+
+    if (companyName.isEmpty) return;
+
     setState(() => _isLoading = true);
 
     final adminUser = _auth.currentUser;
+
     if (adminUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No admin user logged in!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No admin user logged in!'),
+          ),
+        );
+      }
+
+      setState(() => _isLoading = false);
       return;
     }
 
     try {
-      // Step 1️⃣: Create Company
-      final companyRef = await _firestore.collection('companies').add({
-        'name': _companyName.text.trim(),
+      // ---------------------------------------------------------
+      // STEP 1: Normalize company name
+      // ---------------------------------------------------------
+      final normalizedCompanyName = companyName.toLowerCase();
+
+      // ---------------------------------------------------------
+      // STEP 2: Check if company already exists
+      // ---------------------------------------------------------
+      final existingCompany = await _firestore
+          .collection('companies')
+          .where(
+            'normalizedName',
+            isEqualTo: normalizedCompanyName,
+          )
+          .limit(1)
+          .get();
+
+      print('Existing Company: ${existingCompany.docs}');
+
+      if (existingCompany.docs.isNotEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Company "$companyName" already exists. '
+                'You cannot create it again.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // ---------------------------------------------------------
+      // STEP 3: Create Company
+      // ---------------------------------------------------------
+      final companyRef =
+          await _firestore.collection('companies').add({
+        'name': companyName,
+        'normalizedName': normalizedCompanyName,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': adminUser.uid,
       });
 
       final companyId = companyRef.id;
 
-      // Step 2️⃣: Add Admin inside the company namespace
+      // ---------------------------------------------------------
+      // STEP 4: Add Admin inside company namespace
+      // ---------------------------------------------------------
       await _firestore
           .collection('companies')
           .doc(companyId)
@@ -54,20 +118,31 @@ class _CreateCompanyPageState extends State<CreateCompanyPage> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Optional: store admin mapping globally
-      await _firestore.collection('user_companies').doc(adminUser.uid).set({
+      // ---------------------------------------------------------
+      // STEP 5: Store Admin → Company mapping
+      // ---------------------------------------------------------
+      await _firestore
+          .collection('user_companies')
+          .doc(adminUser.uid)
+          .set({
         'companyId': companyId,
         'role': 'admin',
       });
 
-      // Step 3️⃣: Create Firebase Auth User for Supervisor
-      UserCredential supervisorCredential =
+      // ---------------------------------------------------------
+      // STEP 6: Create Firebase Auth user for Supervisor
+      // ---------------------------------------------------------
+      final supervisorCredential =
           await _auth.createUserWithEmailAndPassword(
         email: _supervisorEmail.text.trim(),
         password: _supervisorPassword.text.trim(),
       );
 
       final supervisor = supervisorCredential.user!;
+
+      // ---------------------------------------------------------
+      // STEP 7: Add Supervisor inside company namespace
+      // ---------------------------------------------------------
       await _firestore
           .collection('companies')
           .doc(companyId)
@@ -79,34 +154,60 @@ class _CreateCompanyPageState extends State<CreateCompanyPage> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      await _firestore.collection('user_companies').doc(supervisor.uid).set({
+      // ---------------------------------------------------------
+      // STEP 8: Store Supervisor → Company mapping
+      // ---------------------------------------------------------
+      await _firestore
+          .collection('user_companies')
+          .doc(supervisor.uid)
+          .set({
         'companyId': companyId,
         'role': 'supervisor',
       });
 
-      // Step 4️⃣: Sign out admin & redirect to login
+      // ---------------------------------------------------------
+      // STEP 9: Sign out
+      // ---------------------------------------------------------
       await _auth.signOut();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Company created with Admin & Supervisor!')),
+            content: Text(
+              'Company created with Admin & Supervisor!',
+            ),
+            backgroundColor: Colors.green,
+          ),
         );
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (_) => false,
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Create New Company")),
+      appBar: AppBar(
+        title: const Text("Create New Company"),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Form(
@@ -115,30 +216,65 @@ class _CreateCompanyPageState extends State<CreateCompanyPage> {
             children: [
               TextFormField(
                 controller: _companyName,
-                decoration: const InputDecoration(labelText: "Company Name"),
-                validator: (v) => v!.isEmpty ? "Enter company name" : null,
+                decoration: const InputDecoration(
+                  labelText: "Company Name",
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return "Enter company name";
+                  }
+
+                  return null;
+                },
               ),
+
               const SizedBox(height: 20),
+
               TextFormField(
                 controller: _supervisorEmail,
-                decoration: const InputDecoration(labelText: "Supervisor Email"),
-                validator: (v) => v!.isEmpty ? "Enter supervisor email" : null,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: "Supervisor Email",
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return "Enter supervisor email";
+                  }
+
+                  return null;
+                },
               ),
+
               const SizedBox(height: 20),
+
               TextFormField(
                 controller: _supervisorPassword,
                 obscureText: true,
-                decoration:
-                    const InputDecoration(labelText: "Supervisor Password"),
-                validator: (v) => v!.length < 6
-                    ? "Password must be at least 6 characters"
-                    : null,
+                decoration: const InputDecoration(
+                  labelText: "Supervisor Password",
+                ),
+                validator: (v) {
+                  if (v == null || v.length < 6) {
+                    return "Password must be at least 6 characters";
+                  }
+
+                  return null;
+                },
               ),
+
               const SizedBox(height: 30),
+
               ElevatedButton(
                 onPressed: _isLoading ? null : _createCompany,
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Text("Create Company"),
               ),
             ],
