@@ -71,8 +71,6 @@ class _CreateCompanyPageState extends State<CreateCompanyPage> {
           .limit(1)
           .get();
 
-      print('Existing Company: ${existingCompany.docs}');
-
       if (existingCompany.docs.isNotEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -180,11 +178,7 @@ class _CreateCompanyPageState extends State<CreateCompanyPage> {
           ),
         );
 
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login',
-          (_) => false,
-        );
+        await _auth.signOut();
       }
     } catch (e) {
       if (mounted) {

@@ -15,7 +15,7 @@ class ViewCompaniesPage extends StatelessWidget {
         backgroundColor: Colors.orangeAccent.shade700,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: companiesRef.orderBy('created_at', descending: true).snapshots(),
+        stream: companiesRef.orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Error loading companies'));
