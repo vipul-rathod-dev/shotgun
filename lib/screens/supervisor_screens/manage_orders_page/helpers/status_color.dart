@@ -17,9 +17,11 @@ class StatusColor {
         return Colors.teal;
       case 'demo process':
         return Colors.indigo;
-      case 'packing':
+      case 'packing process':
         return Colors.purple;
-      case 'shipping':
+      case 'shipping process':
+        return const Color.fromARGB(255, 0, 147, 122);
+      case 'completed':
         return Colors.green;
 
       default:
