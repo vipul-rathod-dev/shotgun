@@ -65,17 +65,61 @@ class LoginController extends ChangeNotifier {
 
   // -------------------- AUTH --------------------
 
-  Future<String> login() async {
+  Future<String?> login() async {
     isLoading = true;
     notifyListeners();
 
     try {
+      final email = emailController.text.trim();
+      final password = passwordController.text;
+
+      if (email.isEmpty) {
+        throw Exception('Please enter your email.');
+      }
+
+      if (password.isEmpty) {
+        throw Exception('Please enter your password.');
+      }
+
       final credential = await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text,
+        email: email,
+        password: password,
       );
 
-      final role = await _fetchUserRole(credential.user!.uid);
+      final user = credential.user;
+
+      if (user == null) {
+        throw Exception('Authentication failed.');
+      }
+
+      // Check Firestore role
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        await _auth.signOut();
+
+        throw Exception(
+          'Access denied. This account is not an administrator.',
+        );
+      }
+
+      final role = userDoc.data()?['role']
+          ?.toString()
+          .trim()
+          .toLowerCase();
+
+      // Admin Login ONLY
+      if (role != 'admin') {
+        await _auth.signOut();
+
+        throw Exception(
+          'Access denied. Only administrators can use Admin Login.',
+        );
+      }
+
       await _persistEmailIfNeeded();
 
       return role;
@@ -93,17 +137,6 @@ class LoginController extends ChangeNotifier {
   }
 
   // -------------------- ROLE --------------------
-
-  Future<String> _fetchUserRole(String uid) async {
-    final snapshot =
-        await _firestore.collection('users').doc(uid).get();
-
-    if (!snapshot.exists) {
-      throw Exception('User role not found');
-    }
-
-    return snapshot.data()?['role'] ?? 'staff';
-  }
 
   static Future<String?> getCurrentUserRole() async {
     final user = FirebaseAuth.instance.currentUser;

@@ -62,44 +62,100 @@ class RoleResolver extends StatelessWidget {
   const RoleResolver({super.key});
 
   Future<String> _getRole() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    
-    final prefs = await SharedPreferences.getInstance();
+    final user = FirebaseAuth.instance.currentUser;
 
-    String? companyId;
-
-    for (int i = 0; i < 20; i++) {
-      companyId = prefs.getString('cachedCompanyId');
-
-      if (companyId != null && companyId.isNotEmpty) {
-        break;
-      }
-
-      await Future.delayed(const Duration(milliseconds: 100));
+    if (user == null) {
+      throw Exception('User is not authenticated');
     }
 
-    if (companyId == null || companyId.isEmpty) {
-      throw Exception('Company not selected');
-    }
+    final firestore = FirebaseFirestore.instance;
 
-    final doc = await FirebaseFirestore.instance
-        .collection('companies')
-        .doc(companyId)
+    // ============================================================
+    // 1. CHECK GLOBAL ADMIN
+    // ============================================================
+
+    final globalUserDoc = await firestore
         .collection('users')
         .doc(user.uid)
         .get();
 
-    if (!doc.exists) {
-      throw Exception('User not found in company');
+    if (globalUserDoc.exists) {
+      final globalRole = globalUserDoc
+          .data()?['role']
+          ?.toString()
+          .trim()
+          .toLowerCase();
+
+      if (globalRole == 'admin') {
+        return 'admin';
+      }
     }
 
-    final role = doc.data()?['role'];
+    // ============================================================
+    // 2. FIND COMPANY USER
+    // ============================================================
+    //
+    // Instead of relying on cachedCompanyId, search companies
+    // for this Firebase UID.
+    //
+    // This prevents the authStateChanges() race condition.
+    //
 
-    if (role == null) {
-      throw Exception('Role not assigned');
+    final companiesSnapshot =
+        await firestore.collection('companies').get();
+
+    for (final companyDoc in companiesSnapshot.docs) {
+      final companyUserDoc = await firestore
+          .collection('companies')
+          .doc(companyDoc.id)
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!companyUserDoc.exists) {
+        continue;
+      }
+
+      final companyData = companyUserDoc.data();
+
+      final role = companyData?['role']
+          ?.toString()
+          .trim()
+          .toLowerCase();
+
+      if (role == null || role.isEmpty) {
+        throw Exception(
+          'Your account does not have a role assigned.',
+        );
+      }
+
+      if (role != 'staff' && role != 'supervisor') {
+        throw Exception(
+          'Invalid company role.',
+        );
+      }
+
+      // ----------------------------------------------------------
+      // Save the company ID after we have verified membership.
+      // ----------------------------------------------------------
+
+      final prefs = await SharedPreferences.getInstance();
+
+      await prefs.setString(
+        'cachedCompanyId',
+        companyDoc.id,
+      );
+
+      return role;
     }
 
-    return role;
+    // ============================================================
+    // 3. USER NOT FOUND
+    // ============================================================
+
+    throw Exception(
+      'You are not associated with any company.',
+    );
   }
 
   @override
@@ -107,7 +163,12 @@ class RoleResolver extends StatelessWidget {
     return FutureBuilder<String>(
       future: _getRole(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        // ==========================================================
+        // LOADING
+        // ==========================================================
+
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(),
@@ -115,19 +176,56 @@ class RoleResolver extends StatelessWidget {
           );
         }
 
+        // ==========================================================
+        // ERROR
+        // ==========================================================
+
         if (snapshot.hasError) {
+          final message = snapshot.error
+              .toString()
+              .replaceFirst('Exception: ', '');
+
           return Scaffold(
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  snapshot.error.toString(),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: Colors.redAccent,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    ElevatedButton(
+                      onPressed: () async {
+                        await FirebaseAuth.instance.signOut();
+                      },
+                      child: const Text('Back to Login'),
+                    ),
+                  ],
                 ),
               ),
             ),
           );
         }
+
+        // ==========================================================
+        // ROLE
+        // ==========================================================
 
         switch (snapshot.data) {
           case 'admin':
@@ -140,7 +238,14 @@ class RoleResolver extends StatelessWidget {
             return const StaffDashboard();
 
           default:
-            return const StaffDashboard();
+            return Scaffold(
+              body: Center(
+                child: Text(
+                  'Unknown user role: ${snapshot.data}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
         }
       },
     );
