@@ -66,16 +66,37 @@ class _ManageSuppliersPageState extends State<ManageSuppliersPage> {
     });
   }
 
-  Future<void> _saveSuppliersToCache(List<QueryDocumentSnapshot> docs) async {
+  Future<void> _saveSuppliersToCache(
+      List<QueryDocumentSnapshot> docs) async {
     final prefs = await SharedPreferences.getInstance();
+
     final suppliers = docs.map((d) {
-      final data = d.data() as Map<String, dynamic>;
+      final data = Map<String, dynamic>.from(
+        d.data() as Map<String, dynamic>,
+      );
+
       data['id'] = d.id;
+
+      // Convert Firestore Timestamp to a JSON-compatible value.
+      final timestamp = data['timestamp'];
+
+      if (timestamp is Timestamp) {
+        data['timestamp'] = timestamp.toDate().toIso8601String();
+      }
+
       return data;
     }).toList();
 
-    await prefs.setString('cachedSuppliers', jsonEncode(suppliers));
-    setState(() => _cachedSuppliers = suppliers);
+    await prefs.setString(
+      'cachedSuppliers',
+      jsonEncode(suppliers),
+    );
+
+    if (mounted) {
+      setState(() {
+        _cachedSuppliers = suppliers;
+      });
+    }
   }
 
   Future<void> _addSupplier() async {

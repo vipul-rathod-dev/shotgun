@@ -108,6 +108,12 @@ final Map<String, WidgetBuilder> _secureRoutes = {
   '/supervisor/view-staff':
       (_) =>
           const RoleGuard(requiredRole: 'supervisor', child: ViewStaffPage()),
+  
+  '/supervisor/raw-orders':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: ManageOrdersPage(),
+      ),
 
   '/supervisor/add-staff': (context) {
     final companyId = ModalRoute.of(context)!.settings.arguments as String;

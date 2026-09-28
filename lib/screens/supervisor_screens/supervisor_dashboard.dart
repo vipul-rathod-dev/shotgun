@@ -72,7 +72,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       ),
       DashboardItem(
         icon: Icons.bar_chart,
-        title: 'Manage Orders',
+        title: 'Client Orders',
         route: '/supervisor/orders',
       ),
       DashboardItem(
@@ -83,12 +83,17 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       DashboardItem(
         icon: Icons.inventory_2_rounded,
         title: 'Manage Inventory',
-        route: '/supervisor/view-inventory',
+        route: '/supervisor/manage-inventory',
       ),
       DashboardItem(
         icon: Icons.badge_outlined,
         title: 'Manage Staff',
         route: '/supervisor/view-staff',
+      ),
+      DashboardItem(
+        icon: Icons.bar_chart,
+        title: 'Raw Orders',
+        route: '/supervisor/raw-orders',
       ),
     ];
 
