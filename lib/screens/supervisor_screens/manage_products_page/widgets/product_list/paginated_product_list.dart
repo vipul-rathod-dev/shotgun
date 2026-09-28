@@ -1,7 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,6 +54,26 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
         !_isLoading &&
         _hasMore) {
       _fetchProducts();
+    }
+  }
+
+  String _getType(ProductModel product) {
+    return product.type.isEmpty ? '-' : product.type;
+  }
+
+  IconData _getProductIcon() {
+    switch (widget.category) {
+      case 'Raw':
+        return Icons.settings_input_component_outlined;
+
+      case 'Finished':
+        return Icons.shopping_bag_outlined;
+
+      case 'Other':
+        return Icons.category_outlined;
+
+      default:
+        return Icons.inventory_2_outlined;
     }
   }
 
@@ -263,7 +282,7 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
       // Finished products can also be searched by product code.
       bool codeMatch = false;
 
-      if (widget.category == 'Finished') {
+      if (widget.category == 'Finished' || widget.category == 'Other') {
         codeMatch = product.productCode
             .toLowerCase()
             .contains(query);
@@ -569,9 +588,7 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            widget.category == 'Raw'
-                ? Icons.inventory_2_outlined
-                : Icons.check_circle_outline,
+            _getProductIcon(),
             size: 18,
             color: theme.colorScheme.onPrimaryContainer,
           ),
@@ -690,43 +707,33 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
   List<DataColumn> _buildColumns() {
     if (widget.category == 'Raw') {
       return const [
-        DataColumn(
-          label: Text('#'),
-        ),
-        DataColumn(
-          label: Text('Product'),
-        ),
-        DataColumn(
-          label: Text('Type'),
-        ),
-        DataColumn(
-          label: Text('Price'),
-        ),
-        DataColumn(
-          label: Text('Actions'),
-        ),
+        DataColumn(label: Text('#')),
+        DataColumn(label: Text('Product')),
+        DataColumn(label: Text('Type')),
+        DataColumn(label: Text('Price')),
+        DataColumn(label: Text('Actions')),
       ];
     }
 
+    if (widget.category == 'Finished') {
+      return const [
+        DataColumn(label: Text('#')),
+        DataColumn(label: Text('Product')),
+        DataColumn(label: Text('Gender')),
+        DataColumn(label: Text('Product Code')),
+        DataColumn(label: Text('Price')),
+        DataColumn(label: Text('Actions')),
+      ];
+    }
+
+    // Other
     return const [
-      DataColumn(
-        label: Text('#'),
-      ),
-      DataColumn(
-        label: Text('Product'),
-      ),
-      DataColumn(
-        label: Text('Gender'),
-      ),
-      DataColumn(
-        label: Text('Product Code'),
-      ),
-      DataColumn(
-        label: Text('Price'),
-      ),
-      DataColumn(
-        label: Text('Actions'),
-      ),
+      DataColumn(label: Text('#')),
+      DataColumn(label: Text('Product')),
+      DataColumn(label: Text('Type')),
+      DataColumn(label: Text('Product Code')),
+      DataColumn(label: Text('Price')),
+      DataColumn(label: Text('Actions')),
     ];
   }
 
@@ -798,6 +805,44 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
             ),
           ),
           DataCell(priceCell),
+          DataCell(
+            _buildActionMenu(product),
+          ),
+        ],
+      );
+    }
+
+    if (widget.category == 'Other') {
+      return DataRow(
+        cells: [
+          DataCell(
+            Text(
+              '${index + 1}',
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+
+          DataCell(productCell),
+
+          DataCell(
+            _buildBadge(
+              _getType(product),
+            ),
+          ),
+
+          DataCell(
+            Text(
+              _getProductCode(product),
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+
+          DataCell(priceCell),
+
           DataCell(
             _buildActionMenu(product),
           ),
@@ -928,12 +973,15 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
                           children: [
                             _buildBadge(
                               widget.category == 'Raw'
-                                  ? _getRawType(product)
-                                  : _getGender(product),
+                                ? _getRawType(product)
+                                : widget.category == 'Finished'
+                                    ? _getGender(product)
+                                    : _getType(product)
                             ),
 
-                            if (widget.category == 'Finished' &&
-                                product.productCode.isNotEmpty)
+                            if ((widget.category == 'Finished' ||
+                                widget.category == 'Other') &&
+                            product.productCode.isNotEmpty)
                               _buildBadge(
                                 product.productCode,
                               ),
@@ -1107,78 +1155,81 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
 
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
-
     final hasSearch = _searchTerm.isNotEmpty;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                color: theme.colorScheme
-                    .surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                hasSearch
-                    ? Icons.search_off_rounded
-                    : Icons.inventory_2_outlined,
-                size: 32,
-                color: theme.colorScheme
-                    .onSurfaceVariant,
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 180;
+
+        return Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: compact ? 8 : 24,
             ),
-
-            const SizedBox(height: 16),
-
-            Text(
-              hasSearch
-                  ? 'No products found'
-                  : 'No ${widget.category} products yet',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            Text(
-              hasSearch
-                  ? 'Try a different product name or code.'
-                  : 'Products added to this category will appear here.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-
-            if (hasSearch) ...[
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: () {
-                  _searchController.clear();
-                  _onSearchChanged('');
-                },
-                icon: const Icon(
-                  Icons.clear_rounded,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: compact ? 48 : 68,
+                  height: compact ? 48 : 68,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    hasSearch
+                        ? Icons.search_off_rounded
+                        : Icons.inventory_2_outlined,
+                    size: compact ? 24 : 32,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                label: const Text(
-                  'Clear search',
+
+                SizedBox(height: compact ? 8 : 16),
+
+                Text(
+                  hasSearch
+                      ? 'No products found'
+                      : 'No ${widget.category} products yet',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
-          ],
-        ),
-      ),
+
+                SizedBox(height: compact ? 3 : 6),
+
+                Text(
+                  hasSearch
+                      ? 'Try a different product name or code.'
+                      : 'Products added to this category will appear here.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+
+                if (hasSearch) ...[
+                  SizedBox(height: compact ? 8 : 14),
+
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _searchController.clear();
+                      _onSearchChanged('');
+                    },
+                    icon: const Icon(Icons.clear_rounded),
+                    label: const Text('Clear search'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
-
+  
   // ---------------------------------------------------------------------------
   // LIFECYCLE
   // ---------------------------------------------------------------------------
@@ -1234,9 +1285,12 @@ class _EditProductDialogState
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
   late final TextEditingController _productCodeController;
+  late final TextEditingController _minimumStockController;
 
   late String _selectedType;
   late String _selectedGender;
+  late String _selectedOtherType;
+  late bool isOther;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -1245,6 +1299,8 @@ class _EditProductDialogState
   @override
   void initState() {
     super.initState();
+
+    isOther = widget.category == 'Other';
 
     _nameController = TextEditingController(
       text: widget.product.displayName,
@@ -1258,6 +1314,10 @@ class _EditProductDialogState
       text: widget.product.productCode,
     );
 
+    _minimumStockController = TextEditingController(
+      text: widget.product.minimumStock.toString(),
+    );
+
     _selectedType = widget.product.type.isNotEmpty
         ? widget.product.type
         : 'Black';
@@ -1266,6 +1326,10 @@ class _EditProductDialogState
         widget.product.modelGender.isNotEmpty
             ? widget.product.modelGender
             : 'Gents';
+
+    _selectedOtherType = widget.product.type.isNotEmpty
+      ? widget.product.type
+      : 'Raw Material';
   }
 
   @override
@@ -1273,6 +1337,7 @@ class _EditProductDialogState
     _nameController.dispose();
     _priceController.dispose();
     _productCodeController.dispose();
+    _minimumStockController.dispose();
 
     super.dispose();
   }
@@ -1366,6 +1431,66 @@ class _EditProductDialogState
                               _selectedType = value;
                             });
                           },
+                  ),
+                ],
+
+                // -------------------------------------------------------------
+                // Other PRODUCT CODE
+                // -------------------------------------------------------------
+
+                if (isOther) ...[
+                  const SizedBox(height: 14),
+
+                  DropdownButtonFormField<String>(
+                    value: _selectedOtherType,
+                    decoration: const InputDecoration(
+                      labelText: 'Product Type',
+                      prefixIcon: Icon(
+                        Icons.category_outlined,
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Raw Material',
+                        child: Text('Raw Material'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Mold',
+                        child: Text('Mold'),
+                      ),
+                    ],
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+
+                            setState(() {
+                              _selectedOtherType = value;
+                            });
+                          },
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  TextFormField(
+                    controller: _productCodeController,
+                    enabled: !_isSaving,
+                    textCapitalization:
+                        TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Product Code',
+                      prefixIcon: Icon(
+                        Icons.qr_code_2_outlined,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null ||
+                          value.trim().isEmpty) {
+                        return 'Enter product code';
+                      }
+
+                      return null;
+                    },
                   ),
                 ],
 
@@ -1479,6 +1604,37 @@ class _EditProductDialogState
                     return null;
                   },
                 ),
+                const SizedBox(height: 14),
+
+                TextFormField(
+                  controller: _minimumStockController,
+                  enabled: !_isSaving,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Minimum Stock',
+                    hintText: 'Enter minimum stock alert level',
+                    prefixIcon: Icon(
+                      Icons.inventory_2_outlined,
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter minimum stock';
+                    }
+
+                    final minimumStock = int.tryParse(value.trim());
+
+                    if (minimumStock == null) {
+                      return 'Enter a valid whole number';
+                    }
+
+                    if (minimumStock < 0) {
+                      return 'Minimum stock cannot be negative';
+                    }
+
+                    return null;
+                  },
+                ),
               ],
             ),
           ),
@@ -1531,6 +1687,14 @@ class _EditProductDialogState
       return;
     }
 
+    final minimumStock = int.tryParse(
+      _minimumStockController.text.trim(),
+    );
+
+    if (minimumStock == null || minimumStock < 0) {
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -1538,14 +1702,16 @@ class _EditProductDialogState
     try {
       final baseName = _nameController.text.trim();
 
-      final finalDisplayName = widget.category == 'Raw'
-          ? '$baseName - ${_selectedType.trim()}'
-          : baseName;
+      final finalDisplayName =
+          widget.category == 'Raw'
+              ? '$baseName - ${_selectedType.trim()}'
+              : baseName;
 
       final updateData = <String, dynamic>{
         'displayName': finalDisplayName,
         'name': finalDisplayName.toLowerCase(),
         'price': price,
+        'minimumStock': minimumStock,
       };
 
       if (widget.category == 'Raw') {
@@ -1558,6 +1724,13 @@ class _EditProductDialogState
 
         updateData['modelGender'] =
             _selectedGender;
+      }
+
+      if (widget.category == 'Other') {
+        updateData['type'] = _selectedOtherType;
+
+        updateData['productCode'] =
+            _productCodeController.text.trim();
       }
 
       await FirebaseFirestore.instance
@@ -1577,15 +1750,24 @@ class _EditProductDialogState
       final updatedProduct = widget.product.copyWith(
         displayName: finalDisplayName,
         price: price,
+        minimumStock: minimumStock,
+
         type: widget.category == 'Raw'
             ? _selectedType
-            : widget.product.type,
-        productCode: widget.category == 'Finished'
-            ? _productCodeController.text.trim()
-            : widget.product.productCode,
-        modelGender: widget.category == 'Finished'
-            ? _selectedGender
-            : widget.product.modelGender,
+            : widget.category == 'Other'
+                ? _selectedOtherType
+                : widget.product.type,
+
+        productCode:
+            widget.category == 'Finished' ||
+                    widget.category == 'Other'
+                ? _productCodeController.text.trim()
+                : widget.product.productCode,
+
+        modelGender:
+            widget.category == 'Finished'
+                ? _selectedGender
+                : widget.product.modelGender,
       );
 
       Navigator.of(context).pop(

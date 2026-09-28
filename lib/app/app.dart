@@ -23,6 +23,7 @@ import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.
 import 'package:shotgun/screens/supervisor_screens/manage_supervisor_tasks/manage_supervisor_tasks.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_suppliers_page/suppliers_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_inventory_page/manage_inventory_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_orders_page/raw-orders_page.dart';
 import '../screens/supervisor_screens/color_templates/color_templates.dart';
 import '../screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import '../screens/register_page.dart';
@@ -112,7 +113,7 @@ final Map<String, WidgetBuilder> _secureRoutes = {
   '/supervisor/raw-orders':
       (_) => const RoleGuard(
         requiredRole: 'supervisor',
-        child: ManageOrdersPage(),
+        child: RawOrdersPage(),
       ),
 
   '/supervisor/add-staff': (context) {

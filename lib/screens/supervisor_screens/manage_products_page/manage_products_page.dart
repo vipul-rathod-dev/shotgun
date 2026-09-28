@@ -17,6 +17,8 @@ class _ManageProductPageState extends State<ManageProductPage>
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _minimumStockController = TextEditingController(text: '0');
+  final TextEditingController _openingStockController = TextEditingController(text: '0');
 
 
   String selectedCategory = 'Raw';
@@ -31,15 +33,26 @@ class _ManageProductPageState extends State<ManageProductPage>
   final List<String> rawTypes = ['Black', 'Clear', 'PC'];
   final List<String> finishedTypes = ['Gents', 'Ladies', 'Baby'];
 
+  String? selectedOtherType;
+
+  final List<String> otherTypes = [
+    'Raw Material',
+    'Mold',
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
 
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() {
-        selectedCategory = _tabController.index == 0 ? 'Raw' : 'Finished';
+        selectedCategory = switch (_tabController.index) {
+          0 => 'Raw',
+          1 => 'Finished',
+          _ => 'Other',
+        };
         selectedRawType = null; // reset type when switching tabs
         selectedFinishedType = null; // reset type when switching tabs
       });
@@ -63,7 +76,7 @@ class _ManageProductPageState extends State<ManageProductPage>
       return;
     }
 
-    final name = selectedCategory == 'Finished'
+    final name = selectedCategory == 'Finished' || selectedCategory == 'Other'
         ? baseName
         : '$baseName - $selectedRawType';
 
@@ -84,6 +97,36 @@ class _ManageProductPageState extends State<ManageProductPage>
       return;
     }
 
+    final minimumStockText =
+    _minimumStockController.text.trim();
+
+    final minimumStock = int.tryParse(minimumStockText);
+
+    if (minimumStock == null || minimumStock < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a valid minimum stock',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final openingStockText =
+    _openingStockController.text.trim();
+
+    final openingStock = int.tryParse(openingStockText);
+
+    if (openingStock == null || openingStock < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid opening stock'),
+        ),
+      );
+      return;
+    }
+
     if (selectedCategory == 'Raw' && selectedRawType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a type for Raw product')),
@@ -94,6 +137,20 @@ class _ManageProductPageState extends State<ManageProductPage>
     if (selectedCategory == 'Finished' && selectedFinishedType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a type for Finished product')),
+      );
+      return;
+    }
+
+    if (selectedCategory == 'Other' && selectedOtherType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a product type')),
+      );
+      return;
+    }
+
+    if (selectedCategory == 'Other' && _codeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product code is required')),
       );
       return;
     }
@@ -117,13 +174,24 @@ class _ManageProductPageState extends State<ManageProductPage>
 
     // ✅ Duplicate check only within same category & type
     Query<Map<String, dynamic>> query = productsRef
-        .where('name', isEqualTo: lowercaseName)
-        .where('category', isEqualTo: selectedCategory);
+    .where('name', isEqualTo: lowercaseName)
+    .where('category', isEqualTo: selectedCategory);
 
     if (selectedCategory == 'Raw') {
-      query = query.where('type', isEqualTo: selectedRawType);
-    } else {
-      query = query.where('modelGender', isEqualTo: selectedFinishedType);
+      query = query.where(
+        'type',
+        isEqualTo: selectedRawType,
+      );
+    } else if (selectedCategory == 'Finished') {
+      query = query.where(
+        'modelGender',
+        isEqualTo: selectedFinishedType,
+      );
+    } else if (selectedCategory == 'Other') {
+      query = query.where(
+        'type',
+        isEqualTo: selectedOtherType,
+      );
     }
 
     final duplicateQuery = await query.get();
@@ -140,22 +208,37 @@ class _ManageProductPageState extends State<ManageProductPage>
     }
 
     // ✅ Add new product (with type only for Raw)
-    final productData = {
+    final productData = <String, dynamic>{
       'name': lowercaseName,
       'displayName': name,
-      if (selectedCategory == 'Finished') 'productCode': productCode,
       'price': price,
       'category': selectedCategory,
-      if (selectedCategory == 'Raw') 'type': selectedRawType,
-      if (selectedCategory == 'Finished') 'modelGender': selectedFinishedType,
+      'stock': openingStock,
+      'minimumStock': minimumStock,
       'timestamp': FieldValue.serverTimestamp(),
     };
+
+    if (selectedCategory == 'Raw') {
+      productData['type'] = selectedRawType;
+    }
+
+    if (selectedCategory == 'Finished') {
+      productData['productCode'] = productCode;
+      productData['modelGender'] = selectedFinishedType;
+    }
+
+    if (selectedCategory == 'Other') {
+      productData['type'] = selectedOtherType;
+      productData['productCode'] = productCode;
+    }
 
     await productsRef.add(productData);
 
     _nameController.clear();
     _priceController.clear();
     _codeController.clear();
+    _openingStockController.text = '0';
+    _minimumStockController.text = '0';
     setState(() {
       _reloadKey++;
       selectedRawType = null;
@@ -193,6 +276,8 @@ class _ManageProductPageState extends State<ManageProductPage>
     _nameController.dispose();
     _priceController.dispose();
     _codeController.dispose();
+    _minimumStockController.dispose();
+    _openingStockController.dispose();
   }
 
   @override
@@ -206,6 +291,7 @@ class _ManageProductPageState extends State<ManageProductPage>
           tabs: const [
             Tab(text: 'Raw'),
             Tab(text: 'Finished'),
+            Tab(text: 'Other'),
           ],
         ),
       ),
@@ -360,7 +446,9 @@ class _ManageProductPageState extends State<ManageProductPage>
                           // Price
                           TextField(
                             controller: _priceController,
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             decoration: const InputDecoration(
                               labelText: 'Price',
                               prefixIcon: Icon(
@@ -371,10 +459,42 @@ class _ManageProductPageState extends State<ManageProductPage>
 
                           const SizedBox(height: 12),
 
+                          // Minimum Stock
+                          TextField(
+                            controller: _minimumStockController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Minimum Stock',
+                              hintText: 'Enter minimum stock alert level',
+                              prefixIcon: Icon(
+                                Icons.inventory_2_outlined,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Opening Stock
+                          TextField(
+                            controller: _openingStockController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Opening Stock',
+                              hintText: 'Enter initial stock quantity',
+                              prefixIcon: Icon(
+                                Icons.inventory_outlined,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
                           // Category
                           DropdownButtonFormField<String>(
                             value: selectedCategory,
-                            items: ['Raw', 'Finished'].map((category) {
+                            items: ['Raw', 'Finished', 'Other'].map((category) {
                               return DropdownMenuItem<String>(
                                 value: category,
                                 child: Text(category),
@@ -441,6 +561,40 @@ class _ManageProductPageState extends State<ManageProductPage>
                                 });
                               },
                             ),
+                          ]
+
+                          else if (selectedCategory == 'Other') ...[
+                            const SizedBox(height: 12),
+
+                            DropdownButtonFormField<String>(
+                              value: selectedOtherType,
+                              items: otherTypes.map((type) {
+                                return DropdownMenuItem<String>(
+                                  value: type,
+                                  child: Text(type),
+                                );
+                              }).toList(),
+                              decoration: const InputDecoration(
+                                labelText: 'Product Type',
+                                prefixIcon: Icon(Icons.category_outlined),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedOtherType = value;
+                                });
+                              },
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            TextField(
+                              controller: _codeController,
+                              textCapitalization: TextCapitalization.characters,
+                              decoration: const InputDecoration(
+                                labelText: 'Product Code',
+                                prefixIcon: Icon(Icons.qr_code_2_outlined),
+                              ),
+                            ),
                           ],
 
                           const SizedBox(height: 14),
@@ -484,6 +638,10 @@ class _ManageProductPageState extends State<ManageProductPage>
                 PaginatedProductList(
                   key: ValueKey('Finished-$_reloadKey'),
                   category: 'Finished',
+                ),
+                PaginatedProductList(
+                  key: ValueKey('Other-$_reloadKey'),
+                  category: 'Other',
                 ),
               ],
             ),
