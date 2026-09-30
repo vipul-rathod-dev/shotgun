@@ -1139,16 +1139,27 @@ class _PaginatedProductListState extends State<PaginatedProductList> {
   // ---------------------------------------------------------------------------
 
   Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 12),
-          Text(
-            'Loading products...',
-          ),
-        ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Loading products...',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1276,60 +1287,243 @@ class EditProductDialog extends StatefulWidget {
   });
 
   @override
-  State<EditProductDialog> createState() =>
-      _EditProductDialogState();
+  State<EditProductDialog> createState() => _EditProductDialogState();
 }
 
-class _EditProductDialogState
-    extends State<EditProductDialog> {
+class _EditProductDialogState extends State<EditProductDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
   late final TextEditingController _productCodeController;
   late final TextEditingController _minimumStockController;
+  late final TextEditingController _cavityCountController;
 
   late String _selectedType;
   late String _selectedGender;
   late String _selectedOtherType;
-  late bool isOther;
 
   final _formKey = GlobalKey<FormState>();
-
   bool _isSaving = false;
+  bool _loadingModels = false;
+
+  List<Map<String, dynamic>> _rawModels = [];
+  List<String?> _cavityModelIds = [];
+  List<TextEditingController> _piecesPerCycleControllers = [];
+
+  CollectionReference<Map<String, dynamic>> get _productsRef =>
+      FirebaseFirestore.instance
+          .collection('companies')
+          .doc(widget.companyId)
+          .collection('products');
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(text: widget.product.displayName);
+    _priceController = TextEditingController(text: widget.product.price.toString());
+    _productCodeController = TextEditingController(text: widget.product.productCode);
+    _minimumStockController = TextEditingController(text: widget.product.minimumStock.toString());
+    _cavityCountController = TextEditingController(text: widget.product.cavityCount.toString().isEmpty ? '1' : widget.product.cavityCount.toString());
+    _selectedType = widget.product.type;
+    _selectedGender = widget.product.modelGender;
+    _selectedOtherType = widget.product.type;
 
-    isOther = widget.category == 'Other';
+    if (widget.category == 'Other' && widget.product.type == 'Mold') {
+      _initializeExistingCavities();
+      _loadRawModels();
+    }
+  }
 
-    _nameController = TextEditingController(
-      text: widget.product.displayName,
+  void _initializeExistingCavities() {
+    final cavities = widget.product.cavities;
+    _cavityModelIds = List.generate(
+      cavities.length,
+      (index) => cavities[index]['modelId']?.toString(),
     );
-
-    _priceController = TextEditingController(
-      text: widget.product.price.toString(),
+    if (_cavityModelIds.isEmpty) {
+      _cavityModelIds = [null];
+    }
+    _cavityCountController.text = _cavityModelIds.length.toString();
+    _piecesPerCycleControllers = List.generate(
+      _cavityModelIds.length,
+      (index) => TextEditingController(
+        text: _toInt(cavities.length > index ? cavities[index]['piecesPerCycle'] : 1).toString(),
+      ),
     );
+  }
 
-    _productCodeController = TextEditingController(
-      text: widget.product.productCode,
+  Future<void> _loadRawModels() async {
+    if (mounted) setState(() => _loadingModels = true);
+    try {
+      final snapshot = await _productsRef.where('category', isEqualTo: 'Raw').get();
+      final grouped = <String, Map<String, dynamic>>{};
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final type = data['type']?.toString() ?? '';
+        if (!const ['Black', 'Clear', 'PC'].contains(type)) continue;
+        final modelId = data['modelId']?.toString() ?? '';
+        final modelName = data['modelName']?.toString() ?? '';
+        if (modelId.isEmpty || modelName.isEmpty) continue;
+
+        final model = grouped.putIfAbsent(modelId, () => {
+          'modelId': modelId,
+          'modelName': modelName,
+          'productCode': data['productCode']?.toString() ?? '',
+          'variants': <String, dynamic>{},
+        });
+        final variants = model['variants'] as Map<String, dynamic>;
+        variants[type] = {
+          'productId': doc.id,
+          'productName': data['displayName']?.toString() ?? data['name']?.toString() ?? '',
+          'productCode': data['productCode']?.toString() ?? '',
+        };
+      }
+
+      _rawModels = grouped.values.where((model) {
+        final variants = model['variants'] as Map<String, dynamic>;
+        return const ['Black', 'Clear', 'PC'].every(variants.containsKey);
+      }).toList();
+      _rawModels.sort((a, b) => a['modelName'].toString().toLowerCase().compareTo(b['modelName'].toString().toLowerCase()));
+    } catch (e) {
+      if (mounted) _showMessage('Failed to load Raw models: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _loadingModels = false);
+    }
+  }
+
+  Map<String, dynamic>? _findModel(String? id) {
+    if (id == null) return null;
+    for (final model in _rawModels) {
+      if (model['modelId']?.toString() == id) return model;
+    }
+    return null;
+  }
+
+  void _setCavityCount(int count) {
+    count = count.clamp(1, 100);
+    final oldValues = _piecesPerCycleControllers.map((c) => c.text).toList();
+    for (final controller in _piecesPerCycleControllers) controller.dispose();
+    _cavityModelIds = List<String?>.generate(
+      count,
+      (i) => i < _cavityModelIds.length ? _cavityModelIds[i] : null,
     );
-
-    _minimumStockController = TextEditingController(
-      text: widget.product.minimumStock.toString(),
+    _piecesPerCycleControllers = List.generate(
+      count,
+      (i) => TextEditingController(text: i < oldValues.length ? oldValues[i] : '1'),
     );
+    _cavityCountController.text = count.toString();
+  }
 
-    _selectedType = widget.product.type.isNotEmpty
-        ? widget.product.type
-        : 'Black';
+  List<Map<String, dynamic>> _buildCavityData() {
+    final cavities = <Map<String, dynamic>>[];
+    final used = <String>{};
 
-    _selectedGender =
-        widget.product.modelGender.isNotEmpty
-            ? widget.product.modelGender
-            : 'Gents';
+    for (var i = 0; i < _cavityModelIds.length; i++) {
+      final modelId = _cavityModelIds[i];
+      final model = _findModel(modelId);
+      if (modelId == null || model == null) {
+        throw Exception('Select a Raw model for Cavity ${i + 1}.');
+      }
+      if (!used.add(modelId)) {
+        throw Exception('${model['modelName']} is already assigned to another cavity.');
+      }
 
-    _selectedOtherType = widget.product.type.isNotEmpty
-      ? widget.product.type
-      : 'Raw Material';
+      final pieces = int.tryParse(_piecesPerCycleControllers[i].text.trim()) ?? 0;
+      if (pieces <= 0) {
+        throw Exception('Enter valid Pieces per Cycle for Cavity ${i + 1}.');
+      }
+
+      final rawVariants = model['variants'] as Map<String, dynamic>;
+      final variants = <String, dynamic>{};
+      for (final type in const ['Black', 'Clear', 'PC']) {
+        final raw = Map<String, dynamic>.from(rawVariants[type] as Map);
+        variants[type] = {
+          'productId': raw['productId']?.toString() ?? '',
+          'productName': raw['productName']?.toString() ?? '',
+          'productCode': raw['productCode']?.toString() ?? '',
+        };
+      }
+
+      cavities.add({
+        'cavityNumber': i + 1,
+        'modelId': modelId,
+        'modelName': model['modelName'],
+        'variants': variants,
+        'piecesPerCycle': pieces,
+      });
+    }
+    return cavities;
+  }
+
+  Future<void> _saveProduct() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final price = double.tryParse(_priceController.text.trim());
+    final minimumStock = int.tryParse(_minimumStockController.text.trim());
+    if (price == null || price < 0 || minimumStock == null || minimumStock < 0) return;
+
+    setState(() => _isSaving = true);
+    try {
+      final updateData = <String, dynamic>{
+        'displayName': _nameController.text.trim(),
+        'name': _nameController.text.trim().toLowerCase(),
+        'price': price,
+        'minimumStock': minimumStock,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (widget.category == 'Raw') {
+        updateData['type'] = _selectedType;
+      } else if (widget.category == 'Finished') {
+        updateData['productCode'] = _productCodeController.text.trim();
+        updateData['modelGender'] = _selectedGender;
+      } else {
+        updateData['type'] = _selectedOtherType;
+        updateData['productCode'] = _productCodeController.text.trim();
+
+        if (_selectedOtherType == 'Mold') {
+          final count = int.tryParse(_cavityCountController.text.trim()) ?? 0;
+          if (count < 1 || _cavityModelIds.length != count) {
+            throw Exception('Cavity configuration is incomplete.');
+          }
+          final cavities = _buildCavityData();
+          updateData['cavityCount'] = count;
+          updateData['cavities'] = cavities;
+        } else {
+          updateData['cavityCount'] = 0;
+          updateData['cavities'] = [];
+        }
+      }
+
+      await _productsRef.doc(widget.product.id).update(updateData);
+
+      final updatedProduct = widget.product.copyWith(
+        displayName: _nameController.text.trim(),
+        price: price,
+        minimumStock: minimumStock,
+        type: widget.category == 'Raw'
+            ? _selectedType
+            : widget.category == 'Other'
+                ? _selectedOtherType
+                : widget.product.type,
+        productCode: widget.category == 'Finished' || widget.category == 'Other'
+            ? _productCodeController.text.trim()
+            : widget.product.productCode,
+        modelGender: widget.category == 'Finished' ? _selectedGender : widget.product.modelGender,
+        cavityCount: widget.category == 'Other' && _selectedOtherType == 'Mold'
+            ? _cavityModelIds.length
+            : 0,
+        cavities: widget.category == 'Other' && _selectedOtherType == 'Mold'
+            ? _buildCavityData()
+            : [],
+      );
+
+      if (mounted) Navigator.of(context).pop(updatedProduct);
+    } catch (e) {
+      if (mounted) _showMessage('Failed to update product: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -1338,455 +1532,134 @@ class _EditProductDialogState
     _priceController.dispose();
     _productCodeController.dispose();
     _minimumStockController.dispose();
-
+    _cavityCountController.dispose();
+    for (final controller in _piecesPerCycleControllers) controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isRaw = widget.category == 'Raw';
-    final isFinished = widget.category == 'Finished';
-
     return AlertDialog(
-      title: Row(
-        children: [
-          Icon(
-            Icons.edit_outlined,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(width: 10),
-          const Text('Edit Product'),
-        ],
-      ),
-
+      title: const Text('Edit Product'),
       content: SizedBox(
-        width: 500,
+        width: 700,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // -------------------------------------------------------------
-                // PRODUCT NAME
-                // -------------------------------------------------------------
-
-                TextFormField(
-                  controller: _nameController,
-                  enabled: !_isSaving,
-                  textCapitalization:
-                      TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Product Name',
-                    prefixIcon: Icon(
-                      Icons.inventory_2_outlined,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null ||
-                        value.trim().isEmpty) {
-                      return 'Enter product name';
-                    }
-
-                    return null;
-                  },
-                ),
-
-                // -------------------------------------------------------------
-                // RAW TYPE
-                // -------------------------------------------------------------
-
-                if (isRaw) ...[
-                  const SizedBox(height: 14),
-
-                  DropdownButtonFormField<String>(
-                    value: _selectedType,
-                    decoration: const InputDecoration(
-                      labelText: 'Type',
-                      prefixIcon: Icon(
-                        Icons.category_outlined,
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Black',
-                        child: Text('Black'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Clear',
-                        child: Text('Clear'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'PC',
-                        child: Text('PC'),
-                      ),
-                    ],
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-
-                            setState(() {
-                              _selectedType = value;
-                            });
-                          },
-                  ),
-                ],
-
-                // -------------------------------------------------------------
-                // Other PRODUCT CODE
-                // -------------------------------------------------------------
-
-                if (isOther) ...[
-                  const SizedBox(height: 14),
-
-                  DropdownButtonFormField<String>(
-                    value: _selectedOtherType,
-                    decoration: const InputDecoration(
-                      labelText: 'Product Type',
-                      prefixIcon: Icon(
-                        Icons.category_outlined,
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Raw Material',
-                        child: Text('Raw Material'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Mold',
-                        child: Text('Mold'),
-                      ),
-                    ],
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-
-                            setState(() {
-                              _selectedOtherType = value;
-                            });
-                          },
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  TextFormField(
-                    controller: _productCodeController,
-                    enabled: !_isSaving,
-                    textCapitalization:
-                        TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Product Code',
-                      prefixIcon: Icon(
-                        Icons.qr_code_2_outlined,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null ||
-                          value.trim().isEmpty) {
-                        return 'Enter product code';
-                      }
-
-                      return null;
-                    },
-                  ),
-                ],
-
-                // -------------------------------------------------------------
-                // FINISHED PRODUCT CODE
-                // -------------------------------------------------------------
-
-                if (isFinished) ...[
-                  const SizedBox(height: 14),
-
-                  TextFormField(
-                    controller: _productCodeController,
-                    enabled: !_isSaving,
-                    textCapitalization:
-                        TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Product Code',
-                      prefixIcon: Icon(
-                        Icons.qr_code_2_outlined,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null ||
-                          value.trim().isEmpty) {
-                        return 'Enter product code';
-                      }
-
-                      return null;
-                    },
-                  ),
-                ],
-
-                // -------------------------------------------------------------
-                // FINISHED GENDER
-                // -------------------------------------------------------------
-
-                if (isFinished) ...[
-                  const SizedBox(height: 14),
-
-                  DropdownButtonFormField<String>(
-                    value: _selectedGender,
-                    decoration: const InputDecoration(
-                      labelText: 'Gender',
-                      prefixIcon: Icon(
-                        Icons.person_outline,
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Gents',
-                        child: Text('Gents'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Ladies',
-                        child: Text('Ladies'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Baby',
-                        child: Text('Baby'),
-                      ),
-                    ],
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-
-                            setState(() {
-                              _selectedGender = value;
-                            });
-                          },
-                  ),
-                ],
-
-                // -------------------------------------------------------------
-                // PRICE
-                // -------------------------------------------------------------
-
-                const SizedBox(height: 14),
-
-                TextFormField(
-                  controller: _priceController,
-                  enabled: !_isSaving,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Price',
-                    prefixIcon: Icon(
-                      Icons.currency_rupee,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null ||
-                        value.trim().isEmpty) {
-                      return 'Enter price';
-                    }
-
-                    final price = double.tryParse(
-                      value.trim(),
-                    );
-
-                    if (price == null) {
-                      return 'Enter a valid price';
-                    }
-
-                    if (price < 0) {
-                      return 'Price cannot be negative';
-                    }
-
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                TextFormField(
-                  controller: _minimumStockController,
-                  enabled: !_isSaving,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Minimum Stock',
-                    hintText: 'Enter minimum stock alert level',
-                    prefixIcon: Icon(
-                      Icons.inventory_2_outlined,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Enter minimum stock';
-                    }
-
-                    final minimumStock = int.tryParse(value.trim());
-
-                    if (minimumStock == null) {
-                      return 'Enter a valid whole number';
-                    }
-
-                    if (minimumStock < 0) {
-                      return 'Minimum stock cannot be negative';
-                    }
-
-                    return null;
-                  },
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Name'), validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
+              const SizedBox(height: 12),
+              TextFormField(controller: _priceController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Price'), validator: (v) => double.tryParse(v?.trim() ?? '') == null ? 'Enter a valid price' : null),
+              const SizedBox(height: 12),
+              TextFormField(controller: _minimumStockController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Minimum Stock'), validator: (v) => int.tryParse(v?.trim() ?? '') == null ? 'Enter a valid stock' : null),
+              if (widget.category == 'Raw') ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _selectedType.isEmpty ? null : _selectedType,
+                  decoration: const InputDecoration(labelText: 'Material Type'),
+                  items: const ['Black', 'Clear', 'PC'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                  onChanged: (v) => setState(() => _selectedType = v ?? ''),
                 ),
               ],
-            ),
+              if (widget.category == 'Finished') ...[
+                const SizedBox(height: 12),
+                TextFormField(controller: _productCodeController, decoration: const InputDecoration(labelText: 'Product Code')),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _selectedGender.isEmpty ? null : _selectedGender,
+                  decoration: const InputDecoration(labelText: 'Gender'),
+                  items: const ['Gents', 'Ladies', 'Baby'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                  onChanged: (v) => setState(() => _selectedGender = v ?? ''),
+                ),
+              ],
+              if (widget.category == 'Other') ...[
+                const SizedBox(height: 12),
+                TextFormField(controller: _productCodeController, decoration: const InputDecoration(labelText: 'Product Code')),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _selectedOtherType.isEmpty ? null : _selectedOtherType,
+                  decoration: const InputDecoration(labelText: 'Product Type'),
+                  items: const ['Raw Material', 'Mold'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                  onChanged: (v) async {
+                    setState(() => _selectedOtherType = v ?? '');
+                    if (v == 'Mold') await _loadRawModels();
+                  },
+                ),
+                if (_selectedOtherType == 'Mold') ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cavityCountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Cavity Count'),
+                    onChanged: (v) {
+                      final count = int.tryParse(v);
+                      if (count != null && count >= 1 && count <= 100 && count != _cavityModelIds.length) {
+                        setState(() => _setCavityCount(count));
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (_loadingModels)
+                    const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                  else if (_rawModels.isEmpty)
+                    const Align(alignment: Alignment.centerLeft, child: Text('No complete Raw models found.'))
+                  else
+                    ...List.generate(_cavityModelIds.length, _buildCavity),
+                ],
+              ],
+            ]),
           ),
         ),
       ),
-
       actions: [
-        TextButton(
-          onPressed: _isSaving
-              ? null
-              : () {
-                  Navigator.of(context).pop();
-                },
-          child: const Text('Cancel'),
-        ),
-
-        FilledButton.icon(
-          onPressed: _isSaving ? null : _saveProduct,
-          icon: _isSaving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Icon(
-                  Icons.save_outlined,
-                ),
-          label: Text(
-            _isSaving
-                ? 'Saving...'
-                : 'Save Changes',
-          ),
-        ),
+        TextButton(onPressed: _isSaving ? null : () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton.icon(onPressed: _isSaving ? null : _saveProduct, icon: const Icon(Icons.save_outlined), label: Text(_isSaving ? 'Saving...' : 'Save')),
       ],
     );
   }
 
-  Future<void> _saveProduct() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final price = double.tryParse(
-      _priceController.text.trim(),
-    );
-
-    if (price == null) {
-      return;
-    }
-
-    final minimumStock = int.tryParse(
-      _minimumStockController.text.trim(),
-    );
-
-    if (minimumStock == null || minimumStock < 0) {
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      final baseName = _nameController.text.trim();
-
-      final finalDisplayName =
-          widget.category == 'Raw'
-              ? '$baseName - ${_selectedType.trim()}'
-              : baseName;
-
-      final updateData = <String, dynamic>{
-        'displayName': finalDisplayName,
-        'name': finalDisplayName.toLowerCase(),
-        'price': price,
-        'minimumStock': minimumStock,
-      };
-
-      if (widget.category == 'Raw') {
-        updateData['type'] = _selectedType;
-      }
-
-      if (widget.category == 'Finished') {
-        updateData['productCode'] =
-            _productCodeController.text.trim();
-
-        updateData['modelGender'] =
-            _selectedGender;
-      }
-
-      if (widget.category == 'Other') {
-        updateData['type'] = _selectedOtherType;
-
-        updateData['productCode'] =
-            _productCodeController.text.trim();
-      }
-
-      await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(widget.companyId)
-          .collection('products')
-          .doc(widget.product.id)
-          .update(updateData);
-
-      if (!mounted) return;
-
-      // final finalDisplayName =
-      //   widget.category == 'Raw'
-      //       ? '${_nameController.text.trim()} - ${_selectedType.trim()}'
-      //       : _nameController.text.trim();
-
-      final updatedProduct = widget.product.copyWith(
-        displayName: finalDisplayName,
-        price: price,
-        minimumStock: minimumStock,
-
-        type: widget.category == 'Raw'
-            ? _selectedType
-            : widget.category == 'Other'
-                ? _selectedOtherType
-                : widget.product.type,
-
-        productCode:
-            widget.category == 'Finished' ||
-                    widget.category == 'Other'
-                ? _productCodeController.text.trim()
-                : widget.product.productCode,
-
-        modelGender:
-            widget.category == 'Finished'
-                ? _selectedGender
-                : widget.product.modelGender,
-      );
-
-      Navigator.of(context).pop(
-        updatedProduct,
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isSaving = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to update product: $e',
+  Widget _buildCavity(int index) {
+    final model = _findModel(_cavityModelIds[index]);
+    final variants = model?['variants'] as Map<String, dynamic>? ?? {};
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Cavity ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _cavityModelIds[index],
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Model'),
+            items: _rawModels.map((m) => DropdownMenuItem(value: m['modelId'].toString(), child: Text('${m['modelName']} • ${m['productCode']}'))).toList(),
+            onChanged: (v) => setState(() => _cavityModelIds[index] = v),
           ),
-        ),
-      );
-    }
+          if (model != null) ...[
+            const SizedBox(height: 8),
+            ...const ['Black', 'Clear', 'PC'].map((type) {
+              final v = Map<String, dynamic>.from(variants[type] as Map);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(children: [
+                  SizedBox(width: 55, child: Text(type)),
+                  Expanded(child: Text(v['productName']?.toString() ?? '', overflow: TextOverflow.ellipsis)),
+                  const Icon(Icons.lock_outline, size: 15),
+                ]),
+              );
+            }),
+          ],
+          const SizedBox(height: 8),
+          TextField(controller: _piecesPerCycleControllers[index], keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Pieces Per Cycle')),
+        ]),
+      ),
+    );
+  }
+
+  int _toInt(dynamic value) => value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
+
+  void _showMessage(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: error ? Colors.red : null));
   }
 }
