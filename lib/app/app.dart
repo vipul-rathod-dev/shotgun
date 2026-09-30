@@ -23,6 +23,8 @@ import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.
 import 'package:shotgun/screens/supervisor_screens/manage_supervisor_tasks/manage_supervisor_tasks.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_suppliers_page/suppliers_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_inventory_page/manage_inventory_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/create_molding_order_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/raw_product_orders_page.dart';
 import '../screens/supervisor_screens/color_templates/color_templates.dart';
 import '../screens/supervisor_screens/manage_orders_page/add_orders_page.dart';
 import '../screens/register_page.dart';
@@ -108,6 +110,16 @@ final Map<String, WidgetBuilder> _secureRoutes = {
   '/supervisor/view-staff':
       (_) =>
           const RoleGuard(requiredRole: 'supervisor', child: ViewStaffPage()),
+  
+  '/supervisor/raw-product-orders':
+      (_) =>
+          const RoleGuard(requiredRole: 'supervisor', child: RawProductOrdersPage()),
+  
+  '/supervisor/create-molding-order':
+    (_) => const RoleGuard(
+      requiredRole: 'supervisor',
+      child: CreateMoldingOrderPage(),
+    ),
 
   '/supervisor/add-staff': (context) {
     final companyId = ModalRoute.of(context)!.settings.arguments as String;

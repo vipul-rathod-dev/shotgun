@@ -90,6 +90,11 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
         title: 'Manage Staff',
         route: '/supervisor/view-staff',
       ),
+      DashboardItem(
+        icon: Icons.inventory_2_outlined,
+        title: 'Raw Product Orders',
+        route: '/supervisor/raw-product-orders',
+      ),
     ];
 
 
