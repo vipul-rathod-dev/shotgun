@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 class DrummingPage extends StatefulWidget {
   final bool embedded;
@@ -18,6 +19,7 @@ class _DrummingPageState extends State<DrummingPage> {
   String? _companyId;
   bool _loading = true;
   List<Map<String, dynamic>> _orders = [];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
 
   CollectionReference<Map<String, dynamic>> get _ref =>
       FirebaseFirestore.instance
@@ -44,6 +46,7 @@ class _DrummingPageState extends State<DrummingPage> {
   }
 
   Future<void> _initialize() async {
+    await _subscription?.cancel();
     try {
       final prefs = await SharedPreferences.getInstance();
       _companyId = prefs.getString('cachedCompanyId');
@@ -51,7 +54,7 @@ class _DrummingPageState extends State<DrummingPage> {
         throw Exception('Company ID not found. Please log in again.');
       }
 
-      _ref.snapshots().listen((snapshot) {
+      _subscription = _ref.snapshots().listen((snapshot) {
         if (!mounted) return;
         final data = snapshot.docs.map((d) => {...d.data(), 'id': d.id}).toList();
         data.sort((a, b) => _date(b).compareTo(_date(a)));
@@ -73,6 +76,12 @@ class _DrummingPageState extends State<DrummingPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
   DateTime _date(Map<String, dynamic> x) {
     final v = x['updatedAt'] ?? x['createdAt'];
     return v is Timestamp ? v.toDate() : DateTime.fromMillisecondsSinceEpoch(0);
@@ -82,101 +91,145 @@ class _DrummingPageState extends State<DrummingPage> {
 
   Future<void> _completeDrumming(Map<String, dynamic> item) async {
     final sent = _toInt(item['quantitySent']);
+    final sentWeight = _toDouble(item['weightSentKg']);
     final completedController = TextEditingController(text: '$sent');
     final rejectedController = TextEditingController(text: '0');
+    final goodWeightController = TextEditingController(text: sentWeight.toStringAsFixed(3));
+    final rejectedWeightController = TextEditingController(text: '0');
 
     try {
-      final result = await showDialog<Map<String, int>>(
+      final result = await showDialog<Map<String, dynamic>>(
         context: context,
         barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Complete Drumming'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${item['variantType']} • ${item['productName']}'),
-              const SizedBox(height: 4),
-              Text('Sent to Drumming: $sent pcs'),
-              const SizedBox(height: 14),
-              TextField(
-                controller: completedController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Good Quantity',
-                  suffixText: 'pcs',
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            final good = _toInt(completedController.text);
+            final rejected = _toInt(rejectedController.text);
+            final goodWeight = _toDouble(goodWeightController.text);
+            final rejectedWeight = _toDouble(rejectedWeightController.text);
+
+            return AlertDialog(
+              title: const Text('Complete Drumming'),
+              content: SizedBox(
+                width: 600,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${item['variantType']} • ${item['productName']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text('Sent: $sent pcs • ${sentWeight.toStringAsFixed(3)} kg'),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        SizedBox(
+                          width: 140,
+                          child: TextField(
+                            controller: completedController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Good Qty', suffixText: 'pcs'),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 140,
+                          child: TextField(
+                            controller: rejectedController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Rejected', suffixText: 'pcs'),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 140,
+                          child: TextField(
+                            controller: goodWeightController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'Good Weight', suffixText: 'kg'),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 140,
+                          child: TextField(
+                            controller: rejectedWeightController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'Rejected Weight', suffixText: 'kg'),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Good + rejected must equal $sent pcs.'),
+                    Text('Good weight + rejected weight should equal ${sentWeight.toStringAsFixed(3)} kg.'),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: rejectedController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Rejected / Wastage',
-                  suffixText: 'pcs',
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+                FilledButton(
+                  onPressed: () {
+                    if (good < 0 || rejected < 0 || good + rejected != sent) return;
+                    if (goodWeight < 0 || rejectedWeight < 0 || (goodWeight + rejectedWeight - sentWeight).abs() > 0.01) return;
+                    Navigator.pop(dialogContext, {
+                      'good': good,
+                      'rejected': rejected,
+                      'goodWeightKg': goodWeight,
+                      'rejectedWeightKg': rejectedWeight,
+                    });
+                  },
+                  child: const Text('Complete'),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text('Good + Rejected must equal the quantity sent.'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final good = int.tryParse(completedController.text.trim()) ?? -1;
-                final rejected = int.tryParse(rejectedController.text.trim()) ?? -1;
-                if (good < 0 || rejected < 0 || good + rejected != sent) return;
-                Navigator.pop(dialogContext, {
-                  'good': good,
-                  'rejected': rejected,
-                });
-              },
-              child: const Text('Complete'),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       );
 
       if (result == null) return;
 
-      final good = result['good']!;
-      final rejected = result['rejected']!;
+      final good = _toInt(result['good']);
+      final rejected = _toInt(result['rejected']);
+      final goodWeight = _toDouble(result['goodWeightKg']);
+      final rejectedWeight = _toDouble(result['rejectedWeightKg']);
       final ref = _ref.doc(item['id'].toString());
       final productRef = _productsRef.doc(item['productId'].toString());
 
       await FirebaseFirestore.instance.runTransaction((tx) async {
         final orderSnap = await tx.get(ref);
         final productSnap = await tx.get(productRef);
-
         final live = orderSnap.data();
         final product = productSnap.data();
-
         if (live == null) throw Exception('Drumming order no longer exists.');
         if (product == null) throw Exception('Raw product no longer exists.');
-
-        if (live['status'] != 'In Drumming') {
-          throw Exception('This Drumming order is already completed.');
-        }
+        if (live['status'] != 'In Drumming') throw Exception('This Drumming order is already completed.');
 
         final liveSent = _toInt(live['quantitySent']);
-        if (good + rejected != liveSent) {
-          throw Exception('Drumming quantity changed. Please refresh and try again.');
-        }
+        final liveWeight = _toDouble(live['weightSentKg']);
+        if (good + rejected != liveSent) throw Exception('Drumming quantity changed. Please refresh and try again.');
+        if ((goodWeight + rejectedWeight - liveWeight).abs() > 0.01) throw Exception('Drumming weight changed. Please refresh and try again.');
 
         final previousStock = _toInt(product['stock']);
-
-        tx.update(productRef, {
+        final previousStockWeight = _toDouble(product['stockWeightKg']);
+        final productUpdates = <String, dynamic>{
           'stock': previousStock + good,
           'updatedAt': FieldValue.serverTimestamp(),
-        });
+        };
+        if (product.containsKey('stockWeightKg')) {
+          productUpdates['stockWeightKg'] = previousStockWeight + goodWeight;
+        } else {
+          productUpdates['stockWeightKg'] = goodWeight;
+        }
+        tx.update(productRef, productUpdates);
 
         tx.update(ref, {
           'quantityCompleted': good,
           'quantityRejected': rejected,
+          'goodWeightKg': goodWeight,
+          'rejectedWeightKg': rejectedWeight,
           'status': 'Completed',
           'completedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -196,9 +249,20 @@ class _DrummingPageState extends State<DrummingPage> {
           'productId': live['productId'],
           'productName': live['productName'],
           'productCode': live['productCode'],
+          'moldingSupplierId': live['moldingSupplierId'],
+          'moldingSupplierName': live['moldingSupplierName'],
           'quantitySent': liveSent,
+          'weightSentKg': liveWeight,
           'quantityAddedToStock': good,
           'quantityRejected': rejected,
+          'goodWeightKg': goodWeight,
+          'rejectedWeightKg': rejectedWeight,
+          'drummingLabor': live['drummingLabor'],
+          'drummingSupplierId': live['drummingSupplierId'],
+          'drummingSupplierName': live['drummingSupplierName'],
+          'laborRate': live['laborRate'],
+          'laborRateUnit': live['laborRateUnit'],
+          'laborCost': live['laborCost'],
           'previousStock': previousStock,
           'newStock': previousStock + good,
           'createdAt': FieldValue.serverTimestamp(),
@@ -211,8 +275,12 @@ class _DrummingPageState extends State<DrummingPage> {
     } finally {
       completedController.dispose();
       rejectedController.dispose();
+      goodWeightController.dispose();
+      rejectedWeightController.dispose();
     }
   }
+
+  double _toDouble(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0;
 
   void _message(String text, [bool error = false]) {
     if (!mounted) return;
@@ -251,6 +319,9 @@ class _DrummingPageState extends State<DrummingPage> {
                               'Mold: ${item['moldName']} • Cavity ${item['cavityNumber']} • ${item['modelName']}',
                             ),
                             Text('Quantity in Drumming: $sent pcs'),
+                            Text('Weight in Drumming: ${_toDouble(item['weightSentKg']).toStringAsFixed(3)} kg'),
+                            Text('Drumming Supplier: ${item['drummingSupplierName'] ?? ''}'),
+                            Text('Drumming Labour: ₹${_toDouble(item['laborCost']).toStringAsFixed(2)}'),
                             Text('Raw Order: ${item['rawOrderNumber'] ?? ''}'),
                             const SizedBox(height: 12),
                             Align(
