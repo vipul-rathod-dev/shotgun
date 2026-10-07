@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/create_molding_order_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_order_details_page.dart';
 
 class RawProductOrdersPage extends StatefulWidget {
   const RawProductOrdersPage({super.key});
@@ -525,249 +526,6 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     );
   }
 
-  Widget _buildMoldingDetailRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 17, color: const Color(0xFF6B7280)),
-
-          const SizedBox(width: 9),
-
-          SizedBox(
-            width: 125,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: const Color(0xFF6B7280),
-              ),
-            ),
-          ),
-
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF343741),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showMoldingOrderDetails(
-    BuildContext context,
-    Map<String, dynamic> order,
-  ) {
-    final orderNumber = order['orderNumber']?.toString() ?? '-';
-
-    final status = order['status']?.toString() ?? '-';
-
-    final supplier = order['supplierName']?.toString() ?? '-';
-
-    final mold = order['moldName']?.toString() ?? '-';
-
-    final orderedPieces = _toInt(order['orderedPieces']);
-
-    final receivedPieces = _toInt(order['receivedPieces']);
-
-    final pendingPieces = (orderedPieces - receivedPieces).clamp(
-      0,
-      orderedPieces,
-    );
-
-    final items =
-        order['items'] is List
-            ? List<dynamic>.from(order['items'])
-            : <dynamic>[];
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // HEADER
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF2FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.precision_manufacturing_outlined,
-                          color: Color(0xFF3F51B5),
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              orderNumber,
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Molding Order',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      _buildStatusChip(status),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // BASIC INFORMATION
-                  _buildMoldingDetailRow(
-                    'Molding Supplier',
-                    supplier,
-                    Icons.person_outline,
-                  ),
-
-                  _buildMoldingDetailRow(
-                    'Mold',
-                    mold,
-                    Icons.view_in_ar_outlined,
-                  ),
-
-                  _buildMoldingDetailRow(
-                    'Ordered',
-                    orderedPieces.toString(),
-                    Icons.inventory_2_outlined,
-                  ),
-
-                  _buildMoldingDetailRow(
-                    'Received',
-                    receivedPieces.toString(),
-                    Icons.check_circle_outline,
-                  ),
-
-                  _buildMoldingDetailRow(
-                    'Pending',
-                    pendingPieces.toString(),
-                    Icons.pending_outlined,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  Text(
-                    'Order Items',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Flexible(
-                    child:
-                        items.isEmpty
-                            ? Center(
-                              child: Text(
-                                'No items found.',
-                                style: GoogleFonts.poppins(
-                                  color: const Color(0xFF6B7280),
-                                ),
-                              ),
-                            )
-                            : ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: items.length,
-                              separatorBuilder:
-                                  (_, __) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final item =
-                                    items[index] is Map
-                                        ? Map<String, dynamic>.from(
-                                          items[index],
-                                        )
-                                        : <String, dynamic>{};
-
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item['productName']?.toString() ?? '-',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-
-                                      const SizedBox(height: 4),
-
-                                      Text(
-                                        '${item['variantType'] ?? '-'}'
-                                        ' • Cavity ${item['cavityNumber'] ?? '-'}'
-                                        ' • Ordered ${item['orderedQuantity'] ?? 0}'
-                                        ' • Received ${item['receivedQuantity'] ?? 0}',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Close'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildMoldingActionButton({
     required IconData icon,
     required String label,
@@ -1139,7 +897,14 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                     label: 'View',
                     color: Colors.blue,
                     onTap: () {
-                      _showMoldingOrderDetails(context, order);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MoldingOrderDetailsPage(
+                            order: order,
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ),
