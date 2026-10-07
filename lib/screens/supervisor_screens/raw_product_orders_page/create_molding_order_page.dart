@@ -71,6 +71,8 @@ class _MoldingCavityEntry {
   String? productId;
 
   final Map<String, TextEditingController> quantityControllers = {};
+  final Map<String, TextEditingController> virginRatioControllers = {};
+  final Map<String, TextEditingController> grindingRatioControllers = {};
 
   _MoldingCavityEntry(this.cavity, {this.linkedModelId});
 
@@ -78,8 +80,16 @@ class _MoldingCavityEntry {
     for (final controller in quantityControllers.values) {
       controller.dispose();
     }
+    for (final controller in virginRatioControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in grindingRatioControllers.values) {
+      controller.dispose();
+    }
 
     quantityControllers.clear();
+    virginRatioControllers.clear();
+    grindingRatioControllers.clear();
   }
 
   int get totalQuantity {
@@ -104,12 +114,19 @@ class _MoldingMoldEntry {
   _MoldingMoldEntry({
     required this.moldId,
     required this.moldName,
-    this.moldCavities = const [],
-    this.moldCavityModelIds = const {},
-    this.rawProducts = const [],
-    this.cavityEntries = const [],
+    List<String>? moldCavities,
+    Map<String, String?>? moldCavityModelIds,
+    List<_MoldingProduct>? rawProducts,
+    List<_MoldingCavityEntry>? cavityEntries,
     this.isLoadingProducts = false,
-  });
+  })  : moldCavities = List<String>.from(moldCavities ?? const []),
+        moldCavityModelIds = Map<String, String?>.from(
+          moldCavityModelIds ?? const {},
+        ),
+        rawProducts = List<_MoldingProduct>.from(rawProducts ?? const []),
+        cavityEntries = List<_MoldingCavityEntry>.from(
+          cavityEntries ?? const [],
+        );
 
   int get totalQuantity =>
       cavityEntries.fold<int>(0, (total, entry) => total + entry.totalQuantity);
@@ -164,13 +181,21 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
   @override
   void dispose() {
-    FocusManager.instance.primaryFocus?.unfocus();
-
     for (final moldEntry in moldEntries) {
       moldEntry.dispose();
     }
 
     super.dispose();
+  }
+
+  void _closePage([dynamic result]) {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      Navigator.of(context).pop(result);
+    });
   }
 
   Future<void> _loadCompanyAndMolds() async {
@@ -212,21 +237,16 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
             return <String, dynamic>{
               'id': doc.id,
-              'name': _stringValue(
-                data['modelName'] ??
-                    data['displayName'] ??
-                    data['productName'] ??
-                    data['moldName'] ??
-                    doc.id,
+              'displayName': _stringValue(
+                data['displayName'] ?? doc.id,
               ),
 
               'cavities': _extractCavityDefinitions(data),
             };
           }).toList();
 
-      debugPrint('Loaded: $loaded');
       loaded.sort(
-        (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+        (a, b) => (a['displayName'] as String).compareTo(b['displayName'] as String),
       );
 
       if (!mounted) return;
@@ -358,9 +378,11 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
         final entry = _MoldingMoldEntry(
           moldId: moldId,
-          moldName: _stringValue(mold['name']),
-          moldCavities: cavityNames,
-          moldCavityModelIds: cavityModelIds,
+          moldName: _stringValue(mold['displayName']),
+          moldCavities: List<String>.from(cavityNames),
+          moldCavityModelIds: Map<String, String?>.from(cavityModelIds),
+          rawProducts: <_MoldingProduct>[],
+          cavityEntries: <_MoldingCavityEntry>[],
           isLoadingProducts: true,
         );
         entry.rawProducts = await _fetchRawProductsForMold(
@@ -426,12 +448,25 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
               cavityEntry.quantityControllers[variant] = TextEditingController(
                 text: '0',
               );
+              cavityEntry.virginRatioControllers[variant] =
+                  TextEditingController(text: '10');
+              cavityEntry.grindingRatioControllers[variant] =
+                  TextEditingController(text: '3');
             }
             for (final item in savedItems) {
               final variant = _stringValue(item['variantType']);
-              final controller = cavityEntry.quantityControllers[variant];
-              if (controller != null)
-                controller.text = _intValue(item['orderedQuantity']).toString();
+              final quantityController = cavityEntry.quantityControllers[variant];
+              final virginRatioController = cavityEntry.virginRatioControllers[variant];
+              final grindingRatioController = cavityEntry.grindingRatioControllers[variant];
+              if (quantityController != null) {
+                quantityController.text = _intValue(item['orderedQuantity']).toString();
+              }
+              if (virginRatioController != null && item.containsKey('virginRatio')) {
+                virginRatioController.text = _decimalValue(item['virginRatio'], fallback: 10);
+              }
+              if (grindingRatioController != null && item.containsKey('grindingRatio')) {
+                grindingRatioController.text = _decimalValue(item['grindingRatio'], fallback: 3);
+              }
             }
           }
           entry.cavityEntries.add(cavityEntry);
@@ -716,7 +751,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
     for (final cavityEntry in entry.cavityEntries) cavityEntry.dispose();
     entry.moldId = id;
-    entry.moldName = _stringValue(mold['name']);
+    entry.moldName = _stringValue(mold['displayName']);
     entry.moldCavities = cavityNames;
     entry.moldCavityModelIds = cavityModelIds;
     entry.rawProducts = [];
@@ -777,11 +812,19 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
   ) {
     for (final controller in entry.quantityControllers.values)
       controller.dispose();
+    for (final controller in entry.virginRatioControllers.values)
+      controller.dispose();
+    for (final controller in entry.grindingRatioControllers.values)
+      controller.dispose();
     entry.quantityControllers.clear();
+    entry.virginRatioControllers.clear();
+    entry.grindingRatioControllers.clear();
     final product = _productById(moldEntry, productId);
     if (product != null) {
       for (final variant in product.variants) {
         entry.quantityControllers[variant] = TextEditingController(text: '0');
+        entry.virginRatioControllers[variant] = TextEditingController(text: '10');
+        entry.grindingRatioControllers[variant] = TextEditingController(text: '3');
       }
     }
     setState(() => entry.productId = productId);
@@ -858,6 +901,14 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  String _decimalValue(dynamic value, {double fallback = 0}) {
+    final parsed = double.tryParse(value?.toString() ?? '');
+    if (parsed == null || !parsed.isFinite) {
+      return fallback % 1 == 0 ? fallback.toInt().toString() : fallback.toString();
+    }
+    return parsed % 1 == 0 ? parsed.toInt().toString() : parsed.toString();
+  }
+
   List<Map<String, dynamic>> _buildMoldingOrderItemsForMold(
     _MoldingMoldEntry moldEntry,
   ) {
@@ -894,6 +945,14 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
             'Unable to find Firestore product ID for ${product.displayName} - $variant.',
           );
         }
+        final virginRatio = double.tryParse(
+              entry.virginRatioControllers[variant]?.text.trim() ?? '',
+            ) ??
+            10;
+        final grindingRatio = double.tryParse(
+              entry.grindingRatioControllers[variant]?.text.trim() ?? '',
+            ) ??
+            3;
         items.add({
           'moldProductId': moldEntry.moldId,
           'moldName': moldEntry.moldName,
@@ -906,6 +965,8 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           'productName': product.displayName,
           'productCode': product.productCode,
           'orderedQuantity': quantity,
+          'virginRatio': virginRatio,
+          'grindingRatio': grindingRatio,
           'receivedQuantity': _existingItemReceivedQuantity(
             moldId: moldEntry.moldId,
             cavityNumber: cavityNumber,
@@ -1010,6 +1071,30 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           if (quantity == null || quantity < 0) {
             _showMessage(
               'Enter a valid quantity for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+            );
+            return;
+          }
+          final virginRatio = double.tryParse(
+            entry.virginRatioControllers[variant]?.text.trim() ?? '',
+          );
+          final grindingRatio = double.tryParse(
+            entry.grindingRatioControllers[variant]?.text.trim() ?? '',
+          );
+          if (virginRatio == null || virginRatio < 0) {
+            _showMessage(
+              'Enter a valid virgin ratio for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+            );
+            return;
+          }
+          if (grindingRatio == null || grindingRatio < 0) {
+            _showMessage(
+              'Enter a valid grinding ratio for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+            );
+            return;
+          }
+          if (virginRatio == 0 && grindingRatio == 0) {
+            _showMessage(
+              'Virgin and grinding ratio cannot both be 0 for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
             );
             return;
           }
@@ -1159,7 +1244,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
         _showMessage(
           'Molding order ${_editingOrderNumber ?? 'updated'} updated successfully.',
         );
-        Navigator.of(context).pop(true);
+        _closePage();
         return;
       }
 
@@ -1201,7 +1286,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
       if (!mounted) return;
       setState(() => isSaving = false);
       _showMessage('Molding order $generatedOrderNumber created successfully.');
-      Navigator.of(context).pop(true);
+      _closePage();
     } catch (e) {
       if (!mounted) return;
       setState(() => isSaving = false);
@@ -1596,7 +1681,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
             items: moldIds,
             displayValues: {
               for (final mold in molds)
-                mold['id'].toString(): mold['name'].toString(),
+                mold['id'].toString(): mold['displayName'].toString(),
             },
             icon: Icons.settings_outlined,
             validator: (value) => value == null ? 'Select a mold' : null,
@@ -1789,72 +1874,303 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
   Widget _buildVariantQuantityTable(
     _MoldingCavityEntry entry,
+    _MoldingProduct product,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
 
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Variant Quantities & Material Ratio',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF343741),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isMobile
+                  ? 'Enter quantity and Virgin : Grinding ratio for each variant.'
+                  : 'Enter quantity and the Virgin : Grinding ratio for each variant.',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: const Color(0xFF9CA3AF),
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (isMobile)
+              _buildMobileVariantCards(entry, product)
+            else
+              _buildDesktopVariantTable(entry, product),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Cavity total: ${entry.totalQuantity}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF3F51B5),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileVariantCards(
+    _MoldingCavityEntry entry,
     _MoldingProduct product,
   ) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-
       children: [
-        Text(
-          'Variant Quantities',
-
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-
-            fontWeight: FontWeight.w600,
-
-            color: const Color(0xFF343741),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F6FA),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.swipe_vertical_rounded,
+                size: 18,
+                color: Color(0xFF3F51B5),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Swipe down to enter each variant',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: 8),
+        ...product.variants.asMap().entries.map((item) {
+          final index = item.key;
+          final variant = item.value;
+          final quantityController = entry.quantityControllers[variant]!;
+          final virginRatioController =
+              entry.virginRatioControllers[variant]!;
+          final grindingRatioController =
+              entry.grindingRatioControllers[variant]!;
 
-        const SizedBox(height: 10),
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE0E4F2)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8EAF6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${index + 1}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF3F51B5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        variant,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF343741),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: quantityController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  validator: (value) {
+                    final quantity = int.tryParse(value?.trim() ?? '');
+                    if (quantity == null || quantity < 0) {
+                      return 'Enter quantity';
+                    }
+                    return null;
+                  },
+                  style: GoogleFonts.poppins(fontSize: 13),
+                  decoration: _inputDecoration(
+                    label: 'Quantity',
+                    hint: '0',
+                    icon: Icons.numbers_outlined,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: virginRatioController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => setState(() {}),
+                        validator: (value) {
+                          final ratio = double.tryParse(value?.trim() ?? '');
+                          if (ratio == null || ratio < 0) {
+                            return 'Enter ratio';
+                          }
+                          return null;
+                        },
+                        style: GoogleFonts.poppins(fontSize: 13),
+                        decoration: _inputDecoration(
+                          label: 'Virgin',
+                          hint: '10',
+                          icon: Icons.science_outlined,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: grindingRatioController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => setState(() {}),
+                        validator: (value) {
+                          final ratio = double.tryParse(value?.trim() ?? '');
+                          if (ratio == null || ratio < 0) {
+                            return 'Enter ratio';
+                          }
+                          return null;
+                        },
+                        style: GoogleFonts.poppins(fontSize: 13),
+                        decoration: _inputDecoration(
+                          label: 'Grinding',
+                          hint: '3',
+                          icon: Icons.recycling_outlined,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Ratio: ${virginRatioController.text.trim().isEmpty ? '10' : virginRatioController.text.trim()} : ${grindingRatioController.text.trim().isEmpty ? '3' : grindingRatioController.text.trim()}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
 
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE0E0E0)),
-
-            borderRadius: BorderRadius.circular(9),
-          ),
-
+  Widget _buildDesktopVariantTable(
+    _MoldingCavityEntry entry,
+    _MoldingProduct product,
+  ) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 700),
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-
-                  vertical: 10,
-                ),
-
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF5F6FA),
-
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(9)),
                 ),
-
                 child: Row(
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: 130,
                       child: Text(
                         'Variant',
-
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-
                     SizedBox(
                       width: 180,
-
                       child: Text(
                         'Quantity',
-
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: Text(
+                        'Virgin Ratio',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: Text(
+                        'Grinding Ratio',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1862,59 +2178,102 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                   ],
                 ),
               ),
-
               ...product.variants.map((variant) {
-                final controller = entry.quantityControllers[variant]!;
+                final quantityController =
+                    entry.quantityControllers[variant]!;
+                final virginRatioController =
+                    entry.virginRatioControllers[variant]!;
+                final grindingRatioController =
+                    entry.grindingRatioControllers[variant]!;
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-
-                    vertical: 8,
-                  ),
-
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          variant,
-
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-
-                            color: const Color(0xFF343741),
+                      SizedBox(
+                        width: 130,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Text(
+                            variant,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: const Color(0xFF343741),
+                            ),
                           ),
                         ),
                       ),
-
                       SizedBox(
                         width: 180,
-
                         child: TextFormField(
-                          controller: controller,
-
+                          controller: quantityController,
                           keyboardType: TextInputType.number,
-
                           onChanged: (_) => setState(() {}),
-
                           validator: (value) {
-                            final quantity = int.tryParse(value?.trim() ?? '');
-
+                            final quantity =
+                                int.tryParse(value?.trim() ?? '');
                             if (quantity == null || quantity < 0) {
                               return 'Enter quantity';
                             }
-
                             return null;
                           },
-
                           style: GoogleFonts.poppins(fontSize: 13),
-
                           decoration: _inputDecoration(
                             label: 'Quantity',
-
                             hint: '0',
-
                             icon: Icons.numbers_outlined,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 170,
+                        child: TextFormField(
+                          controller: virginRatioController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          validator: (value) {
+                            final ratio =
+                                double.tryParse(value?.trim() ?? '');
+                            if (ratio == null || ratio < 0) {
+                              return 'Enter ratio';
+                            }
+                            return null;
+                          },
+                          style: GoogleFonts.poppins(fontSize: 13),
+                          decoration: _inputDecoration(
+                            label: 'Virgin',
+                            hint: '10',
+                            icon: Icons.science_outlined,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 170,
+                        child: TextFormField(
+                          controller: grindingRatioController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          validator: (value) {
+                            final ratio =
+                                double.tryParse(value?.trim() ?? '');
+                            if (ratio == null || ratio < 0) {
+                              return 'Enter ratio';
+                            }
+                            return null;
+                          },
+                          style: GoogleFonts.poppins(fontSize: 13),
+                          decoration: _inputDecoration(
+                            label: 'Grinding',
+                            hint: '3',
+                            icon: Icons.recycling_outlined,
                           ),
                         ),
                       ),
@@ -1925,25 +2284,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
             ],
           ),
         ),
-
-        const SizedBox(height: 8),
-
-        Align(
-          alignment: Alignment.centerRight,
-
-          child: Text(
-            'Cavity total: ${entry.totalQuantity}',
-
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-
-              fontWeight: FontWeight.w600,
-
-              color: const Color(0xFF3F51B5),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -2009,11 +2350,16 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                         if (_intValue(
                               entry.quantityControllers[variant]?.text,
                             ) >
-                            0)
+                            0) ...[
                           _summaryRow(
                             variant,
                             entry.quantityControllers[variant]!.text.trim(),
                           ),
+                          _summaryRow(
+                            '$variant Ratio',
+                            '${entry.virginRatioControllers[variant]?.text.trim() ?? '10'} : ${entry.grindingRatioControllers[variant]?.text.trim() ?? '3'}',
+                          ),
+                        ],
                     ],
                     _summaryRow(
                       'Mold Total',
@@ -2416,9 +2762,12 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null || !messenger.mounted) return;
+
+    messenger.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }
 
