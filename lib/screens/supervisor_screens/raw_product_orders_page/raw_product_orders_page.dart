@@ -48,22 +48,17 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   void initState() {
     super.initState();
 
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-    );
+    _tabController = TabController(length: 2, vsync: this);
 
     _moldingSearchController.addListener(() {
       setState(() {
-        _moldingSearchQuery =
-            _moldingSearchController.text.trim();
+        _moldingSearchQuery = _moldingSearchController.text.trim();
       });
     });
 
     _drummingSearchController.addListener(() {
       setState(() {
-        _drummingSearchQuery =
-            _drummingSearchController.text.trim();
+        _drummingSearchQuery = _drummingSearchController.text.trim();
       });
     });
 
@@ -97,17 +92,11 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   }
 
   void _openCreateMoldingOrder() {
-    Navigator.pushNamed(
-      context,
-      '/supervisor/create-molding-order',
-    );
+    Navigator.pushNamed(context, '/supervisor/create-molding-order');
   }
 
   void _openCreateDrummingOrder() {
-    Navigator.pushNamed(
-      context,
-      '/supervisor/create-drumming-order',
-    );
+    Navigator.pushNamed(context, '/supervisor/create-drumming-order');
   }
 
   @override
@@ -141,9 +130,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   }
 
   String get _currentSearchQuery {
-    return _isMoldingTab
-        ? _moldingSearchQuery
-        : _drummingSearchQuery;
+    return _isMoldingTab ? _moldingSearchQuery : _drummingSearchQuery;
   }
 
   @override
@@ -184,11 +171,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(
-                bottom: BorderSide(
-                  color: Color(0xFFE5E7EB),
-                ),
-              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
             ),
             child: TabBar(
               controller: _tabController,
@@ -230,10 +213,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildMoldingOrdersTab(),
-          _buildDrummingOrdersTab(),
-        ],
+        children: [_buildMoldingOrdersTab(), _buildDrummingOrdersTab()],
       ),
     );
   }
@@ -259,11 +239,9 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   }
 
   int _compareStrings(dynamic a, dynamic b) {
-    return (a?.toString() ?? '')
-        .toLowerCase()
-        .compareTo(
-          (b?.toString() ?? '').toLowerCase(),
-        );
+    return (a?.toString() ?? '').toLowerCase().compareTo(
+      (b?.toString() ?? '').toLowerCase(),
+    );
   }
 
   List<Map<String, dynamic>> _filterAndSortMoldingOrders(
@@ -278,38 +256,41 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     final query = _moldingSearchQuery.toLowerCase();
 
     if (query.isNotEmpty) {
-      result = result.where((order) {
-        final orderNumber =
-            order['orderNumber']?.toString().toLowerCase() ?? '';
+      result =
+          result.where((order) {
+            final orderNumber =
+                order['orderNumber']?.toString().toLowerCase() ?? '';
 
-        final supplierName =
-            order['supplierName']?.toString().toLowerCase() ?? '';
+            final supplierName =
+                order['supplierName']?.toString().toLowerCase() ?? '';
 
-        final moldName =
-            order['moldName']?.toString().toLowerCase() ?? '';
+            final moldName = order['moldName']?.toString().toLowerCase() ?? '';
 
-        final status =
-            order['status']?.toString().toLowerCase() ?? '';
+            final status = order['status']?.toString().toLowerCase() ?? '';
 
-        final items = order['items'] as List? ?? [];
+            final items = order['items'] as List? ?? [];
 
-        final productText = items.map((item) {
-          if (item is! Map) return '';
+            final productText =
+                items
+                    .map((item) {
+                      if (item is! Map) return '';
 
-          return [
-            item['productName']?.toString() ?? '',
-            item['productCode']?.toString() ?? '',
-            item['variantType']?.toString() ?? '',
-            item['modelName']?.toString() ?? '',
-          ].join(' ');
-        }).join(' ').toLowerCase();
+                      return [
+                        item['productName']?.toString() ?? '',
+                        item['productCode']?.toString() ?? '',
+                        item['variantType']?.toString() ?? '',
+                        item['modelName']?.toString() ?? '',
+                      ].join(' ');
+                    })
+                    .join(' ')
+                    .toLowerCase();
 
-        return orderNumber.contains(query) ||
-            supplierName.contains(query) ||
-            moldName.contains(query) ||
-            status.contains(query) ||
-            productText.contains(query);
-      }).toList();
+            return orderNumber.contains(query) ||
+                supplierName.contains(query) ||
+                moldName.contains(query) ||
+                status.contains(query) ||
+                productText.contains(query);
+          }).toList();
     }
 
     // ------------------------------------------------------------
@@ -317,12 +298,12 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     // ------------------------------------------------------------
 
     if (_moldingStatus != 'All') {
-      result = result.where((order) {
-        final status =
-            order['status']?.toString() ?? '';
+      result =
+          result.where((order) {
+            final status = order['status']?.toString() ?? '';
 
-        return status == _moldingStatus;
-      }).toList();
+            return status == _moldingStatus;
+          }).toList();
     }
 
     // ------------------------------------------------------------
@@ -330,10 +311,10 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     // ------------------------------------------------------------
 
     if (_moldingSupplier != 'All') {
-      result = result.where((order) {
-        return order['supplierName']?.toString() ==
-            _moldingSupplier;
-      }).toList();
+      result =
+          result.where((order) {
+            return order['supplierName']?.toString() == _moldingSupplier;
+          }).toList();
     }
 
     // ------------------------------------------------------------
@@ -343,54 +324,44 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     if (_moldingDateFilter != 'All') {
       final now = DateTime.now();
 
-      result = result.where((order) {
-        final timestamp = order['orderDate'];
+      result =
+          result.where((order) {
+            final timestamp = order['orderDate'];
 
-        if (timestamp is! Timestamp) {
-          return false;
-        }
+            if (timestamp is! Timestamp) {
+              return false;
+            }
 
-        final date = timestamp.toDate();
+            final date = timestamp.toDate();
 
-        final today = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        );
+            final today = DateTime(now.year, now.month, now.day);
 
-        final orderDay = DateTime(
-          date.year,
-          date.month,
-          date.day,
-        );
+            final orderDay = DateTime(date.year, date.month, date.day);
 
-        if (_moldingDateFilter == 'Today') {
-          return orderDay == today;
-        }
+            if (_moldingDateFilter == 'Today') {
+              return orderDay == today;
+            }
 
-        if (_moldingDateFilter == 'Yesterday') {
-          final yesterday =
-              today.subtract(const Duration(days: 1));
+            if (_moldingDateFilter == 'Yesterday') {
+              final yesterday = today.subtract(const Duration(days: 1));
 
-          return orderDay == yesterday;
-        }
+              return orderDay == yesterday;
+            }
 
-        if (_moldingDateFilter == 'Last 7 Days') {
-          final start =
-              today.subtract(const Duration(days: 6));
+            if (_moldingDateFilter == 'Last 7 Days') {
+              final start = today.subtract(const Duration(days: 6));
 
-          return !orderDay.isBefore(start);
-        }
+              return !orderDay.isBefore(start);
+            }
 
-        if (_moldingDateFilter == 'Last 30 Days') {
-          final start =
-              today.subtract(const Duration(days: 29));
+            if (_moldingDateFilter == 'Last 30 Days') {
+              final start = today.subtract(const Duration(days: 29));
 
-          return !orderDay.isBefore(start);
-        }
+              return !orderDay.isBefore(start);
+            }
 
-        return true;
-      }).toList();
+            return true;
+          }).toList();
     }
 
     // ------------------------------------------------------------
@@ -409,40 +380,22 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           return aDate.compareTo(bDate);
 
         case 'Order Number A-Z':
-          return _compareStrings(
-            a['orderNumber'],
-            b['orderNumber'],
-          );
+          return _compareStrings(a['orderNumber'], b['orderNumber']);
 
         case 'Order Number Z-A':
-          return _compareStrings(
-            b['orderNumber'],
-            a['orderNumber'],
-          );
+          return _compareStrings(b['orderNumber'], a['orderNumber']);
 
         case 'Supplier A-Z':
-          return _compareStrings(
-            a['supplierName'],
-            b['supplierName'],
-          );
+          return _compareStrings(a['supplierName'], b['supplierName']);
 
         case 'Supplier Z-A':
-          return _compareStrings(
-            b['supplierName'],
-            a['supplierName'],
-          );
+          return _compareStrings(b['supplierName'], a['supplierName']);
 
         case 'Status A-Z':
-          return _compareStrings(
-            a['status'],
-            b['status'],
-          );
+          return _compareStrings(a['status'], b['status']);
 
         case 'Status Z-A':
-          return _compareStrings(
-            b['status'],
-            a['status'],
-          );
+          return _compareStrings(b['status'], a['status']);
 
         default:
           return bDate.compareTo(aDate);
@@ -452,18 +405,10 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     return result;
   }
 
-  Widget _buildOrderInfoRow(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _buildOrderInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 17,
-          color: const Color(0xFF6B7280),
-        ),
+        Icon(icon, size: 17, color: const Color(0xFF6B7280)),
         const SizedBox(width: 8),
         Text(
           '$label:',
@@ -489,10 +434,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     );
   }
 
-  Widget _buildQuantityInfo(
-    String label,
-    int value,
-  ) {
+  Widget _buildQuantityInfo(String label, int value) {
     return Column(
       children: [
         Text(
@@ -543,10 +485,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(20),
@@ -566,51 +505,33 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     if (value is int) return value;
     if (value is num) return value.toInt();
 
-    return int.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
-    final month =
-        date.month.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
 
     return '$day/$month/${date.year}';
   }
 
-  void _editMoldingOrder(
-    BuildContext context,
-    String orderId,
-  ) {
+  void _editMoldingOrder(BuildContext context, String orderId) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CreateMoldingOrderPage(
-          isEditMode: true,
-          orderId: orderId,
-        ),
+        builder:
+            (_) => CreateMoldingOrderPage(isEditMode: true, orderId: orderId),
       ),
     );
   }
 
-  Widget _buildMoldingDetailRow(
-    String label,
-    String value,
-    IconData icon,
-  ) {
+  Widget _buildMoldingDetailRow(String label, String value, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 17,
-            color: const Color(0xFF6B7280),
-          ),
+          Icon(icon, size: 17, color: const Color(0xFF6B7280)),
 
           const SizedBox(width: 9),
 
@@ -620,8 +541,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
               label,
               style: GoogleFonts.poppins(
                 fontSize: 12,
-                color:
-                    const Color(0xFF6B7280),
+                color: const Color(0xFF6B7280),
               ),
             ),
           ),
@@ -632,8 +552,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color:
-                    const Color(0xFF343741),
+                color: const Color(0xFF343741),
               ),
             ),
           ),
@@ -646,31 +565,27 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     BuildContext context,
     Map<String, dynamic> order,
   ) {
-    final orderNumber =
-        order['orderNumber']?.toString() ?? '-';
+    final orderNumber = order['orderNumber']?.toString() ?? '-';
 
-    final status =
-        order['status']?.toString() ?? '-';
+    final status = order['status']?.toString() ?? '-';
 
-    final supplier =
-        order['supplierName']?.toString() ?? '-';
+    final supplier = order['supplierName']?.toString() ?? '-';
 
-    final mold =
-        order['moldName']?.toString() ?? '-';
+    final mold = order['moldName']?.toString() ?? '-';
 
-    final orderedPieces =
-        _toInt(order['orderedPieces']);
+    final orderedPieces = _toInt(order['orderedPieces']);
 
-    final receivedPieces =
-        _toInt(order['receivedPieces']);
+    final receivedPieces = _toInt(order['receivedPieces']);
 
-    final pendingPieces =
-        (orderedPieces - receivedPieces)
-            .clamp(0, orderedPieces);
+    final pendingPieces = (orderedPieces - receivedPieces).clamp(
+      0,
+      orderedPieces,
+    );
 
-    final items = order['items'] is List
-        ? List<dynamic>.from(order['items'])
-        : <dynamic>[];
+    final items =
+        order['items'] is List
+            ? List<dynamic>.from(order['items'])
+            : <dynamic>[];
 
     showDialog(
       context: context,
@@ -680,34 +595,25 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             borderRadius: BorderRadius.circular(16),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 600,
-              maxHeight: 700,
-            ),
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // HEADER
                   Row(
                     children: [
                       Container(
-                        padding:
-                            const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFEFF2FF),
-                          borderRadius:
-                              BorderRadius.circular(10),
+                          color: const Color(0xFFEFF2FF),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
-                          Icons
-                              .precision_manufacturing_outlined,
-                          color:
-                              Color(0xFF3F51B5),
+                          Icons.precision_manufacturing_outlined,
+                          color: Color(0xFF3F51B5),
                         ),
                       ),
 
@@ -715,27 +621,21 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               orderNumber,
-                              style:
-                                  GoogleFonts.poppins(
+                              style: GoogleFonts.poppins(
                                 fontSize: 18,
-                                fontWeight:
-                                    FontWeight.w600,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Molding Order',
-                              style:
-                                  GoogleFonts.poppins(
+                              style: GoogleFonts.poppins(
                                 fontSize: 12,
-                                color:
-                                    const Color(
-                                        0xFF6B7280),
+                                color: const Color(0xFF6B7280),
                               ),
                             ),
                           ],
@@ -792,85 +692,62 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                   const SizedBox(height: 8),
 
                   Flexible(
-                    child: items.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No items found.',
-                              style:
-                                  GoogleFonts.poppins(
-                                color:
-                                    const Color(
-                                        0xFF6B7280),
+                    child:
+                        items.isEmpty
+                            ? Center(
+                              child: Text(
+                                'No items found.',
+                                style: GoogleFonts.poppins(
+                                  color: const Color(0xFF6B7280),
+                                ),
                               ),
-                            ),
-                          )
-                        : ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: items.length,
-                            separatorBuilder:
-                                (_, __) =>
-                                    const Divider(
-                              height: 1,
-                            ),
-                            itemBuilder:
-                                (context, index) {
-                              final item =
-                                  items[index]
-                                      is Map
-                                  ? Map<String,
-                                      dynamic>.from(
-                                      items[index],
-                                    )
-                                  : <String,
-                                      dynamic>{};
+                            )
+                            : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: items.length,
+                              separatorBuilder:
+                                  (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final item =
+                                    items[index] is Map
+                                        ? Map<String, dynamic>.from(
+                                          items[index],
+                                        )
+                                        : <String, dynamic>{};
 
-                              return Padding(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                  vertical: 10,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment
-                                          .start,
-                                  children: [
-                                    Text(
-                                      item['productName']
-                                              ?.toString() ??
-                                          '-',
-                                      style: GoogleFonts
-                                          .poppins(
-                                        fontSize: 13,
-                                        fontWeight:
-                                            FontWeight
-                                                .w600,
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item['productName']?.toString() ?? '-',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
 
-                                    const SizedBox(
-                                      height: 4,
-                                    ),
+                                      const SizedBox(height: 4),
 
-                                    Text(
-                                      '${item['variantType'] ?? '-'}'
-                                      ' • Cavity ${item['cavityNumber'] ?? '-'}'
-                                      ' • Ordered ${item['orderedQuantity'] ?? 0}'
-                                      ' • Received ${item['receivedQuantity'] ?? 0}',
-                                      style:
-                                          GoogleFonts
-                                              .poppins(
-                                        fontSize: 11,
-                                        color:
-                                            const Color(
-                                                0xFF6B7280),
+                                      Text(
+                                        '${item['variantType'] ?? '-'}'
+                                        ' • Cavity ${item['cavityNumber'] ?? '-'}'
+                                        ' • Ordered ${item['orderedQuantity'] ?? 0}'
+                                        ' • Received ${item['receivedQuantity'] ?? 0}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: const Color(0xFF6B7280),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                   ),
 
                   const SizedBox(height: 16),
@@ -878,9 +755,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                   Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton(
-                      onPressed: () =>
-                          Navigator.pop(
-                              dialogContext),
+                      onPressed: () => Navigator.pop(dialogContext),
                       child: const Text('Close'),
                     ),
                   ),
@@ -903,55 +778,34 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       height: 38,
       child: OutlinedButton.icon(
         onPressed: onTap,
-        icon: Icon(
-          icon,
-          size: 16,
-        ),
+        icon: Icon(icon, size: 16),
         label: Text(
           label,
-          style: GoogleFonts.poppins(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: color,
-          side: BorderSide(
-            color: color.withOpacity(0.35),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-          ),
+          side: BorderSide(color: color.withOpacity(0.35)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
       ),
     );
   }
 
-  Future<void> _deleteMoldingOrder(
-    BuildContext context,
-    String orderId,
-  ) async {
+  Future<void> _deleteMoldingOrder(BuildContext context, String orderId) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Delete Molding Order',
-          ),
+          title: const Text('Delete Molding Order'),
           content: const Text(
             'Are you sure you want to delete this molding order?',
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
               child: const Text('Cancel'),
             ),
@@ -961,10 +815,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
               child: const Text('Delete'),
             ),
@@ -976,21 +827,16 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     if (confirm != true) return;
 
     try {
-      final prefs =
-          await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
 
-      final companyId =
-          prefs.getString('cachedCompanyId');
+      final companyId = prefs.getString('cachedCompanyId');
 
-      final currentUser =
-          FirebaseAuth.instance.currentUser;
+      final currentUser = FirebaseAuth.instance.currentUser;
 
       if (companyId == null ||
           companyId.trim().isEmpty ||
           currentUser == null) {
-        throw Exception(
-          'Missing user or company information.',
-        );
+        throw Exception('Missing user or company information.');
       }
 
       final orderRef = _firestore
@@ -999,29 +845,22 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           .collection('raw_orders')
           .doc(orderId);
 
-      final snapshot =
-          await orderRef.get();
+      final snapshot = await orderRef.get();
 
       if (!snapshot.exists) {
-        throw Exception(
-          'Molding order not found.',
-        );
+        throw Exception('Molding order not found.');
       }
 
       final data = snapshot.data()!;
 
-      final createdByUid =
-          data['createdByUid']?.toString();
+      final createdByUid = data['createdByUid']?.toString();
 
       if (createdByUid != currentUser.uid) {
         if (!context.mounted) return;
 
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'You can only delete orders you created.',
-            ),
+            content: Text('You can only delete orders you created.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1029,14 +868,12 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
         return;
       }
 
-      final status =
-          data['status']?.toString() ?? '';
+      final status = data['status']?.toString() ?? '';
 
       if (status != 'Ordered') {
         if (!context.mounted) return;
 
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
               'This order cannot be deleted after receiving has started.',
@@ -1052,74 +889,83 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Molding order deleted successfully.',
-          ),
+          content: Text('Molding order deleted successfully.'),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Unable to delete molding order: $e',
-          ),
+          content: Text('Unable to delete molding order: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  Widget _buildMoldingOrderCard(
-    Map<String, dynamic> order,
-  ) {
+  Widget _buildMoldingOrderCard(Map<String, dynamic> order) {
     final orderId = order['id']?.toString() ?? '';
 
-    final orderNumber =
-        order['orderNumber']?.toString() ?? '-';
+    final orderNumber = order['orderNumber']?.toString() ?? '-';
 
-    final supplierName =
-        order['supplierName']?.toString() ?? '-';
+    final supplierName = order['supplierName']?.toString() ?? '-';
 
-    final moldName =
-        order['moldName']?.toString() ?? '-';
+    final molds =
+        order['molds'] is List
+            ? List<dynamic>.from(order['molds'])
+            : <dynamic>[];
 
-    final status =
-        order['status']?.toString() ?? 'Unknown';
+    final moldNames = <String>[];
 
-    final orderedPieces =
-        _toInt(order['orderedPieces']);
+    for (final mold in molds) {
+      if (mold is Map) {
+        final name = mold['moldName']?.toString().trim() ?? '';
+        if (name.isNotEmpty && !moldNames.contains(name)) {
+          moldNames.add(name);
+        }
+      }
+    }
 
-    final receivedPieces =
-        _toInt(order['receivedPieces']);
+    // Backward compatibility with old single-mold orders.
+    if (moldNames.isEmpty) {
+      final oldMoldName = order['moldName']?.toString().trim() ?? '';
 
-    final pendingPieces =
-        (orderedPieces - receivedPieces).clamp(0, orderedPieces);
+      if (oldMoldName.isNotEmpty) {
+        moldNames.add(oldMoldName);
+      }
+    }
 
-    final variantCount =
-        _toInt(order['variantCount']);
+    final moldDisplayName = moldNames.isEmpty ? '-' : moldNames.join(', ');
 
-    final moldCount =
-        _toInt(order['moldCount']);
+    final status = order['status']?.toString() ?? 'Unknown';
 
-    final orderDate =
-        _getOrderDate(order);
+    final orderedPieces = _toInt(order['orderedPieces']);
 
-    final items = order['items'] is List
-        ? List<dynamic>.from(order['items'])
-        : <dynamic>[];
+    final receivedPieces = _toInt(order['receivedPieces']);
 
-    final currentUser =
-        FirebaseAuth.instance.currentUser;
+    final pendingPieces = (orderedPieces - receivedPieces).clamp(
+      0,
+      orderedPieces,
+    );
 
-    final createdByUid =
-        order['createdByUid']?.toString();
+    final variantCount = _toInt(order['variantCount']);
+
+    final moldCount = _toInt(order['moldCount']);
+
+    final orderDate = _getOrderDate(order);
+
+    final items =
+        order['items'] is List
+            ? List<dynamic>.from(order['items'])
+            : <dynamic>[];
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+
+    final createdByUid = order['createdByUid']?.toString();
 
     final isCreatedByCurrentUser =
         currentUser != null &&
@@ -1127,24 +973,16 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
         createdByUid.isNotEmpty &&
         createdByUid == currentUser.uid;
 
-    final canEdit =
-        isCreatedByCurrentUser &&
-        status == 'Ordered';
+    final canEdit = isCreatedByCurrentUser && status == 'Ordered';
 
-    final canDelete =
-        isCreatedByCurrentUser &&
-        status == 'Ordered';
+    final canDelete = isCreatedByCurrentUser && status == 'Ordered';
 
     return Container(
-      margin: const EdgeInsets.symmetric(
-        vertical: 6,
-      ),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -1154,15 +992,9 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          12,
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --------------------------------------------------
             // HEADER
@@ -1174,8 +1006,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF2FF),
-                    borderRadius:
-                        BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(9),
                   ),
                   child: const Icon(
                     Icons.precision_manufacturing_outlined,
@@ -1188,16 +1019,14 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         orderNumber,
                         style: GoogleFonts.poppins(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color:
-                              const Color(0xFF343741),
+                          color: const Color(0xFF343741),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1205,8 +1034,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                         _formatDate(orderDate),
                         style: GoogleFonts.poppins(
                           fontSize: 11,
-                          color:
-                              const Color(0xFF9CA3AF),
+                          color: const Color(0xFF9CA3AF),
                         ),
                       ),
                     ],
@@ -1222,7 +1050,6 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             // --------------------------------------------------
             // ORDER INFORMATION
             // --------------------------------------------------
-
             _buildOrderInfoRow(
               Icons.person_outline,
               'Molding Supplier',
@@ -1234,7 +1061,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             _buildOrderInfoRow(
               Icons.view_in_ar_outlined,
               'Mold',
-              moldName,
+              moldDisplayName,
             ),
 
             const SizedBox(height: 9),
@@ -1250,50 +1077,33 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             // --------------------------------------------------
             // QUANTITY
             // --------------------------------------------------
-
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFF9FAFB),
-                borderRadius:
-                    BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(9),
               ),
               child: Row(
                 children: [
+                  Expanded(child: _buildQuantityInfo('Ordered', orderedPieces)),
+
+                  Container(
+                    width: 1,
+                    height: 34,
+                    color: const Color(0xFFE5E7EB),
+                  ),
+
                   Expanded(
-                    child: _buildQuantityInfo(
-                      'Ordered',
-                      orderedPieces,
-                    ),
+                    child: _buildQuantityInfo('Received', receivedPieces),
                   ),
 
                   Container(
                     width: 1,
                     height: 34,
-                    color:
-                        const Color(0xFFE5E7EB),
+                    color: const Color(0xFFE5E7EB),
                   ),
 
-                  Expanded(
-                    child: _buildQuantityInfo(
-                      'Received',
-                      receivedPieces,
-                    ),
-                  ),
-
-                  Container(
-                    width: 1,
-                    height: 34,
-                    color:
-                        const Color(0xFFE5E7EB),
-                  ),
-
-                  Expanded(
-                    child: _buildQuantityInfo(
-                      'Pending',
-                      pendingPieces,
-                    ),
-                  ),
+                  Expanded(child: _buildQuantityInfo('Pending', pendingPieces)),
                 ],
               ),
             ),
@@ -1306,25 +1116,20 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color:
-                      const Color(0xFF6B7280),
+                  color: const Color(0xFF6B7280),
                 ),
               ),
             ],
 
             const SizedBox(height: 12),
 
-            const Divider(
-              height: 1,
-              color: Color(0xFFE5E7EB),
-            ),
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
             const SizedBox(height: 10),
 
             // --------------------------------------------------
             // ACTIONS
             // --------------------------------------------------
-
             Row(
               children: [
                 // VIEW
@@ -1334,10 +1139,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                     label: 'View',
                     color: Colors.blue,
                     onTap: () {
-                      _showMoldingOrderDetails(
-                        context,
-                        order,
-                      );
+                      _showMoldingOrderDetails(context, order);
                     },
                   ),
                 ),
@@ -1352,10 +1154,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                       label: 'Edit',
                       color: Colors.orange,
                       onTap: () {
-                        _editMoldingOrder(
-                          context,
-                          orderId,
-                        );
+                        _editMoldingOrder(context, orderId);
                       },
                     ),
                   ),
@@ -1371,10 +1170,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                       label: 'Delete',
                       color: Colors.red,
                       onTap: () {
-                        _deleteMoldingOrder(
-                          context,
-                          orderId,
-                        );
+                        _deleteMoldingOrder(context, orderId);
                       },
                     ),
                   ),
@@ -1386,7 +1182,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       ),
     );
   }
-  
+
   Widget _buildMoldingOrdersContent(
     List<Map<String, dynamic>> orders, {
     required int totalOrders,
@@ -1395,18 +1191,12 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              8,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Column(
               children: [
                 _buildSearchField(
                   controller: _moldingSearchController,
-                  hintText:
-                      'Search molding orders, suppliers, products...',
+                  hintText: 'Search molding orders, suppliers, products...',
                 ),
 
                 const SizedBox(height: 12),
@@ -1439,10 +1229,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: _openCreateMoldingOrder,
-                    icon: const Icon(
-                      Icons.add,
-                      size: 19,
-                    ),
+                    icon: const Icon(Icons.add, size: 19),
                     label: Text(
                       'New Molding Order',
                       style: GoogleFonts.poppins(
@@ -1451,14 +1238,11 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          const Color(0xFF3F51B5),
+                      backgroundColor: const Color(0xFF3F51B5),
                       foregroundColor: Colors.white,
-                      minimumSize:
-                          const Size(double.infinity, 46),
+                      minimumSize: const Size(double.infinity, 46),
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(9),
                       ),
                       elevation: 0,
                     ),
@@ -1468,16 +1252,10 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             ),
           ),
 
-          if (_hasMoldingFilters)
-            _buildActiveFilterChips(),
+          if (_hasMoldingFilters) _buildActiveFilterChips(),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              8,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 Text(
@@ -1491,11 +1269,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                 const Spacer(),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.sort,
-                      size: 16,
-                      color: Color(0xFF6B7280),
-                    ),
+                    const Icon(Icons.sort, size: 16, color: Color(0xFF6B7280)),
                     const SizedBox(width: 4),
                     Text(
                       _moldingSort,
@@ -1510,35 +1284,31 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             ),
           ),
 
-          const Divider(
-            height: 1,
-            color: Color(0xFFE5E7EB),
-          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
           Expanded(
-            child: orders.isEmpty
-                ? _buildEmptyState(
-                    icon: Icons.precision_manufacturing_outlined,
-                    title: _moldingSearchQuery.isNotEmpty
-                        ? 'No Orders Found'
-                        : 'No Molding Orders',
-                    message: _moldingSearchQuery.isNotEmpty
-                        ? 'No orders match your current search.'
-                        : 'Molding orders will appear here once they are created.',
-                    hasSearch:
-                        _moldingSearchQuery.isNotEmpty,
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: orders.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      return _buildMoldingOrderCard(
-                        orders[index],
-                      );
-                    },
-                  ),
+            child:
+                orders.isEmpty
+                    ? _buildEmptyState(
+                      icon: Icons.precision_manufacturing_outlined,
+                      title:
+                          _moldingSearchQuery.isNotEmpty
+                              ? 'No Orders Found'
+                              : 'No Molding Orders',
+                      message:
+                          _moldingSearchQuery.isNotEmpty
+                              ? 'No orders match your current search.'
+                              : 'Molding orders will appear here once they are created.',
+                      hasSearch: _moldingSearchQuery.isNotEmpty,
+                    )
+                    : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: orders.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        return _buildMoldingOrderCard(orders[index]);
+                      },
+                    ),
           ),
         ],
       ),
@@ -1562,9 +1332,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(
-              color: Color(0xFF3F51B5),
-            ),
+            child: CircularProgressIndicator(color: Color(0xFF3F51B5)),
           );
         }
 
@@ -1584,16 +1352,12 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           );
         }
 
-        final orders = snapshot.data?.docs
-                .map((doc) {
-                  final data = doc.data();
+        final orders =
+            snapshot.data?.docs.map((doc) {
+              final data = doc.data();
 
-                  return <String, dynamic>{
-                    'id': doc.id,
-                    ...data,
-                  };
-                })
-                .toList() ??
+              return <String, dynamic>{'id': doc.id, ...data};
+            }).toList() ??
             [];
 
         final filteredOrders = _filterAndSortMoldingOrders(orders);
@@ -1617,8 +1381,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       orderCount: 0,
       emptyIcon: Icons.rotate_right_outlined,
       emptyTitle: 'No Drumming Orders',
-      emptyMessage:
-          'Drumming orders will appear here once they are created.',
+      emptyMessage: 'Drumming orders will appear here once they are created.',
       onNewOrder: _openCreateDrummingOrder,
       newOrderLabel: 'New Drumming Order',
     );
@@ -1646,12 +1409,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           // ------------------------------------------------------
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              8,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Column(
               children: [
                 _buildSearchField(
@@ -1689,10 +1447,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: onNewOrder,
-                    icon: const Icon(
-                      Icons.add,
-                      size: 19,
-                    ),
+                    icon: const Icon(Icons.add, size: 19),
                     label: Text(
                       newOrderLabel,
                       style: GoogleFonts.poppins(
@@ -1703,10 +1458,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3F51B5),
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(
-                        double.infinity,
-                        46,
-                      ),
+                      minimumSize: const Size(double.infinity, 46),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(9),
                       ),
@@ -1721,21 +1473,13 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           // ------------------------------------------------------
           // ACTIVE FILTER CHIPS
           // ------------------------------------------------------
-
-          if (_hasActiveFilters)
-            _buildActiveFilterChips(),
+          if (_hasActiveFilters) _buildActiveFilterChips(),
 
           // ------------------------------------------------------
           // RESULT COUNT
           // ------------------------------------------------------
-
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              8,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 Text(
@@ -1751,11 +1495,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
                 Row(
                   children: [
-                    const Icon(
-                      Icons.sort,
-                      size: 16,
-                      color: Color(0xFF6B7280),
-                    ),
+                    const Icon(Icons.sort, size: 16, color: Color(0xFF6B7280)),
                     const SizedBox(width: 4),
                     Text(
                       _currentSort,
@@ -1770,15 +1510,11 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             ),
           ),
 
-          const Divider(
-            height: 1,
-            color: Color(0xFFE5E7EB),
-          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
           // ------------------------------------------------------
           // ORDER LIST
           // ------------------------------------------------------
-
           Expanded(
             child: _buildEmptyState(
               icon: emptyIcon,
@@ -1803,10 +1539,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     return TextField(
       controller: controller,
 
-      style: GoogleFonts.poppins(
-        fontSize: 13,
-        color: const Color(0xFF343741),
-      ),
+      style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF343741)),
 
       decoration: InputDecoration(
         hintText: hintText,
@@ -1816,20 +1549,15 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           color: const Color(0xFF9CA3AF),
         ),
 
-        prefixIcon: const Icon(
-          Icons.search,
-          color: Color(0xFF6B7280),
-        ),
+        prefixIcon: const Icon(Icons.search, color: Color(0xFF6B7280)),
 
-        suffixIcon: controller.text.isNotEmpty
-            ? IconButton(
-                onPressed: controller.clear,
-                icon: const Icon(
-                  Icons.clear,
-                  size: 19,
-                ),
-              )
-            : null,
+        suffixIcon:
+            controller.text.isNotEmpty
+                ? IconButton(
+                  onPressed: controller.clear,
+                  icon: const Icon(Icons.clear, size: 19),
+                )
+                : null,
 
         filled: true,
         fillColor: Colors.white,
@@ -1841,24 +1569,17 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-            color: Color(0xFFE0E0E0),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
         ),
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-            color: Color(0xFFE0E0E0),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
         ),
 
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-            color: Color(0xFF3F51B5),
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: Color(0xFF3F51B5), width: 1.5),
         ),
       ),
     );
@@ -1877,42 +1598,26 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     return OutlinedButton.icon(
       onPressed: onPressed,
 
-      icon: Icon(
-        icon,
-        size: 18,
-      ),
+      icon: Icon(icon, size: 18),
 
       label: Text(
         label,
-        style: GoogleFonts.poppins(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
       ),
 
       style: OutlinedButton.styleFrom(
-        foregroundColor: active
-            ? const Color(0xFF3F51B5)
-            : const Color(0xFF4B5563),
+        foregroundColor:
+            active ? const Color(0xFF3F51B5) : const Color(0xFF4B5563),
 
-        backgroundColor: active
-            ? const Color(0xFFEFF2FF)
-            : Colors.white,
+        backgroundColor: active ? const Color(0xFFEFF2FF) : Colors.white,
 
         side: BorderSide(
-          color: active
-              ? const Color(0xFF3F51B5)
-              : const Color(0xFFD1D5DB),
+          color: active ? const Color(0xFF3F51B5) : const Color(0xFFD1D5DB),
         ),
 
-        minimumSize: const Size(
-          double.infinity,
-          44,
-        ),
+        minimumSize: const Size(double.infinity, 44),
 
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(9),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
       ),
     );
   }
@@ -1924,40 +1629,22 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   Widget _buildActiveFilterChips() {
     final List<Widget> chips = [];
 
-    final status = _isMoldingTab
-        ? _moldingStatus
-        : _drummingStatus;
+    final status = _isMoldingTab ? _moldingStatus : _drummingStatus;
 
-    final supplier = _isMoldingTab
-        ? _moldingSupplier
-        : _drummingSupplier;
+    final supplier = _isMoldingTab ? _moldingSupplier : _drummingSupplier;
 
-    final dateFilter = _isMoldingTab
-        ? _moldingDateFilter
-        : _drummingDateFilter;
+    final dateFilter = _isMoldingTab ? _moldingDateFilter : _drummingDateFilter;
 
     if (status != 'All') {
-      chips.add(
-        _buildFilterChip(
-          label: 'Status: $status',
-        ),
-      );
+      chips.add(_buildFilterChip(label: 'Status: $status'));
     }
 
     if (supplier != 'All') {
-      chips.add(
-        _buildFilterChip(
-          label: 'Supplier: $supplier',
-        ),
-      );
+      chips.add(_buildFilterChip(label: 'Supplier: $supplier'));
     }
 
     if (dateFilter != 'All') {
-      chips.add(
-        _buildFilterChip(
-          label: 'Date: $dateFilter',
-        ),
-      );
+      chips.add(_buildFilterChip(label: 'Date: $dateFilter'));
     }
 
     if (chips.isEmpty) {
@@ -1966,23 +1653,12 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        4,
-        16,
-        4,
-      ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        children: chips,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Wrap(spacing: 8, runSpacing: 6, children: chips),
     );
   }
 
-  Widget _buildFilterChip({
-    required String label,
-  }) {
+  Widget _buildFilterChip({required String label}) {
     return Chip(
       label: Text(
         label,
@@ -1995,13 +1671,9 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
       backgroundColor: const Color(0xFFEFF2FF),
 
-      side: const BorderSide(
-        color: Color(0xFFD7DDFF),
-      ),
+      side: const BorderSide(color: Color(0xFFD7DDFF)),
 
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
 
       visualDensity: VisualDensity.compact,
     );
@@ -2014,38 +1686,26 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   Future<void> _showFilterSheet() async {
     final isMolding = _isMoldingTab;
 
-    String tempStatus = isMolding
-        ? _moldingStatus
-        : _drummingStatus;
+    String tempStatus = isMolding ? _moldingStatus : _drummingStatus;
 
-    String tempSupplier = isMolding
-        ? _moldingSupplier
-        : _drummingSupplier;
+    String tempSupplier = isMolding ? _moldingSupplier : _drummingSupplier;
 
-    String tempDateFilter = isMolding
-        ? _moldingDateFilter
-        : _drummingDateFilter;
+    String tempDateFilter =
+        isMolding ? _moldingDateFilter : _drummingDateFilter;
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  20,
-                  12,
-                  20,
-                  20,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2096,9 +1756,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                     _buildDropdownFilter(
                       label: 'Supplier',
                       value: tempSupplier,
-                      items: const [
-                        'All',
-                      ],
+                      items: const ['All'],
                       onChanged: (value) {
                         setSheetState(() {
                           tempSupplier = value!;
@@ -2167,19 +1825,16 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                                 if (isMolding) {
                                   _moldingStatus = tempStatus;
                                   _moldingSupplier = tempSupplier;
-                                  _moldingDateFilter =
-                                      tempDateFilter;
+                                  _moldingDateFilter = tempDateFilter;
                                 } else {
                                   _drummingStatus = tempStatus;
                                   _drummingSupplier = tempSupplier;
-                                  _drummingDateFilter =
-                                      tempDateFilter;
+                                  _drummingDateFilter = tempDateFilter;
                                 }
                               });
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(0xFF3F51B5),
+                              backgroundColor: const Color(0xFF3F51B5),
                               foregroundColor: Colors.white,
                             ),
                             child: Text(
@@ -2228,19 +1883,18 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
         DropdownButtonFormField<String>(
           initialValue: value,
-          items: items
-              .map(
-                (item) => DropdownMenuItem<String>(
-                  value: item,
-                  child: Text(
-                    item,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
+          items:
+              items
+                  .map(
+                    (item) => DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(
+                        item,
+                        style: GoogleFonts.poppins(fontSize: 13),
+                      ),
                     ),
-                  ),
-                ),
-              )
-              .toList(),
+                  )
+                  .toList(),
 
           onChanged: onChanged,
 
@@ -2255,16 +1909,12 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(9),
-              borderSide: const BorderSide(
-                color: Color(0xFFE0E0E0),
-              ),
+              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
             ),
 
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(9),
-              borderSide: const BorderSide(
-                color: Color(0xFFE0E0E0),
-              ),
+              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
             ),
           ),
         ),
@@ -2279,9 +1929,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   Future<void> _showSortSheet() async {
     final isMolding = _isMoldingTab;
 
-    String selectedSort = isMolding
-        ? _moldingSort
-        : _drummingSort;
+    String selectedSort = isMolding ? _moldingSort : _drummingSort;
 
     final sortOptions = [
       'Newest',
@@ -2298,21 +1946,14 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  20,
-                  12,
-                  20,
-                  20,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2341,33 +1982,30 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
                     const SizedBox(height: 12),
 
-                    ...sortOptions.map(
-                      (option) {
-                        return RadioListTile<String>(
-                          value: option,
-                          groupValue: selectedSort,
-                          activeColor:
-                              const Color(0xFF3F51B5),
+                    ...sortOptions.map((option) {
+                      return RadioListTile<String>(
+                        value: option,
+                        groupValue: selectedSort,
+                        activeColor: const Color(0xFF3F51B5),
 
-                          title: Text(
-                            option,
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: const Color(0xFF343741),
-                            ),
+                        title: Text(
+                          option,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: const Color(0xFF343741),
                           ),
+                        ),
 
-                          onChanged: (value) {
-                            setSheetState(() {
-                              selectedSort = value!;
-                            });
-                          },
+                        onChanged: (value) {
+                          setSheetState(() {
+                            selectedSort = value!;
+                          });
+                        },
 
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                        );
-                      },
-                    ),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                      );
+                    }),
 
                     const SizedBox(height: 8),
 
@@ -2386,11 +2024,9 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                           });
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color(0xFF3F51B5),
+                          backgroundColor: const Color(0xFF3F51B5),
                           foregroundColor: Colors.white,
-                          minimumSize:
-                              const Size.fromHeight(46),
+                          minimumSize: const Size.fromHeight(46),
                         ),
                         child: Text(
                           'Apply Sort',
@@ -2440,8 +2076,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
   }) {
     if (hasSearch) {
       title = 'No Orders Found';
-      message =
-          'No orders match your current search.';
+      message = 'No orders match your current search.';
       icon = Icons.search_off_outlined;
     }
 
@@ -2458,11 +2093,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                 color: const Color(0xFFEFF2FF),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                icon,
-                size: 38,
-                color: const Color(0xFF3F51B5),
-              ),
+              child: Icon(icon, size: 38, color: const Color(0xFF3F51B5)),
             ),
 
             const SizedBox(height: 18),
