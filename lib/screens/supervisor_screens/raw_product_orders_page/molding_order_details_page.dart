@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'create_molding_order_page.dart';
 
@@ -250,6 +251,321 @@ class MoldingOrderDetailsPage extends StatelessWidget {
     );
   }
 
+
+  // ============================================================
+  // SHARE ORDER DETAILS
+  // ============================================================
+
+  // Future<void> _shareMoldingOrder(BuildContext context) async {
+  //   final orderNumber = _stringValue(order['orderNumber']).isEmpty
+  //       ? '-'
+  //       : _stringValue(order['orderNumber']);
+  //   final status = _stringValue(order['status']).isEmpty
+  //       ? 'Unknown'
+  //       : _stringValue(order['status']);
+  //   final supplier = _stringValue(order['supplierName']).isEmpty
+  //       ? '-'
+  //       : _stringValue(order['supplierName']);
+  //   final orderDate = _formatDate(order['orderDate']);
+  //   // These methods already exist in your page.
+  //   final orderedQuantity = _calculateTotalOrdered();
+  //   final receivedQuantity = _calculateTotalReceived();
+  //   final pendingQuantity = (orderedQuantity - receivedQuantity).clamp(
+  //     0,
+  //     orderedQuantity,
+  //   );
+  //   final molds = _getMolds();
+  //   final buffer = StringBuffer();
+  //   // ============================================================
+  //   // HEADER
+  //   // ============================================================
+  //   buffer.writeln('MOLDING ORDER');
+  //   buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+  //   buffer.writeln('Order Number: $orderNumber');
+  //   buffer.writeln('Status: $status');
+  //   buffer.writeln('Supplier: $supplier');
+  //   buffer.writeln('Order Date: $orderDate');
+  //   buffer.writeln();
+  //   // ============================================================
+  //   // QUANTITY
+  //   // ============================================================
+  //   buffer.writeln('QUANTITY');
+  //   buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+  //   buffer.writeln('Ordered: $orderedQuantity');
+  //   buffer.writeln('Received: $receivedQuantity');
+  //   buffer.writeln('Pending: $pendingQuantity');
+  //   buffer.writeln();
+  //   // ============================================================
+  //   // MOLD DETAILS
+  //   // ============================================================
+  //   buffer.writeln('MOLD DETAILS');
+  //   buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+  //   for (final mold in molds) {
+  //     final moldName = _stringValue(
+  //       mold['moldName'] ?? mold['name'],
+  //     );
+  //     final cavityCount = _toInt(
+  //       mold['cavityCount'] ?? mold['cavitiesCount'],
+  //     );
+  //     buffer.writeln('Mold: ${moldName.isEmpty ? '-' : moldName}');
+  //     buffer.writeln('Cavities: $cavityCount');
+  //     final items = _getMoldItems(mold);
+  //     for (final item in items) {
+  //       final productName = _stringValue(
+  //         item['productName'] ?? item['displayName'],
+  //       );
+  //       final variant = _stringValue(
+  //         item['variantType'] ?? item['variant'],
+  //       );
+  //       final cavity = _stringValue(
+  //         item['cavityNumber'] ?? item['cavity'],
+  //       );
+  //       final ordered = _toInt(
+  //         item['orderedQuantity'] ?? item['quantity'],
+  //       );
+  //       final received = _toInt(
+  //         item['receivedQuantity'],
+  //       );
+  //       final pending = (ordered - received).clamp(
+  //         0,
+  //         ordered,
+  //       );
+  //       final virginRatio = _toDouble(
+  //         item['virginRatio'],
+  //       );
+  //       final grindingRatio = _toDouble(
+  //         item['grindingRatio'],
+  //       );
+  //       buffer.writeln();
+  //       buffer.writeln(
+  //         'Product: ${productName.isEmpty ? '-' : productName}',
+  //       );
+  //       buffer.writeln(
+  //         'Variant: ${variant.isEmpty ? '-' : variant}',
+  //       );
+  //       buffer.writeln(
+  //         'Cavity: ${cavity.isEmpty ? '-' : cavity}',
+  //       );
+  //       buffer.writeln('Ordered: $ordered');
+  //       buffer.writeln('Received: $received');
+  //       buffer.writeln('Pending: $pending');
+  //       buffer.writeln(
+  //         'Virgin Ratio: ${_decimal(virginRatio)}%',
+  //       );
+  //       buffer.writeln(
+  //         'Grinding Ratio: ${_decimal(grindingRatio)}%',
+  //       );
+  //     }
+  //     buffer.writeln();
+  //   }
+  //   // ============================================================
+  //   // FOOTER
+  //   // ============================================================
+  //   buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━');
+  //   buffer.writeln('Sent from Shotgun');
+  //   try {
+  //     await Share.share(
+  //       buffer.toString(),
+  //       subject: 'Molding Order $orderNumber',
+  //     );
+  //   } catch (e) {
+  //     if (!context.mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(
+  //           'Unable to share order: $e',
+  //           style: GoogleFonts.poppins(),
+  //         ),
+  //       ),
+  //     );
+  //   }
+  // }
+
+  Future<void> _shareMoldingOrder(BuildContext context) async {
+    final orderNumber = _stringValue(order['orderNumber']).isEmpty
+        ? '-'
+        : _stringValue(order['orderNumber']);
+
+    final orderDate = _formatDate(order['orderDate']);
+
+    final molds = _getMolds();
+
+    final buffer = StringBuffer();
+
+    // ============================================================
+    // HEADER
+    // ============================================================
+
+    buffer.writeln('MOLDING ORDER');
+    buffer.writeln('━━━━━━━━━━━━━━━━');
+    buffer.writeln('Date: $orderDate');
+    buffer.writeln('Order No: $orderNumber');
+    buffer.writeln();
+
+    // ============================================================
+    // VARIANT ORDER
+    // Black -> Clear -> PC
+    // ============================================================
+
+    const variantOrder = [
+      'Black',
+      'Clear',
+      'PC',
+    ];
+
+    for (final mold in molds) {
+      final items = _getMoldItems(mold);
+
+      if (items.isEmpty) {
+        continue;
+      }
+
+      final cavityCount = _toInt(
+        mold['cavityCount'],
+      );
+
+      // ============================================================
+      // 1 CAVITY
+      // Show Product Name
+      // ============================================================
+
+      if (cavityCount <= 1) {
+        final moldName = _stringValue(
+          mold['moldName'] ?? mold['name'],
+        );
+
+        buffer.writeln(
+          'Mold Name: ${moldName.isEmpty ? '-' : '$moldName (Single Cavity)'}',
+        );
+        String productName = '';
+
+        for (final item in items) {
+          final value = _stringValue(
+            item['productName'],
+          );
+
+          if (value.isNotEmpty) {
+            productName = value;
+            break;
+          }
+        }
+
+        buffer.writeln(
+          'Product: ${productName.isEmpty ? '-' : productName}',
+        );
+      }
+
+      // ============================================================
+      // 2 CAVITIES
+      // Show Mold Name
+      // ============================================================
+
+      if (cavityCount >= 2) {
+        final moldName = _stringValue(
+          mold['moldName'] ?? mold['name'],
+        );
+
+        buffer.writeln(
+          'Mold Name: ${moldName.isEmpty ? '-' : moldName}',
+        );
+      }
+
+      // ============================================================
+      // VARIANTS
+      // Black -> Clear -> PC
+      // ============================================================
+
+      for (final variant in variantOrder) {
+        final variantItems = items.where((item) {
+          return _stringValue(
+                item['variantType'],
+              ).toLowerCase() ==
+              variant.toLowerCase();
+        }).toList();
+
+        if (variantItems.isEmpty) {
+          continue;
+        }
+
+        int quantity = 0;
+
+        Map<String, dynamic>? ratioItem;
+
+        if (cavityCount >= 2) {
+          for (final item in variantItems) {
+            final itemQuantity = _toInt(
+              item['orderedQuantity'],
+            );
+
+            if (itemQuantity > quantity) {
+              quantity = itemQuantity;
+            }
+
+            if (ratioItem == null &&
+                (item.containsKey('virginRatio') ||
+                    item.containsKey('grindingRatio'))) {
+              ratioItem = item;
+            }
+          }
+        } else {
+          for (final item in variantItems) {
+            quantity += _toInt(
+              item['orderedQuantity'],
+            );
+
+            if (ratioItem == null &&
+                (item.containsKey('virginRatio') ||
+                    item.containsKey('grindingRatio'))) {
+              ratioItem = item;
+            }
+          }
+        }
+
+        if (quantity <= 0) {
+          continue;
+        }
+
+        final virginRatio = _toDouble(
+          ratioItem!['virginRatio'],
+        );
+
+        final grindingRatio = _toDouble(
+          ratioItem['grindingRatio'],
+        );
+
+        buffer.writeln(
+          '$variant: $quantity '
+          '(Virgin: ${_decimal(virginRatio)}kg, '
+          'Grinding: ${_decimal(grindingRatio)}kg)',
+        );
+
+        buffer.writeln();
+      }
+    }
+
+    // ============================================================
+    // SHARE
+    // ============================================================
+
+    try {
+      await Share.share(
+        buffer.toString(),
+        subject: 'Molding Order $orderNumber',
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to share order: $e',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+    }
+  }
+
   // ============================================================
   // BUILD
   // ============================================================
@@ -336,6 +652,15 @@ class MoldingOrderDetailsPage extends StatelessWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Share Order',
+            onPressed: () {
+              _shareMoldingOrder(context);
+            },
+            icon: const Icon(
+              Icons.share_outlined,
+            ),
+          ),
           if (orderId.isNotEmpty && status == 'Ordered')
             Padding(
               padding: const EdgeInsets.only(right: 10),
