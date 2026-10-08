@@ -23,7 +23,7 @@ import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.
 import 'package:shotgun/screens/supervisor_screens/manage_supervisor_tasks/manage_supervisor_tasks.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_suppliers_page/suppliers_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_inventory_page/manage_inventory_page.dart';
-import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/create_molding_order_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_orders/create_molding_order_page.dart';
 import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/raw_product_orders_page.dart';
 import '../screens/supervisor_screens/color_templates/color_templates.dart';
 import '../screens/supervisor_screens/manage_orders_page/add_orders_page.dart';

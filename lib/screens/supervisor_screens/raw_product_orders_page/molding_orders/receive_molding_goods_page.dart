@@ -185,26 +185,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
   }
 
-  String _itemKey(Map<String, dynamic> item) {
-    return [
-      _stringValue(item['moldProductId']),
-
-      _stringValue(item['cavityNumber'] ?? item['cavity']),
-
-      _stringValue(item['modelId']),
-
-      _stringValue(item['componentType']).toLowerCase(),
-
-      _stringValue(item['variantType']).toLowerCase(),
-
-      _stringValue(item['side']).toLowerCase(),
-
-      _stringValue(item['variantKey']).toLowerCase(),
-
-      _stringValue(item['productId']),
-    ].join('|');
-  }
-
   List<Map<String, dynamic>> _items() {
     final raw = _order?['items'];
 
