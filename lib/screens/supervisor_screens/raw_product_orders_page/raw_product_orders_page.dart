@@ -14,6 +14,7 @@ import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/moldi
 import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_orders/receive_molding_goods_page.dart';
 import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/drumming_orders/drumming_order_details_page.dart';
 import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/drumming_orders/receive_drumming_goods_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/drumming_orders/edit_drumming_order_page.dart';
 
 class RawProductOrdersPage extends StatefulWidget {
   const RawProductOrdersPage({super.key});
@@ -635,7 +636,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       child: OutlinedButton.icon(
         onPressed: onTap,
 
-        icon: Icon(icon, size: 16),
+        icon: Icon(icon, size: 14),
 
         label: Text(
           label,
@@ -650,7 +651,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
 
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
         ),
       ),
     );
@@ -1707,6 +1708,93 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     );
   }
 
+  Future<void> _deleteDrummingOrder(Map<String, dynamic> order) async {
+    final companyId = _companyId;
+    final orderId = order['id']?.toString() ?? '';
+    final orderNumber = order['orderNumber']?.toString() ?? '-';
+    final receivedPieces = _toInt(order['receivedPieces']);
+
+    if (companyId == null || companyId.isEmpty || orderId.isEmpty) {
+      _showDrummingMessage('Unable to delete this order.', error: true);
+      return;
+    }
+
+    // Never remove an order after receiving goods because the receiving flow
+    // has already affected inventory.
+    if (receivedPieces > 0) {
+      _showDrummingMessage(
+        'Order $orderNumber cannot be deleted because goods have already been received.',
+        error: true,
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(
+              'Delete Drumming Order?',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+            content: Text(
+              'This will permanently delete $orderNumber. This action cannot be undone.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text('Cancel', style: GoogleFonts.poppins()),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.delete_outline, size: 17),
+                label: Text(
+                  'Delete',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _firestore
+          .collection('companies')
+          .doc(companyId)
+          .collection('raw_orders')
+          .doc(orderId)
+          .delete();
+
+      if (mounted) {
+        _showDrummingMessage('Drumming order $orderNumber deleted.');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showDrummingMessage(
+          'Unable to delete order: ${e.toString().replaceFirst('Exception: ', '')}',
+          error: true,
+        );
+      }
+    }
+  }
+
+  void _showDrummingMessage(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.poppins(fontSize: 12)),
+        backgroundColor: error ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
   Widget _buildDrummingActionButton({
     required IconData icon,
     required String label,
@@ -1718,7 +1806,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
       height: 38,
       child: OutlinedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 16),
+        icon: Icon(icon, size: 14),
         label: Text(
           label,
           style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
@@ -1727,6 +1815,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
           foregroundColor: color,
           side: BorderSide(color: color.withOpacity(0.35)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
         ),
       ),
     );
@@ -1820,6 +1909,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
             Row(
               children: [
+                // VIEW
                 Expanded(
                   child: _buildDrummingActionButton(
                     icon: Icons.visibility_outlined,
@@ -1836,8 +1926,10 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                     },
                   ),
                 ),
+
+                // RECEIVE
                 if (pendingPieces > 0 && status != 'Cancelled') ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 7),
                   Expanded(
                     child: _buildDrummingActionButton(
                       icon: Icons.inventory_2_outlined,
@@ -1854,14 +1946,45 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
                                 ),
                           ),
                         );
-
-                        if (changed == true && mounted) {
-                          setState(() {});
-                        }
+                        if (changed == true && mounted) setState(() {});
                       },
                     ),
                   ),
                 ],
+
+                // EDIT
+                const SizedBox(width: 7),
+                Expanded(
+                  child: _buildDrummingActionButton(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit',
+                    color: Colors.orange,
+                    onTap: () async {
+                      final changed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => EditDrummingOrderPage(
+                                orderId: order['id']?.toString() ?? '',
+                                order: order,
+                              ),
+                        ),
+                      );
+                      if (changed == true && mounted) setState(() {});
+                    },
+                  ),
+                ),
+
+                // DELETE
+                const SizedBox(width: 7),
+                Expanded(
+                  child: _buildDrummingActionButton(
+                    icon: Icons.delete_outline,
+                    label: 'Delete',
+                    color: Colors.red,
+                    onTap: () => _deleteDrummingOrder(order),
+                  ),
+                ),
               ],
             ),
           ],

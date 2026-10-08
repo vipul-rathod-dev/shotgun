@@ -63,6 +63,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
 
     _weightController.dispose();
+
     _bagsController.dispose();
 
     _remarksController.dispose();
@@ -94,9 +95,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
       final data = <String, dynamic>{...snapshot.data()!, 'id': snapshot.id};
 
-      // Load all suppliers whose role is Drumming.\**
+      // Load all suppliers whose role is Drumming.
 
-      // Do NOT auto-select one, because there can be multiple Drumming suppliers.\**
+      // Do NOT auto-select one, because there can be multiple Drumming suppliers.
 
       final supplierSnapshot =
           await _firestore
@@ -172,10 +173,13 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     switch (value.toLowerCase()) {
       case 'black':
         return 'Black';
+
       case 'clear':
         return 'Clear';
+
       case 'pc':
         return 'PC';
+
       default:
         return value;
     }
@@ -225,17 +229,57 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
   }
 
   String _groupKey(Map<String, dynamic> item) {
-    return [
-      _stringValue(item['moldProductId']),
+    final productId = _stringValue(item['productId']);
+    final material = _materialType(item).toLowerCase();
+    final component = _stringValue(item['componentType']).toLowerCase();
 
-      _stringValue(item['cavityNumber'] ?? item['cavity']),
+    // Focus: one group per product + material.
+    if (component == 'focus') {
+      return 'focus|$productId|$material';
+    }
 
-      _stringValue(item['modelId']),
+    // Temple: Left and Right are separate variants, so side is part
+    // of the grouping key.
+    if (component == 'temple') {
+      final side = _side(item);
+      return 'temple|$productId|$material|$side';
+    }
 
-      _stringValue(item['variantType']),
+    // Safe fallback for any future component types.
+    final side = _side(item);
+    return '$component|$productId|$material|$side';
+  }
 
-      _stringValue(item['componentType']),
-    ].join('|');
+  Map<String, List<Map<String, dynamic>>> _groupItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    final groups = <String, List<Map<String, dynamic>>>{};
+
+    for (final item in items) {
+      groups.putIfAbsent(_groupKey(item), () => []).add(item);
+    }
+
+    return groups;
+  }
+
+  Map<String, dynamic> _mergedGroupItem(List<Map<String, dynamic>> group) {
+    final merged = Map<String, dynamic>.from(group.first);
+
+    final ordered = group.fold<int>(
+      0,
+      (total, item) =>
+          total + _toInt(item['orderedQuantity'] ?? item['quantity']),
+    );
+
+    final received = group.fold<int>(
+      0,
+      (total, item) => total + _toInt(item['receivedQuantity']),
+    );
+
+    merged['orderedQuantity'] = ordered;
+    merged['receivedQuantity'] = received;
+
+    return merged;
   }
 
   TextEditingController _controllerFor(String key) {
@@ -301,9 +345,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           final material = _stringValue(item['variantType']);
 
-          // Temple Left/Right are two physical inventory records for the same*
+          // Temple Left/Right are two physical inventory records for the same
 
-          // molding production. Take the larger side instead of adding them.*
+          // molding production. Take the larger side instead of adding them.
 
           final key =
               component == 'temple'
@@ -328,7 +372,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         );
       }
 
-      // Selected cavities are produced simultaneously in one molding cycle.*
+      // Selected cavities are produced simultaneously in one molding cycle.
 
       if (cavityShots.isNotEmpty) {
         total += cavityShots.reduce((a, b) => a > b ? a : b);
@@ -354,21 +398,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
 
     final changes = <String, int>{};
+    final groupedItems = _groupItems(items);
 
-    for (final item in items) {
-      final key = _itemKey(item);
-
-      final entered = _entered(key);
+    for (final entry in groupedItems.entries) {
+      final entered = _entered(entry.key);
 
       if (entered < 0) {
         _showMessage('Received quantity cannot be negative.', error: true);
-
         return;
       }
 
       if (entered == 0) continue;
-
-      changes[key] = entered;
+      changes[entry.key] = entered;
     }
 
     if (changes.isEmpty) {
@@ -395,6 +436,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
 
     final weight = _toDouble(_weightController.text);
+
     final totalBags = _toInt(_bagsController.text);
 
     if (_weightController.text.trim().isNotEmpty && weight < 0) {
@@ -408,6 +450,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     if (currentUser == null) {
       _showMessage(
         'User session has expired. Please login again.',
+
         error: true,
       );
 
@@ -447,37 +490,75 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         }
 
         final updatedItems = <Map<String, dynamic>>[];
+        final remainingByGroup = <String, int>{...changes};
+        final allocationByGroup = <String, List<int>>{};
 
         for (final raw in existingRawItems) {
           if (raw is! Map) continue;
 
           final item = Map<String, dynamic>.from(raw);
-
-          final key = _itemKey(item);
-
+          final groupKey = _groupKey(item);
           final oldReceived = _toInt(item['receivedQuantity']);
+          final ordered = _toInt(item['orderedQuantity'] ?? item['quantity']);
+          final plannedRemaining = (ordered - oldReceived).clamp(0, ordered);
 
-          final additional = changes[key] ?? 0;
+          var additional = remainingByGroup[groupKey] ?? 0;
 
-          item['receivedQuantity'] = oldReceived + additional;
+          final plannedAllocation =
+              additional > plannedRemaining ? plannedRemaining : additional;
 
+          additional -= plannedAllocation;
+          remainingByGroup[groupKey] = additional;
+
+          item['receivedQuantity'] = oldReceived + plannedAllocation;
           updatedItems.add(item);
+
+          allocationByGroup
+              .putIfAbsent(groupKey, () => [])
+              .add(plannedAllocation);
         }
 
-        // Keep the nested mold blocks synchronized because the existing\**
+        // Extra production is allowed. If the entered grouped quantity is
+        // greater than the total pending quantity, put the extra on the
+        // first matching row of that group.
+        for (final entry in remainingByGroup.entries) {
+          var extra = entry.value;
+          if (extra <= 0) continue;
 
-        // Create Molding Order page stores the same item records there too.\**
+          final groupKey = entry.key;
+          final allocations = allocationByGroup[groupKey] ?? <int>[];
+
+          for (var i = 0; i < updatedItems.length && extra > 0; i++) {
+            if (_groupKey(updatedItems[i]) != groupKey) continue;
+
+            updatedItems[i]['receivedQuantity'] =
+                _toInt(updatedItems[i]['receivedQuantity']) + extra;
+
+            // The first item belonging to this group receives any extra
+            // production beyond the planned quantity.
+            if (allocations.isNotEmpty) {
+              allocations[0] += extra;
+            }
+
+            extra = 0;
+          }
+        }
+
+        // Keep the nested mold blocks synchronized because the existing
+
+        // Create Molding Order page stores the same item records there too.
 
         final updatedMolds = <Map<String, dynamic>>[];
 
         final rawMolds = existing['molds'];
+
+        final nestedAllocationOffsets = <String, int>{};
 
         if (rawMolds is List) {
           for (final rawMold in rawMolds) {
             if (rawMold is! Map) continue;
 
             final mold = Map<String, dynamic>.from(rawMold);
-
             final rawMoldItems = mold['items'];
 
             if (rawMoldItems is List) {
@@ -486,13 +567,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                     if (rawItem is! Map) return rawItem;
 
                     final item = Map<String, dynamic>.from(rawItem);
+                    final groupKey = _groupKey(item);
+                    final allocations =
+                        allocationByGroup[groupKey] ?? const <int>[];
+                    final offset = nestedAllocationOffsets[groupKey] ?? 0;
 
-                    final key = _itemKey(item);
+                    final additional =
+                        offset < allocations.length ? allocations[offset] : 0;
 
-                    final oldReceived = _toInt(item['receivedQuantity']);
+                    nestedAllocationOffsets[groupKey] = offset + 1;
 
                     item['receivedQuantity'] =
-                        oldReceived + (changes[key] ?? 0);
+                        _toInt(item['receivedQuantity']) + additional;
 
                     return item;
                   }).toList();
@@ -509,7 +595,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
               mold['receivedPieces'] = typed.fold<int>(
                 0,
-
                 (total, item) => total + _toInt(item['receivedQuantity']),
               );
 
@@ -541,25 +626,36 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
         final status = allItemsComplete ? 'Received' : 'Partially Received';
 
-        final receiptItems = <Map<String, dynamic>>[];
+        final receiptItemsByGroup = <String, Map<String, dynamic>>{};
+        final receiptAllocationOffsets = <String, int>{};
 
         for (final item in updatedItems) {
-          final key = _itemKey(item);
+          final groupKey = _groupKey(item);
+          final allocations = allocationByGroup[groupKey] ?? const <int>[];
+          final offset = receiptAllocationOffsets[groupKey] ?? 0;
+          final additional =
+              offset < allocations.length ? allocations[offset] : 0;
 
-          final additional = changes[key] ?? 0;
+          receiptAllocationOffsets[groupKey] = offset + 1;
 
           if (additional <= 0) continue;
 
-          receiptItems.add({
-            ...item,
+          final existingReceipt = receiptItemsByGroup[groupKey];
 
-            'orderedQuantity': additional,
-
-            'receivedQuantity': 0,
-
-            'sourceMoldingItemKey': key,
-          });
+          if (existingReceipt == null) {
+            receiptItemsByGroup[groupKey] = {
+              ...item,
+              'orderedQuantity': additional,
+              'receivedQuantity': 0,
+              'sourceMoldingItemKey': groupKey,
+            };
+          } else {
+            existingReceipt['orderedQuantity'] =
+                _toInt(existingReceipt['orderedQuantity']) + additional;
+          }
         }
+
+        final receiptItems = receiptItemsByGroup.values.toList();
 
         if (receiptItems.isEmpty) {
           throw Exception(
@@ -832,7 +928,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
   }
 
   Widget _buildFocusCard(Map<String, dynamic> item) {
-    final key = _itemKey(item);
+    final key = _groupKey(item);
 
     final received = _received(item);
 
@@ -846,8 +942,12 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
               ? _stringValue(item['modelName'])
               : _stringValue(item['productName']),
 
-      subtitle:
-          '${_materialType(item)} • Cavity ${_stringValue(item['cavityNumber'] ?? item['cavity'])}',
+      subtitle: [
+        _materialType(item),
+        if (_isTemple(item) && _side(item).isNotEmpty)
+          'Side: ${_side(item).toUpperCase()}',
+        'Cavity ${_stringValue(item['cavityNumber'] ?? item['cavity'])}',
+      ].join(' • '),
 
       orderedText: '$ordered pieces',
 
@@ -862,98 +962,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
         helper:
             'Extra pieces are allowed when production exceeds the planned quantity',
-      ),
-    );
-  }
-
-  Widget _buildTempleCard(List<Map<String, dynamic>> group) {
-    Map<String, dynamic>? left;
-
-    Map<String, dynamic>? right;
-
-    for (final item in group) {
-      final side = _side(item);
-
-      if (side == 'left' || side == 'l') {
-        left = item;
-      } else if (side == 'right' || side == 'r') {
-        right = item;
-      }
-    }
-
-    final templateItem = left ?? right ?? group.first;
-
-    final leftItem = left ?? templateItem;
-
-    final rightItem = right ?? templateItem;
-
-    final leftKey = _itemKey(leftItem);
-
-    final rightKey = _itemKey(rightItem);
-
-    final leftOrdered = _ordered(leftItem);
-
-    final rightOrdered = _ordered(rightItem);
-
-    final leftReceived = _received(leftItem);
-
-    final rightReceived = _received(rightItem);
-
-    final leftRemaining = _remaining(leftItem);
-
-    final rightRemaining = _remaining(rightItem);
-
-    return _buildVariantCard(
-      title:
-          _stringValue(templateItem['productName']).isEmpty
-              ? _stringValue(templateItem['modelName'])
-              : _stringValue(templateItem['productName']),
-
-      subtitle:
-          '${_materialType(templateItem)} • Cavity ${_stringValue(templateItem['cavityNumber'] ?? templateItem['cavity'])}',
-
-      orderedText: 'L: $leftOrdered • R: $rightOrdered pieces',
-
-      receivedText: 'L: $leftReceived • R: $rightReceived pieces',
-
-      remainingText: 'L: $leftRemaining • R: $rightRemaining pieces',
-
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final vertical = constraints.maxWidth < 520;
-
-          final leftField = _numberField(
-            label: 'Left - Receive Now',
-
-            controller: _controllerFor(leftKey),
-
-            helper: 'Extra pieces are allowed',
-          );
-
-          final rightField = _numberField(
-            label: 'Right - Receive Now',
-
-            controller: _controllerFor(rightKey),
-
-            helper: 'Extra pieces are allowed',
-          );
-
-          if (vertical) {
-            return Column(
-              children: [leftField, const SizedBox(height: 10), rightField],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: leftField),
-
-              const SizedBox(width: 10),
-
-              Expanded(child: rightField),
-            ],
-          );
-        },
       ),
     );
   }
@@ -1070,14 +1078,12 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     final items = _items();
 
     final focusItems = items.where(_isFocus).toList();
-
     final templeItems = items.where(_isTemple).toList();
 
-    final templeGroups = <String, List<Map<String, dynamic>>>{};
-
-    for (final item in templeItems) {
-      templeGroups.putIfAbsent(_groupKey(item), () => []).add(item);
-    }
+    // Focus  -> productId + material
+    // Temple -> productId + material + side
+    final focusGroups = _groupItems(focusItems);
+    final templeGroups = _groupItems(templeItems);
 
     final orderedShots = _calculateShots(items, 'orderedQuantity');
 
@@ -1156,12 +1162,14 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           const SizedBox(height: 16),
 
-          if (focusItems.isNotEmpty) ...[
+          if (focusGroups.isNotEmpty) ...[
             _sectionTitle('Focus - Received Pieces'),
 
             const SizedBox(height: 8),
 
-            ...focusItems.map(_buildFocusCard),
+            ...focusGroups.values.map(
+              (group) => _buildFocusCard(_mergedGroupItem(group)),
+            ),
           ],
 
           if (templeGroups.isNotEmpty) ...[
@@ -1171,7 +1179,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
             const SizedBox(height: 8),
 
-            ...templeGroups.values.map(_buildTempleCard),
+            ...templeGroups.values.map(
+              (group) => _buildFocusCard(_mergedGroupItem(group)),
+            ),
           ],
 
           const SizedBox(height: 6),
@@ -1195,7 +1205,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-                _label('Drumming Supplier \\\*'),
+                _label('Drumming Supplier *'),
 
                 const SizedBox(height: 6),
 
@@ -1323,6 +1333,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
+
                       vertical: 12,
                     ),
 
@@ -1337,35 +1348,51 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                 const SizedBox(height: 12),
 
                 _label('Total Bags Received'),
+
                 const SizedBox(height: 6),
+
                 TextFormField(
                   controller: _bagsController,
+
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: false,
                   ),
+
                   style: GoogleFonts.poppins(fontSize: 13),
+
                   decoration: InputDecoration(
                     hintText: 'Enter total bags received',
+
                     suffixText: 'bags',
+
                     filled: true,
+
                     fillColor: const Color(0xFFF9FAFB),
+
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
+
                       vertical: 12,
                     ),
+
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(9),
+
                       borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                     ),
+
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(9),
+
                       borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                     ),
                   ),
+
                   validator: (value) {
                     if (_toInt(value) < 0) {
                       return 'Bags cannot be negative';
                     }
+
                     return null;
                   },
                 ),
