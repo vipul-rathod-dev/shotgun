@@ -27,28 +27,20 @@ class CreateMoldingOrderPage extends StatefulWidget {
 
 class _MoldingProduct {
   final String id;
-
   final String modelId;
-
   final String modelName;
-
   final String productCode;
-
+  final String componentType;
   final List<String> variants;
-
   final Map<String, String> variantProductIds;
 
   const _MoldingProduct({
     required this.id,
-
     required this.modelId,
-
     required this.modelName,
-
     required this.productCode,
-
+    required this.componentType,
     required this.variants,
-
     required this.variantProductIds,
   });
 
@@ -58,8 +50,22 @@ class _MoldingProduct {
 
   String get displayName {
     if (productCode.trim().isEmpty) return modelName;
-
     return '$modelName ($productCode)';
+  }
+
+  bool get isTemple => componentType.toLowerCase() == 'temple';
+  bool get isFocus => !isTemple;
+
+  String variantMaterialType(String variant) {
+    final parts = variant.split(' - ');
+    return parts.first.trim();
+  }
+
+  String? variantSide(String variant) {
+    final parts = variant.split(' - ');
+    if (parts.length < 2) return null;
+    final side = parts.sublist(1).join(' - ').trim();
+    return side.isEmpty ? null : side;
   }
 }
 
@@ -119,14 +125,14 @@ class _MoldingMoldEntry {
     List<_MoldingProduct>? rawProducts,
     List<_MoldingCavityEntry>? cavityEntries,
     this.isLoadingProducts = false,
-  })  : moldCavities = List<String>.from(moldCavities ?? const []),
-        moldCavityModelIds = Map<String, String?>.from(
-          moldCavityModelIds ?? const {},
-        ),
-        rawProducts = List<_MoldingProduct>.from(rawProducts ?? const []),
-        cavityEntries = List<_MoldingCavityEntry>.from(
-          cavityEntries ?? const [],
-        );
+  }) : moldCavities = List<String>.from(moldCavities ?? const []),
+       moldCavityModelIds = Map<String, String?>.from(
+         moldCavityModelIds ?? const {},
+       ),
+       rawProducts = List<_MoldingProduct>.from(rawProducts ?? const []),
+       cavityEntries = List<_MoldingCavityEntry>.from(
+         cavityEntries ?? const [],
+       );
 
   int get totalQuantity =>
       cavityEntries.fold<int>(0, (total, entry) => total + entry.totalQuantity);
@@ -164,6 +170,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
   String? _editingOrderNumber;
 
+  // ignore: unused_field
   String? _editingOrderStatus;
 
   Map<String, dynamic>? _existingOrderData;
@@ -237,16 +244,15 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
             return <String, dynamic>{
               'id': doc.id,
-              'displayName': _stringValue(
-                data['displayName'] ?? doc.id,
-              ),
+              'displayName': _stringValue(data['displayName'] ?? doc.id),
 
               'cavities': _extractCavityDefinitions(data),
             };
           }).toList();
 
       loaded.sort(
-        (a, b) => (a['displayName'] as String).compareTo(b['displayName'] as String),
+        (a, b) =>
+            (a['displayName'] as String).compareTo(b['displayName'] as String),
       );
 
       if (!mounted) return;
@@ -444,28 +450,43 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           final product = _productById(entry, savedModelId);
           if (product != null) {
             cavityEntry.productId = product.id;
-            for (final variant in product.variants) {
-              cavityEntry.quantityControllers[variant] = TextEditingController(
-                text: '0',
-              );
-              cavityEntry.virginRatioControllers[variant] =
-                  TextEditingController(text: '10');
-              cavityEntry.grindingRatioControllers[variant] =
-                  TextEditingController(text: '3');
-            }
+            _initializeVariantControllers(cavityEntry, product);
             for (final item in savedItems) {
-              final variant = _stringValue(item['variantType']);
-              final quantityController = cavityEntry.quantityControllers[variant];
-              final virginRatioController = cavityEntry.virginRatioControllers[variant];
-              final grindingRatioController = cavityEntry.grindingRatioControllers[variant];
+              final savedKey = _savedVariantKey(item);
+              final savedComponent = _stringValue(item['componentType']);
+              final savedMaterial =
+                  _stringValue(item['variantType']).isNotEmpty
+                      ? _stringValue(item['variantType'])
+                      : savedKey.split(' - ').first.trim();
+
+              final variant =
+                  savedComponent.toLowerCase() == 'temple'
+                      ? savedMaterial
+                      : savedKey;
+
+              final quantityController =
+                  cavityEntry.quantityControllers[variant];
+              final virginRatioController =
+                  cavityEntry.virginRatioControllers[variant];
+              final grindingRatioController =
+                  cavityEntry.grindingRatioControllers[variant];
               if (quantityController != null) {
-                quantityController.text = _intValue(item['orderedQuantity']).toString();
+                quantityController.text =
+                    _intValue(item['orderedQuantity']).toString();
               }
-              if (virginRatioController != null && item.containsKey('virginRatio')) {
-                virginRatioController.text = _decimalValue(item['virginRatio'], fallback: 10);
+              if (virginRatioController != null &&
+                  item.containsKey('virginRatio')) {
+                virginRatioController.text = _decimalValue(
+                  item['virginRatio'],
+                  fallback: 10,
+                );
               }
-              if (grindingRatioController != null && item.containsKey('grindingRatio')) {
-                grindingRatioController.text = _decimalValue(item['grindingRatio'], fallback: 3);
+              if (grindingRatioController != null &&
+                  item.containsKey('grindingRatio')) {
+                grindingRatioController.text = _decimalValue(
+                  item['grindingRatio'],
+                  fallback: 3,
+                );
               }
             }
           }
@@ -579,13 +600,13 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
         'Unknown Supplier';
   }
 
-  List<Map<String, String?>> _extractCavityDefinitions(
+  List<Map<String, dynamic>> _extractCavityDefinitions(
     Map<String, dynamic> data,
   ) {
     final raw = data['cavities'];
 
     if (raw is List && raw.isNotEmpty) {
-      final values = <Map<String, String?>>[];
+      final values = <Map<String, dynamic>>[];
 
       for (var index = 0; index < raw.length; index++) {
         final item = raw[index];
@@ -606,16 +627,23 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
             item['modelId'] ?? item['rawModelId'] ?? item['productModelId'],
           );
 
+          final piecesPerCycle = _intValue(item['piecesPerCycle']);
+
           values.add({
             'cavity': cavity.isEmpty ? 'Cavity ${index + 1}' : cavity,
 
             'modelId': modelId.isEmpty ? null : modelId,
+            'piecesPerCycle': piecesPerCycle > 0 ? piecesPerCycle : 1,
           });
         } else {
           final cavity = item?.toString().trim() ?? '';
 
           if (cavity.isNotEmpty) {
-            values.add({'cavity': cavity, 'modelId': null});
+            values.add({
+              'cavity': cavity,
+              'modelId': null,
+              'piecesPerCycle': 1,
+            });
           }
         }
       }
@@ -631,7 +659,11 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
       return List.generate(
         cavityCount,
 
-        (index) => {'cavity': 'Cavity ${index + 1}', 'modelId': null},
+        (index) => {
+          'cavity': 'Cavity ${index + 1}',
+          'modelId': null,
+          'piecesPerCycle': 1,
+        },
       );
     }
 
@@ -643,11 +675,13 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     Map<String, String?> cavityModelIds,
   ) async {
     if (_companyId == null) return const [];
+
     final modelIds =
         cavityModelIds.values
             .whereType<String>()
             .where((id) => id.trim().isNotEmpty)
             .toSet();
+
     if (modelIds.isEmpty) return const [];
 
     final snapshot =
@@ -659,45 +693,114 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
             .get();
 
     final grouped = <String, _RawProductAccumulator>{};
+
     for (final doc in snapshot.docs) {
       final data = doc.data();
+
       final modelId = _stringValue(data['modelId'] ?? data['productModelId']);
+
       if (!modelIds.contains(modelId)) continue;
+
       final modelName = _stringValue(
         data['modelName'] ?? data['name'] ?? data['productName'] ?? modelId,
       );
+
       final productCode = _stringValue(data['productCode']);
-      final variant = _stringValue(
+
+      // IMPORTANT:
+      // componentType identifies Focus vs Temple.
+      // type identifies the material variant (Black/Clear/PC).
+      // side identifies Left/Right for Temple.
+      final rawComponentType = _stringValue(
+        data['componentType'] ?? data['component'] ?? data['rawComponentType'],
+      );
+
+      final componentType =
+          rawComponentType.isEmpty
+              ? (_stringValue(data['side']).isNotEmpty ? 'Temple' : 'Focus')
+              : rawComponentType;
+
+      final type = _stringValue(
         data['type'] ?? data['variant'] ?? data['productVariant'],
       );
-      if (variant.isEmpty) continue;
+
+      final side = _stringValue(data['side']);
+
+      if (type.isEmpty) continue;
+
+      final isTemple = componentType.toLowerCase() == 'temple';
+
+      // Focus:
+      //   Black, Clear, PC
+      //
+      // Temple:
+      //   Black - Left, Black - Right,
+      //   Clear - Left, Clear - Right,
+      //   PC - Left, PC - Right
+      final variantKey = isTemple && side.isNotEmpty ? '$type - $side' : type;
+
+      // Keep Focus and Temple separate even if a legacy database happens
+      // to contain both against the same modelId.
+      final groupKey = '$modelId|${componentType.toLowerCase()}';
 
       final accumulator = grouped.putIfAbsent(
-        modelId,
+        groupKey,
         () => _RawProductAccumulator(
           id: modelId,
           modelId: modelId,
           modelName: modelName,
           productCode: productCode,
+          componentType: componentType,
         ),
       );
-      accumulator.variants.add(variant);
-      accumulator.variantProductIds[variant] = doc.id;
+
+      accumulator.variants.add(variantKey);
+      accumulator.variantProductIds[variantKey] = doc.id;
     }
 
-    return grouped.values
-        .map(
-          (item) => _MoldingProduct(
-            id: item.modelId,
-            modelId: item.modelId,
-            modelName: item.modelName,
-            productCode: item.productCode,
-            variants: item.variants.toList()..sort(),
-            variantProductIds: Map<String, String>.from(item.variantProductIds),
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+    final products =
+        grouped.values
+            .map(
+              (item) => _MoldingProduct(
+                id: item.modelId,
+                modelId: item.modelId,
+                modelName: item.modelName,
+                productCode: item.productCode,
+                componentType: item.componentType,
+                variants: item.variants.toList()..sort(_compareRawVariantKeys),
+                variantProductIds: Map<String, String>.from(
+                  item.variantProductIds,
+                ),
+              ),
+            )
+            .toList();
+
+    products.sort((a, b) {
+      final modelCompare = a.displayName.compareTo(b.displayName);
+      if (modelCompare != 0) return modelCompare;
+      return a.componentType.compareTo(b.componentType);
+    });
+
+    return products;
+  }
+
+  int _compareRawVariantKeys(String a, String b) {
+    const materialOrder = {'Black': 0, 'Clear': 1, 'PC': 2};
+
+    String material(String value) => value.split(' - ').first.trim();
+    String side(String value) {
+      final parts = value.split(' - ');
+      return parts.length > 1 ? parts.sublist(1).join(' - ').trim() : '';
+    }
+
+    final materialCompare = (materialOrder[material(a)] ?? 99).compareTo(
+      materialOrder[material(b)] ?? 99,
+    );
+
+    if (materialCompare != 0) return materialCompare;
+
+    const sideOrder = {'Left': 0, 'Right': 1};
+    return (sideOrder[side(a)] ?? -1).compareTo(sideOrder[side(b)] ?? -1);
   }
 
   Map<String, dynamic>? _moldDefinition(String? moldId) {
@@ -805,6 +908,38 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     setState(() {});
   }
 
+  void _initializeVariantControllers(
+    _MoldingCavityEntry entry,
+    _MoldingProduct product,
+  ) {
+    if (product.isTemple) {
+      final materials = <String>{};
+      for (final variant in product.variants) {
+        materials.add(product.variantMaterialType(variant));
+      }
+
+      for (final material in materials) {
+        entry.quantityControllers[material] = TextEditingController(text: '0');
+        entry.virginRatioControllers[material] = TextEditingController(
+          text: '10',
+        );
+        entry.grindingRatioControllers[material] = TextEditingController(
+          text: '3',
+        );
+      }
+    } else {
+      for (final variant in product.variants) {
+        entry.quantityControllers[variant] = TextEditingController(text: '0');
+        entry.virginRatioControllers[variant] = TextEditingController(
+          text: '10',
+        );
+        entry.grindingRatioControllers[variant] = TextEditingController(
+          text: '3',
+        );
+      }
+    }
+  }
+
   void _onProductChanged(
     _MoldingMoldEntry moldEntry,
     _MoldingCavityEntry entry,
@@ -821,11 +956,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     entry.grindingRatioControllers.clear();
     final product = _productById(moldEntry, productId);
     if (product != null) {
-      for (final variant in product.variants) {
-        entry.quantityControllers[variant] = TextEditingController(text: '0');
-        entry.virginRatioControllers[variant] = TextEditingController(text: '10');
-        entry.grindingRatioControllers[variant] = TextEditingController(text: '3');
-      }
+      _initializeVariantControllers(entry, product);
     }
     setState(() => entry.productId = productId);
   }
@@ -860,10 +991,134 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
         .toList();
   }
 
-  int _totalQuantity() {
+  /// Physical pieces represented by the saved molding-order items for one mold.
+  ///
+  /// Temple orders intentionally save both Left and Right records, so those
+  /// records are included in the physical-piece count.
+  int _moldOrderedPieces(_MoldingMoldEntry moldEntry) {
+    final items = _buildMoldingOrderItemsForMold(moldEntry);
+    return items.fold<int>(
+      0,
+      (total, item) => total + _intValue(item['orderedQuantity']),
+    );
+  }
+
+  /// Convert physical pieces into molding shots.
+  ///
+  /// piecesPerCycle is defined on the mold cavity. For example, if a cavity
+  /// produces 2 pieces per molding cycle, 100 pieces require 50 shots.
+  int _shotsFromPieces(dynamic pieces, dynamic piecesPerCycle) {
+    final pieceCount = _intValue(pieces);
+    if (pieceCount <= 0) return 0;
+
+    final cyclePieces = _intValue(piecesPerCycle);
+    if (cyclePieces <= 0) return pieceCount;
+
+    return (pieceCount + cyclePieces - 1) ~/ cyclePieces;
+  }
+
+  /// Calculate shots for one mold without double-counting: 
+  /// - Temple Left + Right are two saved records for one entered quantity.
+  /// - Different materials (Black/Clear/PC) are separate molding runs, so
+  ///   their shots are added.
+  /// - Multiple cavities run simultaneously, so the largest cavity shot
+  ///   requirement represents the mold's total shots.
+  int _moldOrderedShots(_MoldingMoldEntry moldEntry) {
+    return _calculateMoldShots(moldEntry, 'orderedQuantity');
+  }
+
+  int _moldReceivedShots(_MoldingMoldEntry moldEntry) {
+    return _calculateMoldShots(moldEntry, 'receivedQuantity');
+  }
+
+  int _calculateMoldShots(
+    _MoldingMoldEntry moldEntry,
+    String quantityField,
+  ) {
+    final items = _buildMoldingOrderItemsForMold(moldEntry);
+    if (items.isEmpty) return 0;
+
+    // First group by cavity.
+    final itemsByCavity = <String, List<Map<String, dynamic>>>{};
+    for (final item in items) {
+      final cavity = _stringValue(
+        item['cavityNumber'] ?? item['cavity'],
+      );
+      final key = cavity.isEmpty ? '__default__' : cavity;
+      itemsByCavity.putIfAbsent(key, () => []).add(item);
+    }
+
+    final shotsPerCavity = <int>[];
+
+    for (final cavityItems in itemsByCavity.values) {
+      // Temple Left/Right must count once. The grouping key therefore
+      // excludes side for Temple items. Focus variants remain separate.
+      final shotsByProductionVariant = <String, int>{};
+
+      for (final item in cavityItems) {
+        final component = _stringValue(item['componentType']).toLowerCase();
+        final modelId = _stringValue(item['modelId']);
+        final variantType = _stringValue(item['variantType']);
+
+        final productionKey =
+            component == 'temple'
+                ? '$modelId|$variantType'
+                : '$modelId|$variantType|${_stringValue(item['productId'])}';
+
+        final shots = _shotsFromPieces(
+          item[quantityField],
+          item['piecesPerCycle'],
+        );
+
+        final current = shotsByProductionVariant[productionKey] ?? 0;
+        // Temple Left + Right are duplicate records. Taking max keeps the
+        // operator-entered quantity as one molding run.
+        if (shots > current) {
+          shotsByProductionVariant[productionKey] = shots;
+        }
+      }
+
+      shotsPerCavity.add(
+        shotsByProductionVariant.values.fold<int>(
+          0,
+          (total, shots) => total + shots,
+        ),
+      );
+    }
+
+    if (shotsPerCavity.isEmpty) return 0;
+
+    // Selected cavities are produced simultaneously in one molding cycle.
+    // Therefore use the highest cavity requirement rather than adding
+    // cavity 1 + cavity 2.
+    return shotsPerCavity.reduce((a, b) => a > b ? a : b);
+  }
+
+  int _totalOrderedPieces() {
     return moldEntries.fold<int>(
       0,
-      (total, entry) => total + entry.totalQuantity,
+      (total, entry) => total + _moldOrderedPieces(entry),
+    );
+  }
+
+  int _totalOrderedShots() {
+    return moldEntries.fold<int>(
+      0,
+      (total, entry) => total + _moldOrderedShots(entry),
+    );
+  }
+
+  int _totalOrderedPiecesFromItems(List<Map<String, dynamic>> items) {
+    return items.fold<int>(
+      0,
+      (total, item) => total + _intValue(item['orderedQuantity']),
+    );
+  }
+
+  int _totalReceivedPiecesFromItems(List<Map<String, dynamic>> items) {
+    return items.fold<int>(
+      0,
+      (total, item) => total + _intValue(item['receivedQuantity']),
     );
   }
 
@@ -904,9 +1159,22 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
   String _decimalValue(dynamic value, {double fallback = 0}) {
     final parsed = double.tryParse(value?.toString() ?? '');
     if (parsed == null || !parsed.isFinite) {
-      return fallback % 1 == 0 ? fallback.toInt().toString() : fallback.toString();
+      return fallback % 1 == 0
+          ? fallback.toInt().toString()
+          : fallback.toString();
     }
     return parsed % 1 == 0 ? parsed.toInt().toString() : parsed.toString();
+  }
+
+  String _savedVariantKey(Map<String, dynamic> item) {
+    final explicitKey = _stringValue(item['variantKey']);
+    if (explicitKey.isNotEmpty) return explicitKey;
+
+    final variantType = _stringValue(item['variantType']);
+    final side = _stringValue(item['side']);
+
+    if (side.isNotEmpty) return '$variantType - $side';
+    return variantType;
   }
 
   List<Map<String, dynamic>> _buildMoldingOrderItemsForMold(
@@ -922,6 +1190,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     for (final entry in moldEntry.cavityEntries) {
       final product = _productById(moldEntry, entry.productId);
       if (product == null) continue;
+
       Map<String, dynamic>? cavityData;
       for (final item in rawCavities) {
         if (item is Map && _stringValue(item['cavity']) == entry.cavity) {
@@ -929,55 +1198,150 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           break;
         }
       }
+
       final cavityNumber = cavityData?['cavityNumber'] ?? entry.cavity;
       final piecesPerCycle = _intValue(cavityData?['piecesPerCycle']);
 
-      for (final variant in product.variants) {
-        final quantity =
-            int.tryParse(
-              entry.quantityControllers[variant]?.text.trim() ?? '',
-            ) ??
-            0;
-        if (quantity <= 0) continue;
-        final variantProductId = product.productIdForVariant(variant);
-        if (variantProductId == null || variantProductId.isEmpty) {
-          throw Exception(
-            'Unable to find Firestore product ID for ${product.displayName} - $variant.',
-          );
+      if (product.isTemple) {
+        // Operator enters Black/Clear/PC once.
+        // Persist one record for Left and one for Right.
+        final materials = <String>{};
+        for (final variant in product.variants) {
+          materials.add(product.variantMaterialType(variant));
         }
-        final virginRatio = double.tryParse(
-              entry.virginRatioControllers[variant]?.text.trim() ?? '',
-            ) ??
-            10;
-        final grindingRatio = double.tryParse(
-              entry.grindingRatioControllers[variant]?.text.trim() ?? '',
-            ) ??
-            3;
-        items.add({
-          'moldProductId': moldEntry.moldId,
-          'moldName': moldEntry.moldName,
-          'moldProductCode': '',
-          'cavityNumber': cavityNumber,
-          'modelId': product.modelId,
-          'modelName': product.modelName,
-          'variantType': variant,
-          'productId': variantProductId,
-          'productName': product.displayName,
-          'productCode': product.productCode,
-          'orderedQuantity': quantity,
-          'virginRatio': virginRatio,
-          'grindingRatio': grindingRatio,
-          'receivedQuantity': _existingItemReceivedQuantity(
-            moldId: moldEntry.moldId,
-            cavityNumber: cavityNumber,
-            modelId: product.modelId,
-            variantType: variant,
-            productId: variantProductId,
-          ),
-          'piecesPerCycle': piecesPerCycle,
-        });
+
+        for (final material in materials) {
+          final quantity =
+              int.tryParse(
+                entry.quantityControllers[material]?.text.trim() ?? '',
+              ) ??
+              0;
+
+          if (quantity <= 0) continue;
+
+          final virginRatio =
+              double.tryParse(
+                entry.virginRatioControllers[material]?.text.trim() ?? '',
+              ) ??
+              10;
+
+          final grindingRatio =
+              double.tryParse(
+                entry.grindingRatioControllers[material]?.text.trim() ?? '',
+              ) ??
+              3;
+
+          final sideVariants = product.variants.where(
+            (variant) =>
+                product.variantMaterialType(variant) == material &&
+                product.variantSide(variant) != null,
+          );
+
+          for (final variant in sideVariants) {
+            final side = product.variantSide(variant);
+            final variantProductId = product.productIdForVariant(variant);
+
+            if (variantProductId == null || variantProductId.isEmpty) {
+              throw Exception(
+                'Unable to find Firestore product ID for '
+                '${product.displayName} - $variant.',
+              );
+            }
+
+            items.add({
+              'moldProductId': moldEntry.moldId,
+              'moldName': moldEntry.moldName,
+              'moldProductCode': '',
+              'cavityNumber': cavityNumber,
+              'modelId': product.modelId,
+              'modelName': product.modelName,
+              'componentType': product.componentType,
+              'variantType': material,
+              'side': side,
+              'variantKey': variant,
+              'productId': variantProductId,
+              'productName': product.displayName,
+              'productCode': product.productCode,
+              'orderedQuantity': quantity,
+              'virginRatio': virginRatio,
+              'grindingRatio': grindingRatio,
+              'receivedQuantity': _existingItemReceivedQuantity(
+                moldId: moldEntry.moldId,
+                cavityNumber: cavityNumber,
+                modelId: product.modelId,
+                variantType: material,
+                componentType: product.componentType,
+                side: side,
+                variantKey: variant,
+                productId: variantProductId,
+              ),
+              'piecesPerCycle': piecesPerCycle,
+            });
+          }
+        }
+      } else {
+        for (final variant in product.variants) {
+          final quantity =
+              int.tryParse(
+                entry.quantityControllers[variant]?.text.trim() ?? '',
+              ) ??
+              0;
+
+          if (quantity <= 0) continue;
+
+          final variantProductId = product.productIdForVariant(variant);
+          if (variantProductId == null || variantProductId.isEmpty) {
+            throw Exception(
+              'Unable to find Firestore product ID for '
+              '${product.displayName} - $variant.',
+            );
+          }
+
+          final virginRatio =
+              double.tryParse(
+                entry.virginRatioControllers[variant]?.text.trim() ?? '',
+              ) ??
+              10;
+
+          final grindingRatio =
+              double.tryParse(
+                entry.grindingRatioControllers[variant]?.text.trim() ?? '',
+              ) ??
+              3;
+
+          items.add({
+            'moldProductId': moldEntry.moldId,
+            'moldName': moldEntry.moldName,
+            'moldProductCode': '',
+            'cavityNumber': cavityNumber,
+            'modelId': product.modelId,
+            'modelName': product.modelName,
+            'componentType': product.componentType,
+            'variantType': variant,
+            'side': null,
+            'variantKey': variant,
+            'productId': variantProductId,
+            'productName': product.displayName,
+            'productCode': product.productCode,
+            'orderedQuantity': quantity,
+            'virginRatio': virginRatio,
+            'grindingRatio': grindingRatio,
+            'receivedQuantity': _existingItemReceivedQuantity(
+              moldId: moldEntry.moldId,
+              cavityNumber: cavityNumber,
+              modelId: product.modelId,
+              variantType: variant,
+              componentType: product.componentType,
+              side: null,
+              variantKey: variant,
+              productId: variantProductId,
+            ),
+            'piecesPerCycle': piecesPerCycle,
+          });
+        }
       }
     }
+
     return items;
   }
 
@@ -992,6 +1356,9 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     required dynamic cavityNumber,
     required String modelId,
     required String variantType,
+    String? componentType,
+    String? side,
+    String? variantKey,
     required String productId,
   }) {
     if (!isEditMode || _existingOrderData == null) return 0;
@@ -1007,9 +1374,24 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           savedMoldId != requestedMoldId) {
         continue;
       }
+      final savedKey = _savedVariantKey(Map<String, dynamic>.from(rawItem));
+      final requestedKey =
+          variantKey?.trim().isNotEmpty == true
+              ? variantKey!.trim()
+              : (side?.trim().isNotEmpty == true
+                  ? '$variantType - ${side!.trim()}'
+                  : variantType);
+
+      final savedComponent = _stringValue(rawItem['componentType']);
+      final requestedComponent = _stringValue(componentType);
+
       if (_stringValue(rawItem['cavityNumber']) == _stringValue(cavityNumber) &&
           _stringValue(rawItem['modelId']) == modelId &&
-          _stringValue(rawItem['variantType']) == variantType &&
+          savedKey == requestedKey &&
+          (requestedComponent.isEmpty ||
+              savedComponent.isEmpty ||
+              savedComponent.toLowerCase() ==
+                  requestedComponent.toLowerCase()) &&
           _stringValue(rawItem['productId']) == productId) {
         return _intValue(rawItem['receivedQuantity']);
       }
@@ -1064,73 +1446,128 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           );
           return;
         }
-        for (final variant in product.variants) {
+
+        final validationVariants =
+            product.isTemple
+                ? product.variants
+                    .map(product.variantMaterialType)
+                    .toSet()
+                    .toList()
+                : product.variants;
+
+        for (final variant in validationVariants) {
           final text = entry.quantityControllers[variant]?.text.trim() ?? '';
           if (text.isEmpty) continue;
+
           final quantity = int.tryParse(text);
           if (quantity == null || quantity < 0) {
             _showMessage(
-              'Enter a valid quantity for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+              'Enter a valid quantity for $variant in '
+              '${moldEntry.moldName} - ${entry.cavity}.',
             );
             return;
           }
+
           final virginRatio = double.tryParse(
             entry.virginRatioControllers[variant]?.text.trim() ?? '',
           );
           final grindingRatio = double.tryParse(
             entry.grindingRatioControllers[variant]?.text.trim() ?? '',
           );
+
           if (virginRatio == null || virginRatio < 0) {
             _showMessage(
-              'Enter a valid virgin ratio for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+              'Enter a valid virgin ratio for $variant in '
+              '${moldEntry.moldName} - ${entry.cavity}.',
             );
             return;
           }
+
           if (grindingRatio == null || grindingRatio < 0) {
             _showMessage(
-              'Enter a valid grinding ratio for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+              'Enter a valid grinding ratio for $variant in '
+              '${moldEntry.moldName} - ${entry.cavity}.',
             );
             return;
           }
+
           if (virginRatio == 0 && grindingRatio == 0) {
             _showMessage(
-              'Virgin and grinding ratio cannot both be 0 for $variant in ${moldEntry.moldName} - ${entry.cavity}.',
+              'Virgin and grinding ratio cannot both be 0 for $variant in '
+              '${moldEntry.moldName} - ${entry.cavity}.',
             );
             return;
           }
         }
       }
 
-      // A 2-cavity mold produces both cavities in the same cycle, so quantities
-      // for the same variant must remain equal within this mold only.
+      // A 2-cavity mold must receive the same quantity for each
+      // material/variant across both cavities. Temple is entered once per
+      // material, so Left and Right automatically receive the same quantity.
       if (moldEntry.cavityEntries.length > 1) {
-        final firstEntry = moldEntry.cavityEntries.first;
-        final firstProduct = _productById(moldEntry, firstEntry.productId);
-        if (firstProduct != null) {
-          for (final variant in firstProduct.variants) {
-            final firstQuantity =
+        final variantKeys = <String>{};
+
+        for (final cavityEntry in moldEntry.cavityEntries) {
+          final cavityProduct = _productById(moldEntry, cavityEntry.productId);
+          if (cavityProduct == null) continue;
+
+          if (cavityProduct.isTemple) {
+            variantKeys.addAll(
+              cavityProduct.variants.map(cavityProduct.variantMaterialType),
+            );
+          } else {
+            variantKeys.addAll(cavityProduct.variants);
+          }
+        }
+
+        for (final variantKey in variantKeys) {
+          final firstEntry = moldEntry.cavityEntries.first;
+          final firstQuantity =
+              int.tryParse(
+                firstEntry.quantityControllers[variantKey]?.text.trim() ?? '',
+              ) ??
+              0;
+
+          for (int i = 1; i < moldEntry.cavityEntries.length; i++) {
+            final currentEntry = moldEntry.cavityEntries[i];
+            final currentQuantity =
                 int.tryParse(
-                  firstEntry.quantityControllers[variant]?.text.trim() ?? '',
+                  currentEntry.quantityControllers[variantKey]?.text.trim() ??
+                      '',
                 ) ??
                 0;
-            for (int i = 1; i < moldEntry.cavityEntries.length; i++) {
-              final currentEntry = moldEntry.cavityEntries[i];
-              final currentQuantity =
-                  int.tryParse(
-                    currentEntry.quantityControllers[variant]?.text.trim() ??
-                        '',
-                  ) ??
-                  0;
-              if (currentQuantity != firstQuantity) {
-                _showMessage(
-                  '$variant quantity must be equal for all cavities in ${moldEntry.moldName}.\n\n'
-                  '${firstEntry.cavity}: $firstQuantity\n${currentEntry.cavity}: $currentQuantity',
-                );
-                return;
-              }
+
+            if (currentQuantity != firstQuantity) {
+              _showMessage(
+                '$variantKey quantity must be equal for all cavities in '
+                '${moldEntry.moldName}.\n\n'
+                '${firstEntry.cavity}: $firstQuantity\n'
+                '${currentEntry.cavity}: $currentQuantity',
+              );
+              return;
             }
           }
         }
+      }
+
+      // A molding shot must represent a complete cavity cycle.
+      // Example: 2-cavity mold => 200 physical pieces = 100 shots.
+      final moldItemsForShotValidation = _buildMoldingOrderItemsForMold(
+        moldEntry,
+      );
+      final orderedPiecesForShotValidation = _totalOrderedPiecesFromItems(
+        moldItemsForShotValidation,
+      );
+      final cavityCountForShotValidation = moldEntry.cavityEntries.length;
+
+      if (cavityCountForShotValidation > 0 &&
+          orderedPiecesForShotValidation % cavityCountForShotValidation != 0) {
+        _showMessage(
+          'The total physical pieces for ${moldEntry.moldName} must be '
+          'divisible by the selected cavity count '
+          '($cavityCountForShotValidation) so molding shots are whole cycles.',
+        );
+        return;
       }
 
       if (moldEntry.rawProducts.length > 1) {
@@ -1167,25 +1604,43 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
       final moldBlocks =
           moldEntries.map((moldEntry) {
             final moldItems = _buildMoldingOrderItemsForMold(moldEntry);
+            final cavityCount = moldEntry.cavityEntries.length;
+            final moldOrderedPieces = _totalOrderedPiecesFromItems(moldItems);
+            final moldReceivedPieces = _totalReceivedPiecesFromItems(moldItems);
+            final moldOrderedShots = _moldOrderedShots(moldEntry);
+            final moldReceivedShots = _moldReceivedShots(moldEntry);
+
             return <String, dynamic>{
               'moldId': moldEntry.moldId,
               'moldName': moldEntry.moldName,
-              'cavityCount': moldEntry.cavityEntries.length,
-              'orderedPieces': moldItems.fold<int>(
-                0,
-                (total, item) => total + _intValue(item['orderedQuantity']),
-              ),
+              'cavityCount': cavityCount,
+
+              // Physical pieces are retained for stock/receiving.
+              'orderedPieces': moldOrderedPieces,
+              'receivedPieces': moldReceivedPieces,
+
+              // Labor/accounting quantity.
+              // 1 cavity = 1 piece/shot, 2 cavities = 2 pieces/shot.
+              'orderedShots': moldOrderedShots,
+              'receivedShots': moldReceivedShots,
+
               'items': moldItems,
             };
           }).toList();
 
-      final orderedPieces = allItems.fold<int>(
+      final orderedPieces = _totalOrderedPiecesFromItems(allItems);
+      final receivedPieces = _totalReceivedPiecesFromItems(allItems);
+
+      // IMPORTANT:
+      // Labor/accounting is based on molding shots, not raw item-record count.
+      // A two-cavity mold producing 2 pieces in one cycle is 1 molding shot.
+      final orderedShots = moldEntries.fold<int>(
         0,
-        (total, item) => total + _intValue(item['orderedQuantity']),
+        (total, moldEntry) => total + _moldOrderedShots(moldEntry),
       );
-      final receivedPieces = allItems.fold<int>(
+      final receivedShots = moldEntries.fold<int>(
         0,
-        (total, item) => total + _intValue(item['receivedQuantity']),
+        (total, moldEntry) => total + _moldReceivedShots(moldEntry),
       );
 
       final payload = <String, dynamic>{
@@ -1205,8 +1660,14 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           (total, entry) => total + entry.cavityEntries.length,
         ),
         'variantCount': allItems.length,
+
+        // Physical piece totals.
         'orderedPieces': orderedPieces,
         'receivedPieces': receivedPieces,
+
+        // Cavity-based molding totals used for labor/accounting.
+        'orderedShots': orderedShots,
+        'receivedShots': receivedShots,
       };
 
       if (isEditMode) {
@@ -1795,7 +2256,8 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           else if (moldEntry.rawProducts.isEmpty)
             _buildInfoBox(
               icon: Icons.warning_amber_outlined,
-              text: "No raw models are configured for this mold's cavities.",
+              text:
+                  "No raw products are linked to the selected mold's cavity models.",
             )
           else if (moldEntry.cavityEntries.isEmpty)
             _buildInfoBox(
@@ -1864,7 +2326,26 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
             onChanged: (value) => _onProductChanged(moldEntry, entry, value),
           ),
           if (product != null) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF2FF),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  product.isTemple ? 'Temple' : 'Focus',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF3F51B5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             _buildVariantQuantityTable(entry, product),
           ],
         ],
@@ -1902,7 +2383,9 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
               ),
             ),
             const SizedBox(height: 10),
-            if (isMobile)
+            if (product.isTemple)
+              _buildTempleVariantInputs(entry, product, isMobile: isMobile)
+            else if (isMobile)
               _buildMobileVariantCards(entry, product)
             else
               _buildDesktopVariantTable(entry, product),
@@ -1921,6 +2404,180 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildTempleVariantInputs(
+    _MoldingCavityEntry entry,
+    _MoldingProduct product, {
+    required bool isMobile,
+  }) {
+    final materials = <String>[];
+    for (final variant in product.variants) {
+      final material = product.variantMaterialType(variant);
+      if (!materials.contains(material)) materials.add(material);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F6FA),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.swap_horiz_rounded,
+                size: 19,
+                color: Color(0xFF3F51B5),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Enter quantity once for each material. '
+                  'The same quantity will be saved automatically for '
+                  'both Left and Right temples.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: const Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...materials.map((material) {
+          final quantityController = entry.quantityControllers[material];
+          final virginController = entry.virginRatioControllers[material];
+          final grindingController = entry.grindingRatioControllers[material];
+
+          if (quantityController == null ||
+              virginController == null ||
+              grindingController == null) {
+            return const SizedBox.shrink();
+          }
+
+          Widget ratioFields() {
+            return Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: virginController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: (value) {
+                      final ratio = double.tryParse(value?.trim() ?? '');
+                      if (ratio == null || ratio < 0) return 'Enter ratio';
+                      return null;
+                    },
+                    style: GoogleFonts.poppins(fontSize: 13),
+                    decoration: _inputDecoration(
+                      label: 'Virgin',
+                      hint: '10',
+                      icon: Icons.science_outlined,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: grindingController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: (value) {
+                      final ratio = double.tryParse(value?.trim() ?? '');
+                      if (ratio == null || ratio < 0) return 'Enter ratio';
+                      return null;
+                    },
+                    style: GoogleFonts.poppins(fontSize: 13),
+                    decoration: _inputDecoration(
+                      label: 'Grinding',
+                      hint: '3',
+                      icon: Icons.recycling_outlined,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE0E4F2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$material Temple',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF343741),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Left + Right',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: const Color(0xFF9CA3AF),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: quantityController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  validator: (value) {
+                    final quantity = int.tryParse(value?.trim() ?? '');
+                    if (quantity == null || quantity < 0) {
+                      return 'Enter quantity';
+                    }
+                    return null;
+                  },
+                  style: GoogleFonts.poppins(fontSize: 13),
+                  decoration: _inputDecoration(
+                    label: 'Quantity',
+                    hint: '0',
+                    icon: Icons.numbers_outlined,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ratioFields(),
+                const SizedBox(height: 7),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Saved as Left + Right',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -1964,8 +2621,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           final index = item.key;
           final variant = item.value;
           final quantityController = entry.quantityControllers[variant]!;
-          final virginRatioController =
-              entry.virginRatioControllers[variant]!;
+          final virginRatioController = entry.virginRatioControllers[variant]!;
           final grindingRatioController =
               entry.grindingRatioControllers[variant]!;
 
@@ -2047,8 +2703,9 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                     Expanded(
                       child: TextFormField(
                         controller: virginRatioController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         onChanged: (_) => setState(() {}),
                         validator: (value) {
                           final ratio = double.tryParse(value?.trim() ?? '');
@@ -2069,8 +2726,9 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                     Expanded(
                       child: TextFormField(
                         controller: grindingRatioController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         onChanged: (_) => setState(() {}),
                         validator: (value) {
                           final ratio = double.tryParse(value?.trim() ?? '');
@@ -2126,12 +2784,13 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           child: Column(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF5F6FA),
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(9)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
                 ),
                 child: Row(
                   children: [
@@ -2179,16 +2838,17 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                 ),
               ),
               ...product.variants.map((variant) {
-                final quantityController =
-                    entry.quantityControllers[variant]!;
+                final quantityController = entry.quantityControllers[variant]!;
                 final virginRatioController =
                     entry.virginRatioControllers[variant]!;
                 final grindingRatioController =
                     entry.grindingRatioControllers[variant]!;
 
                 return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2212,8 +2872,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                           keyboardType: TextInputType.number,
                           onChanged: (_) => setState(() {}),
                           validator: (value) {
-                            final quantity =
-                                int.tryParse(value?.trim() ?? '');
+                            final quantity = int.tryParse(value?.trim() ?? '');
                             if (quantity == null || quantity < 0) {
                               return 'Enter quantity';
                             }
@@ -2237,8 +2896,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                           ),
                           onChanged: (_) => setState(() {}),
                           validator: (value) {
-                            final ratio =
-                                double.tryParse(value?.trim() ?? '');
+                            final ratio = double.tryParse(value?.trim() ?? '');
                             if (ratio == null || ratio < 0) {
                               return 'Enter ratio';
                             }
@@ -2262,8 +2920,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                           ),
                           onChanged: (_) => setState(() {}),
                           validator: (value) {
-                            final ratio =
-                                double.tryParse(value?.trim() ?? '');
+                            final ratio = double.tryParse(value?.trim() ?? '');
                             if (ratio == null || ratio < 0) {
                               return 'Enter ratio';
                             }
@@ -2326,54 +2983,114 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                               .map((entry) => entry.cavity)
                               .join(', '),
                     ),
-                    for (final entry in moldEntry.cavityEntries) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        entry.cavity,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                      _summaryRow(
-                        'Product',
-                        _productById(moldEntry, entry.productId)?.displayName ??
-                            '-',
-                      ),
-                      for (final variant
-                          in _productById(
-                                moldEntry,
-                                entry.productId,
-                              )?.variants ??
-                              const <String>[])
-                        if (_intValue(
-                              entry.quantityControllers[variant]?.text,
-                            ) >
-                            0) ...[
-                          _summaryRow(
-                            variant,
-                            entry.quantityControllers[variant]!.text.trim(),
-                          ),
-                          _summaryRow(
-                            '$variant Ratio',
-                            '${entry.virginRatioControllers[variant]?.text.trim() ?? '10'} : ${entry.grindingRatioControllers[variant]?.text.trim() ?? '3'}',
-                          ),
-                        ],
-                    ],
+                    ...moldEntry.cavityEntries.expand(
+                      (entry) => _buildSummaryRowsForCavity(moldEntry, entry),
+                    ),
+
                     _summaryRow(
-                      'Mold Total',
-                      moldEntry.totalQuantity.toString(),
+                      'Mold Physical Pieces',
+                      _moldOrderedPieces(moldEntry).toString(),
+                    ),
+                    _summaryRow(
+                      'Mold Molding Shots',
+                      _moldOrderedShots(moldEntry).toString(),
                     ),
                   ],
                 ),
               );
             }),
           const Divider(height: 20),
-          _summaryRow('Total Molding Quantity', _totalQuantity().toString()),
+          _summaryRow(
+            'Total Physical Pieces',
+            _totalOrderedPieces().toString(),
+          ),
+          _summaryRow('Total Molding Shots', _totalOrderedShots().toString()),
+          const SizedBox(height: 4),
+          Text(
+            'Molding shots are based on each cavity\'s Pieces per Cycle. '
+            'Multiple cavities run simultaneously and are not double-counted.',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildSummaryRowsForCavity(
+    _MoldingMoldEntry moldEntry,
+    _MoldingCavityEntry entry,
+  ) {
+    final product = _productById(moldEntry, entry.productId);
+    if (product == null) {
+      return [
+        const SizedBox(height: 6),
+        Text(
+          entry.cavity,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF6B7280),
+          ),
+        ),
+        _summaryRow('Product', '-'),
+      ];
+    }
+
+    final rows = <Widget>[
+      const SizedBox(height: 6),
+      Text(
+        entry.cavity,
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF6B7280),
+        ),
+      ),
+      _summaryRow('Product', product.displayName),
+    ];
+
+    if (product.isTemple) {
+      final materials =
+          product.variants.map(product.variantMaterialType).toSet();
+
+      for (final material in materials) {
+        if (_intValue(entry.quantityControllers[material]?.text) <= 0) {
+          continue;
+        }
+
+        rows.addAll([
+          _summaryRow(
+            '$material Temple (Left + Right)',
+            entry.quantityControllers[material]!.text.trim(),
+          ),
+          _summaryRow(
+            '$material Ratio',
+            '${entry.virginRatioControllers[material]?.text.trim() ?? '10'} : '
+                '${entry.grindingRatioControllers[material]?.text.trim() ?? '3'}',
+          ),
+        ]);
+      }
+    } else {
+      for (final variant in product.variants) {
+        if (_intValue(entry.quantityControllers[variant]?.text) <= 0) {
+          continue;
+        }
+
+        rows.addAll([
+          _summaryRow(variant, entry.quantityControllers[variant]!.text.trim()),
+          _summaryRow(
+            '$variant Ratio',
+            '${entry.virginRatioControllers[variant]?.text.trim() ?? '10'} : '
+                '${entry.grindingRatioControllers[variant]?.text.trim() ?? '3'}',
+          ),
+        ]);
+      }
+    }
+
+    return rows;
   }
 
   Widget _summaryRow(String label, String value) {
@@ -2765,32 +3482,25 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null || !messenger.mounted) return;
 
-    messenger.showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
 class _RawProductAccumulator {
   final String id;
-
   final String modelId;
-
   final String modelName;
-
   final String productCode;
+  final String componentType;
 
   final Set<String> variants = {};
-
   final Map<String, String> variantProductIds = {};
 
   _RawProductAccumulator({
     required this.id,
-
     required this.modelId,
-
     required this.modelName,
-
     required this.productCode,
+    required this.componentType,
   });
 }
