@@ -8,45 +8,22 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-
-
 class ReceiveMoldingGoodsPage extends StatefulWidget {
-
   final String orderId;
 
   final Map<String, dynamic>? order;
 
-
-
-  const ReceiveMoldingGoodsPage({
-
-    super.key,
-
-    required this.orderId,
-
-    this.order,
-
-  });
-
-
+  const ReceiveMoldingGoodsPage({super.key, required this.orderId, this.order});
 
   @override
-
   State<ReceiveMoldingGoodsPage> createState() =>
-
       _ReceiveMoldingGoodsPageState();
-
 }
 
-
-
 class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   final _formKey = GlobalKey<FormState>();
-
-
 
   String? _companyId;
 
@@ -56,144 +33,87 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   bool _isSaving = false;
 
-
-
   List<Map<String, dynamic>> _drummingSuppliers = [];
 
   String? _selectedDrummingSupplierId;
 
   String? _selectedDrummingSupplierName;
 
-
-
   final TextEditingController _weightController = TextEditingController();
+
+  final TextEditingController _bagsController = TextEditingController(
+    text: '0',
+  );
 
   final TextEditingController _remarksController = TextEditingController();
 
-
-
   final Map<String, TextEditingController> _receiveControllers = {};
 
-
-
   @override
-
   void initState() {
-
     super.initState();
 
     _loadOrder();
-
   }
 
-
-
   @override
-
   void dispose() {
-
     for (final controller in _receiveControllers.values) {
-
       controller.dispose();
-
     }
 
     _weightController.dispose();
+    _bagsController.dispose();
 
     _remarksController.dispose();
 
     super.dispose();
-
   }
 
-
-
   Future<void> _loadOrder() async {
-
     try {
-
       final prefs = await SharedPreferences.getInstance();
 
       final companyId = prefs.getString('cachedCompanyId');
 
-
-
       if (companyId == null || companyId.trim().isEmpty) {
-
         throw Exception('Company information is not available.');
-
       }
 
-
-
       final ref = _firestore
-
           .collection('companies')
-
           .doc(companyId)
-
           .collection('raw_orders')
-
           .doc(widget.orderId);
-
-
 
       final snapshot = await ref.get();
 
       if (!snapshot.exists) {
-
         throw Exception('Molding order not found.');
-
       }
 
+      final data = <String, dynamic>{...snapshot.data()!, 'id': snapshot.id};
 
+      // Load all suppliers whose role is Drumming.\**
 
-      final data = <String, dynamic>{
+      // Do NOT auto-select one, because there can be multiple Drumming suppliers.\**
 
-        ...snapshot.data()!,
+      final supplierSnapshot =
+          await _firestore
+              .collection('companies')
+              .doc(companyId)
+              .collection('suppliers')
+              .where('role', isEqualTo: 'Drumming')
+              .get();
 
-        'id': snapshot.id,
-
-      };
-
-
-
-      // Load all suppliers whose role is Drumming.*
-
-      // Do NOT auto-select one, because there can be multiple Drumming suppliers.*
-
-      final supplierSnapshot = await _firestore
-
-          .collection('companies')
-
-          .doc(companyId)
-
-          .collection('suppliers')
-
-          .where('role', isEqualTo: 'Drumming')
-
-          .get();
-
-
-
-      final suppliers = supplierSnapshot.docs.map((doc) {
-
-        return <String, dynamic>{
-
-          ...doc.data(),
-
-          'id': doc.id,
-
-        };
-
-      }).toList();
-
-
+      final suppliers =
+          supplierSnapshot.docs.map((doc) {
+            return <String, dynamic>{...doc.data(), 'id': doc.id};
+          }).toList();
 
       if (!mounted) return;
 
       setState(() {
-
         _companyId = companyId;
 
         _order = data;
@@ -205,73 +125,64 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         _selectedDrummingSupplierName = null;
 
         _isLoading = false;
-
       });
-
     } catch (e) {
-
       if (!mounted) return;
 
       setState(() => _isLoading = false);
 
       _showMessage(e.toString().replaceFirst('Exception: ', ''), error: true);
-
     }
-
   }
-
-
 
   String _supplierDisplayName(Map<String, dynamic> supplier) {
-
     return supplier['name']?.toString() ??
-
         supplier['supplierName']?.toString() ??
-
         supplier['displayName']?.toString() ??
-
         supplier['companyName']?.toString() ??
-
         supplier['id']?.toString() ??
-
         'Unknown Supplier';
-
   }
 
-
-
   int _toInt(dynamic value) {
-
     if (value is int) return value;
 
     if (value is num) return value.toInt();
 
     return int.tryParse(value?.toString() ?? '') ?? 0;
-
   }
 
-
-
   double _toDouble(dynamic value) {
-
     if (value is double) return value;
 
     if (value is num) return value.toDouble();
 
     return double.tryParse(value?.toString() ?? '') ?? 0;
-
   }
-
-
 
   String _stringValue(dynamic value) => value?.toString().trim() ?? '';
 
+  String _materialType(Map<String, dynamic> item) {
+    final value = _stringValue(
+      item['materialType'] ?? item['variantType'] ?? item['rawMaterial'],
+    );
 
+    if (value.isEmpty) return '-';
+
+    switch (value.toLowerCase()) {
+      case 'black':
+        return 'Black';
+      case 'clear':
+        return 'Clear';
+      case 'pc':
+        return 'PC';
+      default:
+        return value;
+    }
+  }
 
   String _itemKey(Map<String, dynamic> item) {
-
     return [
-
       _stringValue(item['moldProductId']),
 
       _stringValue(item['cavityNumber'] ?? item['cavity']),
@@ -287,59 +198,34 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       _stringValue(item['variantKey']).toLowerCase(),
 
       _stringValue(item['productId']),
-
     ].join('|');
-
   }
 
-
-
   List<Map<String, dynamic>> _items() {
-
     final raw = _order?['items'];
 
     if (raw is! List) return <Map<String, dynamic>>[];
 
     return raw
-
         .whereType<Map>()
-
         .map((item) => Map<String, dynamic>.from(item))
-
         .toList();
-
   }
-
-
 
   bool _isTemple(Map<String, dynamic> item) {
-
     return _stringValue(item['componentType']).toLowerCase() == 'temple';
-
   }
-
-
 
   bool _isFocus(Map<String, dynamic> item) {
-
     return _stringValue(item['componentType']).toLowerCase() == 'focus';
-
   }
-
-
 
   String _side(Map<String, dynamic> item) {
-
     return _stringValue(item['side']).toLowerCase();
-
   }
 
-
-
   String _groupKey(Map<String, dynamic> item) {
-
     return [
-
       _stringValue(item['moldProductId']),
 
       _stringValue(item['cavityNumber'] ?? item['cavity']),
@@ -349,376 +235,220 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       _stringValue(item['variantType']),
 
       _stringValue(item['componentType']),
-
     ].join('|');
-
   }
 
-
-
   TextEditingController _controllerFor(String key) {
-
     return _receiveControllers.putIfAbsent(
-
       key,
 
       () => TextEditingController(text: '0'),
-
     );
-
   }
-
-
 
   int _entered(String key) => _toInt(_controllerFor(key).text);
 
-
-
-  int _received(Map<String, dynamic> item) =>
-
-      _toInt(item['receivedQuantity']);
-
-
+  int _received(Map<String, dynamic> item) => _toInt(item['receivedQuantity']);
 
   int _ordered(Map<String, dynamic> item) =>
-
       _toInt(item['orderedQuantity'] ?? item['quantity']);
 
-
-
   int _remaining(Map<String, dynamic> item) {
-
     return (_ordered(item) - _received(item)).clamp(0, _ordered(item));
-
   }
 
-
-
   int _shotsFromPieces(dynamic pieces, dynamic piecesPerCycle) {
-
     final pieceCount = _toInt(pieces);
 
     if (pieceCount <= 0) return 0;
-
-
 
     final cyclePieces = _toInt(piecesPerCycle);
 
     if (cyclePieces <= 0) return pieceCount;
 
-
-
     return (pieceCount + cyclePieces - 1) ~/ cyclePieces;
-
   }
 
-
-
   int _calculateShots(List<Map<String, dynamic>> items, String field) {
-
     final itemsByMold = <String, List<Map<String, dynamic>>>{};
 
-
-
     for (final item in items) {
-
       final mold = _stringValue(item['moldProductId']);
 
       itemsByMold.putIfAbsent(mold, () => []).add(item);
-
     }
-
-
 
     var total = 0;
 
-
-
     for (final moldItems in itemsByMold.values) {
-
       final byCavity = <String, List<Map<String, dynamic>>>{};
 
-
-
       for (final item in moldItems) {
-
-        final cavity = _stringValue(
-
-          item['cavityNumber'] ?? item['cavity'],
-
-        );
+        final cavity = _stringValue(item['cavityNumber'] ?? item['cavity']);
 
         byCavity.putIfAbsent(cavity, () => []).add(item);
-
       }
-
-
 
       final cavityShots = <int>[];
 
-
-
       for (final cavityItems in byCavity.values) {
-
         final productionVariantShots = <String, int>{};
 
-
-
         for (final item in cavityItems) {
-
           final component = _stringValue(item['componentType']).toLowerCase();
 
           final model = _stringValue(item['modelId']);
 
           final material = _stringValue(item['variantType']);
 
+          // Temple Left/Right are two physical inventory records for the same*
 
+          // molding production. Take the larger side instead of adding them.*
 
-          // Temple Left/Right are two physical inventory records for the same
+          final key =
+              component == 'temple'
+                  ? '$model|$material'
+                  : '$model|$material|${_stringValue(item['productId'])}';
 
-          // molding production. Take the larger side instead of adding them.
-
-          final key = component == 'temple'
-
-              ? '$model|$material'
-
-              : '$model|$material|${_stringValue(item['productId'])}';
-
-
-
-          final shots = _shotsFromPieces(
-
-            item[field],
-
-            item['piecesPerCycle'],
-
-          );
-
-
+          final shots = _shotsFromPieces(item[field], item['piecesPerCycle']);
 
           final current = productionVariantShots[key] ?? 0;
 
           if (shots > current) {
-
             productionVariantShots[key] = shots;
-
           }
-
         }
 
-
-
         cavityShots.add(
-
           productionVariantShots.values.fold<int>(
-
             0,
 
             (total, value) => total + value,
-
           ),
-
         );
-
       }
 
-
-
-      // Selected cavities are produced simultaneously in one molding cycle.
+      // Selected cavities are produced simultaneously in one molding cycle.*
 
       if (cavityShots.isNotEmpty) {
-
         total += cavityShots.reduce((a, b) => a > b ? a : b);
-
       }
-
     }
-
-
 
     return total;
-
   }
 
-
-
   Future<void> _saveReceiving() async {
-
     if (_companyId == null || _order == null || _isSaving) return;
 
-
-
     if (!(_formKey.currentState?.validate() ?? false)) {
-
       return;
-
     }
-
-
 
     final items = _items();
 
     if (items.isEmpty) {
-
       _showMessage('This molding order has no items.', error: true);
 
       return;
-
     }
-
-
 
     final changes = <String, int>{};
 
-
-
     for (final item in items) {
-
       final key = _itemKey(item);
 
       final entered = _entered(key);
 
       if (entered < 0) {
-
         _showMessage('Received quantity cannot be negative.', error: true);
 
         return;
-
       }
 
-
-
       if (entered == 0) continue;
-      changes[key] = entered;
 
+      changes[key] = entered;
     }
 
-
-
     if (changes.isEmpty) {
-
       _showMessage('Enter at least one received quantity.', error: true);
 
       return;
-
     }
 
-
-
     if (_drummingSuppliers.isEmpty) {
-
       _showMessage(
-
         'No Drumming supplier is available. Add a supplier with role \'Drumming\' first.',
 
         error: true,
-
       );
 
       return;
-
     }
 
-
-
     if (_selectedDrummingSupplierId == null ||
-
         _selectedDrummingSupplierId!.trim().isEmpty) {
-
       _showMessage('Please select a Drumming supplier.', error: true);
 
       return;
-
     }
 
-
-
     final weight = _toDouble(_weightController.text);
+    final totalBags = _toInt(_bagsController.text);
 
     if (_weightController.text.trim().isNotEmpty && weight < 0) {
-
       _showMessage('Weight cannot be negative.', error: true);
 
       return;
-
     }
-
-
 
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {
-
-      _showMessage('User session has expired. Please login again.', error: true);
+      _showMessage(
+        'User session has expired. Please login again.',
+        error: true,
+      );
 
       return;
-
     }
-
-
 
     setState(() => _isSaving = true);
 
-
-
     try {
+      final companyRef = _firestore.collection('companies').doc(_companyId);
 
-      final companyRef = _firestore
-
-          .collection('companies')
-
-          .doc(_companyId);
-
-      final orderRef = companyRef
-
-          .collection('raw_orders')
-
-          .doc(widget.orderId);
+      final orderRef = companyRef.collection('raw_orders').doc(widget.orderId);
 
       final drummingOrderRef = companyRef.collection('raw_orders').doc();
 
       final drummingCounterRef = companyRef
-
           .collection('metadata')
-
           .doc('drumming_order_counter');
-
-
 
       String? generatedDrummingOrderNumber;
 
-
-
       await _firestore.runTransaction<void>((transaction) async {
-
         final snapshot = await transaction.get(orderRef);
 
         final counterSnapshot = await transaction.get(drummingCounterRef);
 
         if (!snapshot.exists) {
-
           throw Exception('Molding order no longer exists.');
-
         }
-
-
 
         final existing = Map<String, dynamic>.from(snapshot.data()!);
 
         final existingRawItems = existing['items'];
 
         if (existingRawItems is! List) {
-
           throw Exception('Molding order items are missing.');
-
         }
-
-
 
         final updatedItems = <Map<String, dynamic>>[];
 
         for (final raw in existingRawItems) {
-
           if (raw is! Map) continue;
 
           final item = Map<String, dynamic>.from(raw);
@@ -732,23 +462,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           item['receivedQuantity'] = oldReceived + additional;
 
           updatedItems.add(item);
-
         }
 
+        // Keep the nested mold blocks synchronized because the existing\**
 
-
-        // Keep the nested mold blocks synchronized because the existing*
-
-        // Create Molding Order page stores the same item records there too.*
+        // Create Molding Order page stores the same item records there too.\**
 
         final updatedMolds = <Map<String, dynamic>>[];
 
         final rawMolds = existing['molds'];
 
         if (rawMolds is List) {
-
           for (final rawMold in rawMolds) {
-
             if (rawMold is! Map) continue;
 
             final mold = Map<String, dynamic>.from(rawMold);
@@ -756,103 +481,69 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             final rawMoldItems = mold['items'];
 
             if (rawMoldItems is List) {
+              mold['items'] =
+                  rawMoldItems.map((rawItem) {
+                    if (rawItem is! Map) return rawItem;
 
-              mold['items'] = rawMoldItems.map((rawItem) {
+                    final item = Map<String, dynamic>.from(rawItem);
 
-                if (rawItem is! Map) return rawItem;
+                    final key = _itemKey(item);
 
-                final item = Map<String, dynamic>.from(rawItem);
+                    final oldReceived = _toInt(item['receivedQuantity']);
 
-                final key = _itemKey(item);
+                    item['receivedQuantity'] =
+                        oldReceived + (changes[key] ?? 0);
 
-                final oldReceived = _toInt(item['receivedQuantity']);
-
-                item['receivedQuantity'] =
-
-                    oldReceived + (changes[key] ?? 0);
-
-                return item;
-
-              }).toList();
-
+                    return item;
+                  }).toList();
             }
-
-
 
             final moldItems = mold['items'];
 
             if (moldItems is List) {
-
-              final typed = moldItems
-
-                  .whereType<Map>()
-
-                  .map((item) => Map<String, dynamic>.from(item))
-
-                  .toList();
+              final typed =
+                  moldItems
+                      .whereType<Map>()
+                      .map((item) => Map<String, dynamic>.from(item))
+                      .toList();
 
               mold['receivedPieces'] = typed.fold<int>(
-
                 0,
 
                 (total, item) => total + _toInt(item['receivedQuantity']),
-
               );
 
-              mold['receivedShots'] = _calculateShots(typed, 'receivedQuantity');
-
+              mold['receivedShots'] = _calculateShots(
+                typed,
+                'receivedQuantity',
+              );
             }
 
-
-
             updatedMolds.add(mold);
-
           }
-
         }
 
-
-
         final totalReceivedPieces = updatedItems.fold<int>(
-
           0,
 
           (total, item) => total + _toInt(item['receivedQuantity']),
-
         );
-
-
 
         final receivedShots = _calculateShots(updatedItems, 'receivedQuantity');
 
-
-
-        final allItemsComplete = updatedItems.isNotEmpty &&
-
+        final allItemsComplete =
+            updatedItems.isNotEmpty &&
             updatedItems.every(
-
               (item) =>
-
                   _toInt(item['receivedQuantity']) >=
-
                   _toInt(item['orderedQuantity'] ?? item['quantity']),
-
             );
 
-
-
-        final status = allItemsComplete
-
-            ? 'Received'
-
-            : 'Partially Received';
-
-
+        final status = allItemsComplete ? 'Received' : 'Partially Received';
 
         final receiptItems = <Map<String, dynamic>>[];
 
         for (final item in updatedItems) {
-
           final key = _itemKey(item);
 
           final additional = changes[key] ?? 0;
@@ -860,7 +551,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           if (additional <= 0) continue;
 
           receiptItems.add({
-
             ...item,
 
             'orderedQuantity': additional,
@@ -868,61 +558,47 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             'receivedQuantity': 0,
 
             'sourceMoldingItemKey': key,
-
           });
-
         }
-
-
 
         if (receiptItems.isEmpty) {
-
-          throw Exception('No received items were found for the Drumming order.');
-
+          throw Exception(
+            'No received items were found for the Drumming order.',
+          );
         }
-
-
 
         final history = <dynamic>[];
 
         final existingHistory = existing['receivingHistory'];
 
         if (existingHistory is List) {
-
           history.addAll(existingHistory);
-
         }
 
+        final historyItems =
+            receiptItems.map((item) {
+              return <String, dynamic>{
+                'itemKey': item['sourceMoldingItemKey'],
 
+                'productId': item['productId'],
 
-        final historyItems = receiptItems.map((item) {
+                'productName': item['productName'],
 
-          return <String, dynamic>{
+                'componentType': item['componentType'],
 
-            'itemKey': item['sourceMoldingItemKey'],
+                'variantType': item['variantType'],
 
-            'productId': item['productId'],
+                'materialType': _materialType(item),
 
-            'productName': item['productName'],
+                'side': item['side'],
 
-            'componentType': item['componentType'],
+                'cavityNumber': item['cavityNumber'],
 
-            'variantType': item['variantType'],
-
-            'side': item['side'],
-
-            'cavityNumber': item['cavityNumber'],
-
-            'quantity': item['orderedQuantity'],
-
-          };
-
-        }).toList();
-
-
+                'quantity': item['orderedQuantity'],
+              };
+            }).toList();
 
         history.add({
-
           'receivedAt': Timestamp.now(),
 
           'receivedByUid': currentUser.uid,
@@ -932,85 +608,57 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'remarks': _remarksController.text.trim(),
 
           'items': historyItems,
-
         });
-
-
 
         int lastDrummingNumber = 0;
 
         if (counterSnapshot.exists) {
-
           final counterData = counterSnapshot.data();
 
           lastDrummingNumber = _toInt(counterData?['lastNumber']);
-
         }
 
         final nextDrummingNumber = lastDrummingNumber + 1;
 
         generatedDrummingOrderNumber =
-
             'DRUM-${nextDrummingNumber.toString().padLeft(5, '0')}';
 
-
-
         transaction.set(drummingCounterRef, {
-
           'lastNumber': nextDrummingNumber,
 
           'updatedAt': FieldValue.serverTimestamp(),
-
         }, SetOptions(merge: true));
-
-
 
         final drummingMolds = <String, Map<String, dynamic>>{};
 
         for (final item in receiptItems) {
-
           final moldId = _stringValue(item['moldProductId']);
 
-          final moldKey = moldId.isEmpty
-
-              ? _stringValue(item['moldName'])
-
-              : moldId;
+          final moldKey =
+              moldId.isEmpty ? _stringValue(item['moldName']) : moldId;
 
           final mold = drummingMolds.putIfAbsent(moldKey, () {
-
             return <String, dynamic>{
-
               'moldId': item['moldProductId'],
 
               'moldName': item['moldName'],
 
               'items': <Map<String, dynamic>>[],
-
             };
-
           });
 
           (mold['items'] as List<Map<String, dynamic>>).add(item);
-
         }
-
-
 
         final drummingItems = receiptItems;
 
         final drummingOrderedPieces = drummingItems.fold<int>(
-
           0,
 
           (total, item) => total + _toInt(item['orderedQuantity']),
-
         );
 
-
-
         transaction.set(drummingOrderRef, {
-
           'process': 'Drumming',
 
           'status': 'Pending',
@@ -1045,6 +693,8 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           'moldingReceiptWeight': weight > 0 ? weight : null,
 
+          'moldingReceiptTotalBags': totalBags > 0 ? totalBags : null,
+
           'moldingReceiptRemarks': _remarksController.text.trim(),
 
           'items': drummingItems,
@@ -1062,13 +712,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'orderedShots': _calculateShots(drummingItems, 'orderedQuantity'),
 
           'receivedShots': 0,
-
         });
 
-
-
         transaction.update(orderRef, {
-
           'items': updatedItems,
 
           'molds': updatedMolds,
@@ -1085,104 +731,70 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           'lastReceivedWeight': weight > 0 ? weight : null,
 
+          'lastReceivedTotalBags': totalBags > 0 ? totalBags : null,
+
           'lastReceivedRemarks': _remarksController.text.trim(),
 
           'receivingHistory': history,
 
           'updatedAt': FieldValue.serverTimestamp(),
-
         });
-
       });
-
-
 
       if (!mounted) return;
 
       _showMessage(
-
         'Molding goods received and Drumming order ${generatedDrummingOrderNumber ?? ''} created successfully.',
-
       );
 
       Navigator.pop(context, true);
-
     } catch (e) {
-
       if (!mounted) return;
 
       _showMessage(
-
         'Unable to receive molding goods: ${e.toString().replaceFirst('Exception: ', '')}',
 
         error: true,
-
       );
-
     } finally {
-
       if (mounted) setState(() => _isSaving = false);
-
     }
-
   }
 
-
-
   void _showMessage(String message, {bool error = false}) {
-
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-
       SnackBar(
-
         content: Text(message),
 
         backgroundColor: error ? Colors.red : Colors.green,
-
       ),
-
     );
-
   }
 
-
-
   Widget _label(String text) {
-
     return Text(
-
       text,
 
       style: GoogleFonts.poppins(
-
         fontSize: 12,
 
         fontWeight: FontWeight.w600,
 
         color: const Color(0xFF4B5563),
-
       ),
-
     );
-
   }
 
-
-
   Widget _numberField({
-
     required String label,
 
     required TextEditingController controller,
 
     String? helper,
-
   }) {
-
     return TextFormField(
-
       controller: controller,
 
       keyboardType: const TextInputType.numberWithOptions(decimal: false),
@@ -1190,7 +802,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       style: GoogleFonts.poppins(fontSize: 13),
 
       decoration: InputDecoration(
-
         labelText: label,
 
         helperText: helper,
@@ -1200,39 +811,27 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         fillColor: Colors.white,
 
         contentPadding: const EdgeInsets.symmetric(
-
           horizontal: 12,
 
           vertical: 12,
-
         ),
 
         border: OutlineInputBorder(
-
           borderRadius: BorderRadius.circular(9),
 
           borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-
         ),
 
         enabledBorder: OutlineInputBorder(
-
           borderRadius: BorderRadius.circular(9),
 
           borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-
         ),
-
       ),
-
     );
-
   }
 
-
-
   Widget _buildFocusCard(Map<String, dynamic> item) {
-
     final key = _itemKey(item);
 
     final received = _received(item);
@@ -1241,17 +840,14 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     final remaining = _remaining(item);
 
-
-
     return _buildVariantCard(
+      title:
+          _stringValue(item['productName']).isEmpty
+              ? _stringValue(item['modelName'])
+              : _stringValue(item['productName']),
 
-      title: _stringValue(item['productName']).isEmpty
-
-          ? _stringValue(item['modelName'])
-
-          : _stringValue(item['productName']),
-
-      subtitle: '${_stringValue(item['variantType'])} • Cavity ${_stringValue(item['cavityNumber'] ?? item['cavity'])}',
+      subtitle:
+          '${_materialType(item)} • Cavity ${_stringValue(item['cavityNumber'] ?? item['cavity'])}',
 
       orderedText: '$ordered pieces',
 
@@ -1260,46 +856,30 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       remainingText: '$remaining pieces',
 
       child: _numberField(
-
         label: 'Receive Now (Pieces)',
 
         controller: _controllerFor(key),
 
-        helper: 'Extra pieces are allowed when production exceeds the planned quantity',
-
+        helper:
+            'Extra pieces are allowed when production exceeds the planned quantity',
       ),
-
     );
-
   }
 
-
-
   Widget _buildTempleCard(List<Map<String, dynamic>> group) {
-
     Map<String, dynamic>? left;
 
     Map<String, dynamic>? right;
 
-
-
     for (final item in group) {
-
       final side = _side(item);
 
       if (side == 'left' || side == 'l') {
-
         left = item;
-
       } else if (side == 'right' || side == 'r') {
-
         right = item;
-
       }
-
     }
-
-
 
     final templateItem = left ?? right ?? group.first;
 
@@ -1307,13 +887,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     final rightItem = right ?? templateItem;
 
-
-
     final leftKey = _itemKey(leftItem);
 
     final rightKey = _itemKey(rightItem);
-
-
 
     final leftOrdered = _ordered(leftItem);
 
@@ -1327,19 +903,14 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     final rightRemaining = _remaining(rightItem);
 
-
-
     return _buildVariantCard(
-
-      title: _stringValue(templateItem['productName']).isEmpty
-
-          ? _stringValue(templateItem['modelName'])
-
-          : _stringValue(templateItem['productName']),
+      title:
+          _stringValue(templateItem['productName']).isEmpty
+              ? _stringValue(templateItem['modelName'])
+              : _stringValue(templateItem['productName']),
 
       subtitle:
-
-          '${_stringValue(templateItem['variantType'])} • Cavity ${_stringValue(templateItem['cavityNumber'] ?? templateItem['cavity'])}',
+          '${_materialType(templateItem)} • Cavity ${_stringValue(templateItem['cavityNumber'] ?? templateItem['cavity'])}',
 
       orderedText: 'L: $leftOrdered • R: $rightOrdered pieces',
 
@@ -1348,79 +919,46 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       remainingText: 'L: $leftRemaining • R: $rightRemaining pieces',
 
       child: LayoutBuilder(
-
         builder: (context, constraints) {
-
           final vertical = constraints.maxWidth < 520;
 
           final leftField = _numberField(
-
             label: 'Left - Receive Now',
 
             controller: _controllerFor(leftKey),
 
             helper: 'Extra pieces are allowed',
-
           );
 
           final rightField = _numberField(
-
             label: 'Right - Receive Now',
 
             controller: _controllerFor(rightKey),
 
             helper: 'Extra pieces are allowed',
-
           );
 
-
-
           if (vertical) {
-
             return Column(
-
-              children: [
-
-                leftField,
-
-                const SizedBox(height: 10),
-
-                rightField,
-
-              ],
-
+              children: [leftField, const SizedBox(height: 10), rightField],
             );
-
           }
 
-
-
           return Row(
-
             children: [
-
               Expanded(child: leftField),
 
               const SizedBox(width: 10),
 
               Expanded(child: rightField),
-
             ],
-
           );
-
         },
-
       ),
-
     );
-
   }
 
-
-
   Widget _buildVariantCard({
-
     required String title,
 
     required String subtitle,
@@ -1432,166 +970,114 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     required String remainingText,
 
     required Widget child,
-
   }) {
-
     return Container(
-
       margin: const EdgeInsets.only(bottom: 12),
 
       padding: const EdgeInsets.all(14),
 
       decoration: BoxDecoration(
-
         color: Colors.white,
 
         borderRadius: BorderRadius.circular(12),
 
         border: Border.all(color: const Color(0xFFE5E7EB)),
-
       ),
 
       child: Column(
-
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-
           Text(
-
             title,
 
             style: GoogleFonts.poppins(
-
               fontSize: 14,
 
               fontWeight: FontWeight.w600,
 
               color: const Color(0xFF343741),
-
             ),
-
           ),
 
           const SizedBox(height: 2),
 
           Text(
-
             subtitle,
 
             style: GoogleFonts.poppins(
-
               fontSize: 11,
 
               color: const Color(0xFF6B7280),
-
             ),
-
           ),
 
           const SizedBox(height: 10),
 
           Wrap(
-
             spacing: 14,
 
             runSpacing: 4,
 
             children: [
-
               _summaryText('Ordered', orderedText),
 
               _summaryText('Already Received', receivedText),
 
               _summaryText('Remaining', remainingText),
-
             ],
-
           ),
 
           const SizedBox(height: 12),
 
           child,
-
         ],
-
       ),
-
     );
-
   }
 
-
-
   Widget _summaryText(String label, String value) {
-
     return RichText(
-
       text: TextSpan(
-
         children: [
-
           TextSpan(
-
             text: '$label: ',
 
             style: GoogleFonts.poppins(
-
               fontSize: 11,
 
               color: const Color(0xFF6B7280),
-
             ),
-
           ),
 
           TextSpan(
-
             text: value,
 
             style: GoogleFonts.poppins(
-
               fontSize: 11,
 
               fontWeight: FontWeight.w600,
 
               color: const Color(0xFF343741),
-
             ),
-
           ),
-
         ],
-
       ),
-
     );
-
   }
 
-
-
   Widget _buildBody() {
-
     final items = _items();
-
-
 
     final focusItems = items.where(_isFocus).toList();
 
     final templeItems = items.where(_isTemple).toList();
 
-
-
     final templeGroups = <String, List<Map<String, dynamic>>>{};
 
     for (final item in templeItems) {
-
       templeGroups.putIfAbsent(_groupKey(item), () => []).add(item);
-
     }
-
-
 
     final orderedShots = _calculateShots(items, 'orderedQuantity');
 
@@ -1599,110 +1085,86 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     final pendingShots = (orderedShots - receivedShots).clamp(0, orderedShots);
 
-
-
     return Form(
-
       key: _formKey,
 
       child: ListView(
-
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
 
         children: [
-
           Container(
-
             padding: const EdgeInsets.all(14),
 
             decoration: BoxDecoration(
-
               color: Colors.white,
 
               borderRadius: BorderRadius.circular(12),
 
               border: Border.all(color: const Color(0xFFE5E7EB)),
-
             ),
 
             child: Column(
-
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-
                 Text(
-
                   _stringValue(_order?['orderNumber']).isEmpty
-
                       ? '-'
-
                       : _stringValue(_order?['orderNumber']),
 
                   style: GoogleFonts.poppins(
-
                     fontSize: 17,
 
                     fontWeight: FontWeight.w600,
 
                     color: const Color(0xFF343741),
-
                   ),
-
                 ),
 
                 const SizedBox(height: 3),
 
                 Text(
-
                   'Molding Supplier: ${_stringValue(_order?['supplierName']).isEmpty ? '-' : _stringValue(_order?['supplierName'])}',
 
                   style: GoogleFonts.poppins(
-
                     fontSize: 12,
 
                     color: const Color(0xFF6B7280),
-
                   ),
-
                 ),
 
                 const SizedBox(height: 12),
 
                 Row(
-
                   children: [
+                    Expanded(
+                      child: _summaryText('Ordered Shots', '$orderedShots'),
+                    ),
 
-                    Expanded(child: _summaryText('Ordered Shots', '$orderedShots')),
+                    Expanded(
+                      child: _summaryText('Received Shots', '$receivedShots'),
+                    ),
 
-                    Expanded(child: _summaryText('Received Shots', '$receivedShots')),
-
-                    Expanded(child: _summaryText('Pending Shots', '$pendingShots')),
-
+                    Expanded(
+                      child: _summaryText('Pending Shots', '$pendingShots'),
+                    ),
                   ],
-
                 ),
-
               ],
-
             ),
-
           ),
 
           const SizedBox(height: 16),
 
           if (focusItems.isNotEmpty) ...[
-
             _sectionTitle('Focus - Received Pieces'),
 
             const SizedBox(height: 8),
 
             ...focusItems.map(_buildFocusCard),
-
           ],
 
           if (templeGroups.isNotEmpty) ...[
-
             const SizedBox(height: 6),
 
             _sectionTitle('Temple - Received Pieces'),
@@ -1710,7 +1172,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             const SizedBox(height: 8),
 
             ...templeGroups.values.map(_buildTempleCard),
-
           ],
 
           const SizedBox(height: 6),
@@ -1720,169 +1181,120 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           const SizedBox(height: 8),
 
           Container(
-
             padding: const EdgeInsets.all(14),
 
             decoration: BoxDecoration(
-
               color: Colors.white,
 
               borderRadius: BorderRadius.circular(12),
 
               border: Border.all(color: const Color(0xFFE5E7EB)),
-
             ),
 
             child: Column(
-
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-
-                _label('Drumming Supplier \*'),
+                _label('Drumming Supplier \\\*'),
 
                 const SizedBox(height: 6),
 
                 DropdownButtonFormField<String>(
-
                   value: _selectedDrummingSupplierId,
 
                   isExpanded: true,
 
                   decoration: InputDecoration(
-
-                    hintText: _drummingSuppliers.isEmpty
-
-                        ? 'No Drumming suppliers available'
-
-                        : 'Select Drumming supplier',
+                    hintText:
+                        _drummingSuppliers.isEmpty
+                            ? 'No Drumming suppliers available'
+                            : 'Select Drumming supplier',
 
                     filled: true,
 
                     fillColor: const Color(0xFFF9FAFB),
 
                     contentPadding: const EdgeInsets.symmetric(
-
                       horizontal: 12,
 
                       vertical: 12,
-
                     ),
 
                     border: OutlineInputBorder(
-
                       borderRadius: BorderRadius.circular(9),
 
-                      borderSide: const BorderSide(
-
-                        color: Color(0xFFE0E0E0),
-
-                      ),
-
+                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                     ),
 
                     enabledBorder: OutlineInputBorder(
-
                       borderRadius: BorderRadius.circular(9),
 
-                      borderSide: const BorderSide(
-
-                        color: Color(0xFFE0E0E0),
-
-                      ),
-
+                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
                     ),
-
                   ),
 
-                  items: _drummingSuppliers.map((supplier) {
+                  items:
+                      _drummingSuppliers.map((supplier) {
+                        final id = supplier['id']?.toString() ?? '';
 
-                    final id = supplier['id']?.toString() ?? '';
+                        return DropdownMenuItem<String>(
+                          value: id,
 
-                    return DropdownMenuItem<String>(
+                          child: Text(
+                            _supplierDisplayName(supplier),
 
-                      value: id,
+                            overflow: TextOverflow.ellipsis,
 
-                      child: Text(
+                            style: GoogleFonts.poppins(fontSize: 13),
+                          ),
+                        );
+                      }).toList(),
 
-                        _supplierDisplayName(supplier),
+                  onChanged:
+                      _drummingSuppliers.isEmpty
+                          ? null
+                          : (value) {
+                            Map<String, dynamic>? supplier;
 
-                        overflow: TextOverflow.ellipsis,
+                            for (final item in _drummingSuppliers) {
+                              if (item['id']?.toString() == value) {
+                                supplier = item;
 
-                        style: GoogleFonts.poppins(fontSize: 13),
-
-                      ),
-
-                    );
-
-                  }).toList(),
-
-                  onChanged: _drummingSuppliers.isEmpty
-
-                      ? null
-
-                      : (value) {
-
-                          Map<String, dynamic>? supplier;
-
-                          for (final item in _drummingSuppliers) {
-
-                            if (item['id']?.toString() == value) {
-
-                              supplier = item;
-
-                              break;
-
+                                break;
+                              }
                             }
 
-                          }
+                            setState(() {
+                              _selectedDrummingSupplierId = value;
 
-                          setState(() {
-
-                            _selectedDrummingSupplierId = value;
-
-                            _selectedDrummingSupplierName = supplier == null
-
-                                ? null
-
-                                : _supplierDisplayName(supplier);
-
-                          });
-
-                        },
+                              _selectedDrummingSupplierName =
+                                  supplier == null
+                                      ? null
+                                      : _supplierDisplayName(supplier);
+                            });
+                          },
 
                   validator: (value) {
-
                     if (value == null || value.trim().isEmpty) {
-
                       return 'Please select a Drumming supplier';
-
                     }
 
                     return null;
-
                   },
-
                 ),
 
                 if (_drummingSuppliers.isEmpty) ...[
-
                   const SizedBox(height: 6),
 
                   Text(
-
                     'Add a supplier with role "Drumming" before receiving goods.',
 
                     style: GoogleFonts.poppins(
-
                       fontSize: 11,
 
                       color: Colors.redAccent,
-
                     ),
-
                   ),
-
                 ],
 
                 const SizedBox(height: 14),
@@ -1892,15 +1304,15 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                 const SizedBox(height: 6),
 
                 TextFormField(
-
                   controller: _weightController,
 
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
 
                   style: GoogleFonts.poppins(fontSize: 13),
 
                   decoration: InputDecoration(
-
                     hintText: 'Enter received weight',
 
                     suffixText: 'kg',
@@ -1909,18 +1321,53 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
                     fillColor: const Color(0xFFF9FAFB),
 
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
 
                     border: OutlineInputBorder(
-
                       borderRadius: BorderRadius.circular(9),
 
                       borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-
                     ),
-
                   ),
+                ),
 
+                const SizedBox(height: 12),
+
+                _label('Total Bags Received'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _bagsController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: false,
+                  ),
+                  style: GoogleFonts.poppins(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Enter total bags received',
+                    suffixText: 'bags',
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(9),
+                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (_toInt(value) < 0) {
+                      return 'Bags cannot be negative';
+                    }
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 12),
@@ -1930,7 +1377,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                 const SizedBox(height: 6),
 
                 TextFormField(
-
                   controller: _remarksController,
 
                   maxLines: 3,
@@ -1938,7 +1384,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                   style: GoogleFonts.poppins(fontSize: 13),
 
                   decoration: InputDecoration(
-
                     hintText: 'Optional receiving remarks',
 
                     filled: true,
@@ -1948,175 +1393,117 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                     contentPadding: const EdgeInsets.all(12),
 
                     border: OutlineInputBorder(
-
                       borderRadius: BorderRadius.circular(9),
 
                       borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-
                     ),
-
                   ),
-
                 ),
-
               ],
-
             ),
-
           ),
-
         ],
-
       ),
-
     );
-
   }
 
-
-
   Widget _sectionTitle(String text) {
-
     return Text(
-
       text,
 
       style: GoogleFonts.poppins(
-
         fontSize: 14,
 
         fontWeight: FontWeight.w600,
 
         color: const Color(0xFF343741),
-
       ),
-
     );
-
   }
 
-
-
   @override
-
   Widget build(BuildContext context) {
-
     return Scaffold(
-
       backgroundColor: const Color(0xFFF6F7FB),
 
       appBar: AppBar(
-
         backgroundColor: Colors.white,
 
         elevation: 0,
 
         title: Text(
-
           'Receive Molding Goods',
 
           style: GoogleFonts.poppins(
-
             fontSize: 18,
 
             fontWeight: FontWeight.w600,
 
             color: const Color(0xFF343741),
-
           ),
-
         ),
 
         iconTheme: const IconThemeData(color: Color(0xFF343741)),
-
       ),
 
-      body: _isLoading
-
-          ? const Center(child: CircularProgressIndicator())
-
-          : _order == null
-
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _order == null
               ? Center(
+                child: Text(
+                  'Unable to load molding order.',
 
-                  child: Text(
-
-                    'Unable to load molding order.',
-
-                    style: GoogleFonts.poppins(color: Colors.grey),
-
-                  ),
-
-                )
-
+                  style: GoogleFonts.poppins(color: Colors.grey),
+                ),
+              )
               : _buildBody(),
 
-      bottomNavigationBar: _order == null || _isLoading
+      bottomNavigationBar:
+          _order == null || _isLoading
+              ? null
+              : SafeArea(
+                minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
 
-          ? null
+                child: SizedBox(
+                  height: 50,
 
-          : SafeArea(
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveReceiving,
 
-              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    icon:
+                        _isSaving
+                            ? const SizedBox(
+                              width: 18,
 
-              child: SizedBox(
+                              height: 18,
 
-                height: 50,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.inventory_2_outlined),
 
-                child: ElevatedButton.icon(
+                    label: Text(
+                      _isSaving ? 'Saving...' : 'Receive Goods',
 
-                  onPressed: _isSaving ? null : _saveReceiving,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
 
-                  icon: _isSaving
-
-                      ? const SizedBox(
-
-                          width: 18,
-
-                          height: 18,
-
-                          child: CircularProgressIndicator(strokeWidth: 2),
-
-                        )
-
-                      : const Icon(Icons.inventory_2_outlined),
-
-                  label: Text(
-
-                    _isSaving ? 'Saving...' : 'Receive Goods',
-
-                    style: GoogleFonts.poppins(
-
-                      fontSize: 14,
-
-                      fontWeight: FontWeight.w600,
-
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
 
-                  ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3F51B5),
 
-                  style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
 
-                    backgroundColor: const Color(0xFF3F51B5),
-
-                    foregroundColor: Colors.white,
-
-                    shape: RoundedRectangleBorder(
-
-                      borderRadius: BorderRadius.circular(10),
-
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-
                   ),
-
                 ),
-
               ),
-
-            ),
-
     );
-
   }
-
 }

@@ -8,10 +8,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/create_molding_order_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_orders/create_molding_order_page.dart';
 
-import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_order_details_page.dart';
-import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/receive_molding_goods_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_orders/molding_order_details_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/molding_orders/receive_molding_goods_page.dart';
+import 'package:shotgun/screens/supervisor_screens/raw_product_orders_page/drumming_orders/drumming_order_details_page.dart';
 
 class RawProductOrdersPage extends StatefulWidget {
   const RawProductOrdersPage({super.key});
@@ -1705,6 +1706,41 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     );
   }
 
+  Widget _buildDrummingActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 38,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(
+          icon,
+          size: 16,
+        ),
+        label: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          side: BorderSide(
+            color: color.withOpacity(0.35),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDrummingOrderCard(Map<String, dynamic> order) {
     final orderNumber = order['orderNumber']?.toString() ?? '-';
     final status = order['status']?.toString() ?? 'Pending';
@@ -1785,13 +1821,29 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             ),
           ),
           if (items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+
+            const Divider(
+              height: 1,
+              color: Color(0xFFE5E7EB),
+            ),
+
             const SizedBox(height: 10),
-            Text(
-              '${items.length} received variant${items.length == 1 ? '' : 's'} sent to Drumming',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: const Color(0xFF6B7280),
-              ),
+
+            _buildDrummingActionButton(
+              icon: Icons.visibility_outlined,
+              label: 'View',
+              color: Colors.blue,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DrummingOrderDetailsPage(
+                      order: order,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ],
