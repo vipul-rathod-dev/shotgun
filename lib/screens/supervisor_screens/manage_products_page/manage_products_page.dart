@@ -360,7 +360,7 @@ class _ManageProductPageState extends State<ManageProductPage>
     }
 
     final cavities = <Map<String, dynamic>>[];
-    final usedModelIds = <String>{};
+    // final usedModelIds = <String>{};
 
     for (var i = 0; i < cavityCount; i++) {
       final modelId = _cavityModelIds[i];
@@ -375,12 +375,12 @@ class _ManageProductPageState extends State<ManageProductPage>
           error: true,
         );
       }
-      if (!usedModelIds.add(modelId)) {
-        return _message(
-          '${model['modelName']} is already assigned to another cavity.',
-          error: true,
-        );
-      }
+      // if (!usedModelIds.add(modelId)) {
+      //   return _message(
+      //     '${model['modelName']} is already assigned to another cavity.',
+      //     error: true,
+      //   );
+      // }
 
       final piecesPerCycle = int.tryParse(_piecesPerCycleControllers[i].text.trim());
       if (piecesPerCycle == null || piecesPerCycle <= 0) {

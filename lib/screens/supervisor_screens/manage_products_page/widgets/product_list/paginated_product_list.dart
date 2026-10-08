@@ -1424,9 +1424,9 @@ class _EditProductDialogState extends State<EditProductDialog> {
       if (modelId == null || model == null) {
         throw Exception('Select a Raw model for Cavity ${i + 1}.');
       }
-      if (!used.add(modelId)) {
-        throw Exception('${model['modelName']} is already assigned to another cavity.');
-      }
+      // if (!used.add(modelId)) {
+      //   throw Exception('${model['modelName']} is already assigned to another cavity.');
+      // }
 
       final pieces = int.tryParse(_piecesPerCycleControllers[i].text.trim()) ?? 0;
       if (pieces <= 0) {
