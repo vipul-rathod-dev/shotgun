@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shotgun/screens/supervisor_screens/manage_suppliers_page/supplier_role_page/supplier_granules_inventory_page.dart';
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class ManageSuppliersPage extends StatefulWidget {
@@ -66,16 +67,58 @@ class _ManageSuppliersPageState extends State<ManageSuppliersPage> {
     });
   }
 
-  Future<void> _saveSuppliersToCache(List<QueryDocumentSnapshot> docs) async {
+  dynamic _convertForJson(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate().toIso8601String();
+    }
+
+    if (value is DateTime) {
+      return value.toIso8601String();
+    }
+
+    if (value is Map) {
+      return value.map(
+        (key, val) => MapEntry(
+          key.toString(),
+          _convertForJson(val),
+        ),
+      );
+    }
+
+    if (value is Iterable) {
+      return value.map(_convertForJson).toList();
+    }
+
+    return value;
+  }
+
+  Future<void> _saveSuppliersToCache(
+    List<QueryDocumentSnapshot> docs,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
+
     final suppliers = docs.map((d) {
-      final data = d.data() as Map<String, dynamic>;
+      final data = Map<String, dynamic>.from(
+        d.data() as Map<String, dynamic>,
+      );
+
       data['id'] = d.id;
-      return data;
+
+      return Map<String, dynamic>.from(
+        _convertForJson(data) as Map,
+      );
     }).toList();
 
-    await prefs.setString('cachedSuppliers', jsonEncode(suppliers));
-    setState(() => _cachedSuppliers = suppliers);
+    await prefs.setString(
+      'cachedSuppliers',
+      jsonEncode(suppliers),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _cachedSuppliers = suppliers;
+    });
   }
 
   Future<void> _addSupplier() async {
@@ -271,6 +314,23 @@ class _ManageSuppliersPageState extends State<ManageSuppliersPage> {
           leading: const Icon(Icons.business, color: Colors.lightBlue),
           title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text('Phone: $phone\nRole: $role'),
+          onTap: () {
+            final supplierId = supplier['id']?.toString() ?? '';
+            final supplierName = supplier['name']?.toString() ?? 'Supplier';
+            final role = supplier['role']?.toString() ?? '';
+
+            if (role == 'Molding' && supplierId.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SupplierGranuleInventoryPage(
+                    supplierId: supplierId,
+                    supplierName: supplierName,
+                  ),
+                ),
+              );
+            }
+          },
           isThreeLine: true,
           trailing: IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),

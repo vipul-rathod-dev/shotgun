@@ -39,7 +39,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   String? _selectedDrummingSupplierName;
 
-  final TextEditingController _weightController = TextEditingController();
+  final Map<String, TextEditingController> _weightControllers = {};
 
   final TextEditingController _bagsController = TextEditingController(
     text: '0',
@@ -62,7 +62,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       controller.dispose();
     }
 
-    _weightController.dispose();
+    for (final controller in _weightControllers.values) {
+      controller.dispose();
+    }
 
     _bagsController.dispose();
 
@@ -272,6 +274,162 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   int _entered(String key) => _toInt(_controllerFor(key).text);
 
+  TextEditingController _weightControllerFor(String key) {
+    return _weightControllers.putIfAbsent(
+      key,
+      () => TextEditingController(text: '0'),
+    );
+  }
+
+  double _enteredWeight(String key) =>
+      _toDouble(_weightControllerFor(key).text);
+
+  double? _ratioNumber(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim().replaceAll('%', '');
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+
+  Map<String, double>? _ratioFractions(
+    Map<String, dynamic> item, {
+    Map<String, dynamic>? fallback,
+  }) {
+    dynamic readRatio(List<String> keys) {
+      for (final key in keys) {
+        if (item[key] != null && item[key].toString().trim().isNotEmpty) {
+          return item[key];
+        }
+      }
+      if (fallback != null) {
+        for (final key in keys) {
+          if (fallback[key] != null &&
+              fallback[key].toString().trim().isNotEmpty) {
+            return fallback[key];
+          }
+        }
+      }
+      return null;
+    }
+
+    var virgin = _ratioNumber(
+      readRatio(['virginRatio', 'virginPercentage', 'virginPercent']),
+    );
+    var grinding = _ratioNumber(
+      readRatio(['grindingRatio', 'grindingPercentage', 'grindingPercent']),
+    );
+
+    if (virgin == null && grinding == null) return null;
+    if (virgin == null) {
+      final currentGrinding = grinding;
+      if (currentGrinding == null) return null;
+      virgin =
+          currentGrinding <= 1 ? 1 - currentGrinding : 100 - currentGrinding;
+    }
+    if (grinding == null) {
+      final currentVirgin = virgin;
+      grinding = currentVirgin <= 1 ? 1 - currentVirgin : 100 - currentVirgin;
+    }
+
+    final virginValue = virgin;
+    final grindingValue = grinding;
+    if (virginValue < 0 ||
+        grindingValue < 0 ||
+        virginValue + grindingValue <= 0) {
+      return null;
+    }
+
+    final total = virginValue + grindingValue;
+    return {
+      'virgin': virginValue / total,
+      'grinding': grindingValue / total,
+      'virginRatioValue': virginValue,
+      'grindingRatioValue': grindingValue,
+    };
+  }
+
+  String _materialFieldPrefix(Map<String, dynamic> item) {
+    switch (_materialType(item).toLowerCase()) {
+      case 'black':
+        return 'black';
+      case 'clear':
+        return 'clear';
+      case 'pc':
+        return 'pc';
+      default:
+        return '';
+    }
+  }
+
+  // Map<String, double> _granuleCalculation(
+  //   double productWeight,
+  //   Map<String, double> ratios,
+  // ) {
+  //   const productYield = 0.70;
+  //   const runnerRate = 0.30;
+  //   const wastageRate = 0.03;
+  //   final totalWastage = productWeight * wastageRate;
+  //   final grossProductWeight = productWeight + totalWastage;
+  //   final estimatedInput = grossProductWeight / productYield;
+  //   print('Estimated Input: $estimatedInput');
+  //   final virginConsumed = estimatedInput * ratios['virgin']!;
+  //   print('Virgin Consumed: $virginConsumed');
+  //   final grindingConsumed = estimatedInput * ratios['grinding']!;
+  //   print('Grinding Consumed: $grindingConsumed');
+  //   return {
+  //     'receivedProductWeightKg': grossProductWeight,
+  //     'estimatedGranulesUsedKg': estimatedInput,
+  //     'runnerRecoveredKg': estimatedInput * runnerRate,
+  //     'virginRatio': ratios['virginRatioValue']!,
+  //     'grindingRatio': ratios['grindingRatioValue']!,
+  //     'virginConsumedKg': virginConsumed,
+  //     'grindingConsumedKg': grindingConsumed,
+  //     'virginDeductionKg': virginConsumed,
+  //     'grindingDeductionKg': grindingConsumed,
+  //     'totalWastageKg': totalWastage,
+  //   };
+  // }
+
+  
+  Map<String, double> _granuleCalculation(
+    double productWeight,
+    Map<String, double> ratios,
+  ) {
+    const wastageRate = 0.03;
+    const runnerRate = 0.30;
+
+    // Step 1: Add 3% wastage to the actual product weight.
+    final totalWastage = productWeight * wastageRate;
+    final productWeightWithWastage = productWeight + totalWastage;
+
+    // Step 2: Runner is 30% of the actual product weight.
+    final runnerRecovered = productWeight * runnerRate;
+
+    // Step 3: Total granules consumed include product, wastage and runner.
+    final totalGranulesUsed =
+        productWeightWithWastage + runnerRecovered;
+
+    final virginConsumed =
+        totalGranulesUsed * ratios['virgin']!;
+    final grindingConsumed =
+        totalGranulesUsed * ratios['grinding']!;
+
+    return {
+      'receivedProductWeightKg': productWeight,
+      'totalProductWeightWithWastageKg': productWeightWithWastage,
+      'estimatedGranulesUsedKg': totalGranulesUsed,
+      'runnerRecoveredKg': runnerRecovered,
+      'virginRatio': ratios['virginRatioValue']!,
+      'grindingRatio': ratios['grindingRatioValue']!,
+      'virginConsumedKg': virginConsumed,
+      'grindingConsumedKg': grindingConsumed,
+      'virginDeductionKg': virginConsumed,
+      'grindingDeductionKg': grindingConsumed,
+      'totalWastageKg': totalWastage,
+    };
+  }
+
+
   int _received(Map<String, dynamic> item) => _toInt(item['receivedQuantity']);
 
   int _ordered(Map<String, dynamic> item) =>
@@ -415,15 +573,47 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       return;
     }
 
-    final weight = _toDouble(_weightController.text);
-
-    final totalBags = _toInt(_bagsController.text);
-
-    if (_weightController.text.trim().isNotEmpty && weight < 0) {
-      _showMessage('Weight cannot be negative.', error: true);
-
-      return;
+    final weightByGroup = <String, double>{};
+    final calculationsByGroup = <String, Map<String, double>>{};
+    for (final entry in changes.entries) {
+      final productWeight = _enteredWeight(entry.key);
+      if (productWeight <= 0) {
+        _showMessage(
+          'Enter a received weight greater than 0 kg for every variant with received pieces.',
+          error: true,
+        );
+        return;
+      }
+      final group = groupedItems[entry.key];
+      if (group == null || group.isEmpty) continue;
+      final item = group.first;
+      final ratios = _ratioFractions(item, fallback: _order);
+      if (ratios == null) {
+        _showMessage(
+          'Virgin and Grinding ratios are missing or invalid for ${_stringValue(item['productName']).isEmpty ? _stringValue(item['modelName']) : _stringValue(item['productName'])}. Please update the molding order ratios first.',
+          error: true,
+        );
+        return;
+      }
+      if (_materialFieldPrefix(item).isEmpty) {
+        _showMessage(
+          'Unknown material type for a received variant.',
+          error: true,
+        );
+        return;
+      }
+      weightByGroup[entry.key] = productWeight;
+      calculationsByGroup[entry.key] = _granuleCalculation(
+        productWeight,
+        ratios,
+      );
     }
+
+    final weight = weightByGroup.values.fold<double>(
+      0,
+      (sum, value) => sum + value,
+    );
+    final totalBags = _toInt(_bagsController.text);
 
     final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -450,12 +640,29 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           .collection('metadata')
           .doc('drumming_order_counter');
 
+      final moldingLaborId = _stringValue(_order?['supplierId']);
+      if (moldingLaborId.isEmpty) {
+        throw Exception(
+          'The molding order has no molding supplier/labor assigned, so granule balances cannot be updated.',
+        );
+      }
+      final laborBalanceRef = companyRef
+          .collection('labor_granules_balances')
+          .doc(moldingLaborId);
+      final granuleTransactionRefs =
+          <String, DocumentReference<Map<String, dynamic>>>{};
+      for (final key in changes.keys) {
+        granuleTransactionRefs[key] =
+            companyRef.collection('granule_transactions').doc();
+      }
+
       String? generatedDrummingOrderNumber;
 
       await _firestore.runTransaction<void>((transaction) async {
         final snapshot = await transaction.get(orderRef);
 
         final counterSnapshot = await transaction.get(drummingCounterRef);
+        final laborBalanceSnapshot = await transaction.get(laborBalanceRef);
 
         if (!snapshot.exists) {
           throw Exception('Molding order no longer exists.');
@@ -643,6 +850,38 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           );
         }
 
+        final laborDeductions = <String, double>{};
+        final runnerCredits = <String, double>{};
+        final balanceData = laborBalanceSnapshot.data() ?? <String, dynamic>{};
+
+        for (final receiptItem in receiptItems) {
+          final groupKey = _stringValue(receiptItem['sourceMoldingItemKey']);
+          final calculation = calculationsByGroup[groupKey];
+          if (calculation == null) {
+            throw Exception(
+              'Granule calculation is missing for a received variant.',
+            );
+          }
+          receiptItem.addAll(calculation);
+          receiptItem['sourceMoldingItemKey'] = groupKey;
+
+          final prefix = _materialFieldPrefix(receiptItem);
+          if (prefix.isEmpty) {
+            throw Exception('Unknown material type for a received variant.');
+          }
+          final virginField = '${prefix}VirginKg';
+          final grindingField = '${prefix}GrindingKg';
+          laborDeductions[virginField] =
+              (laborDeductions[virginField] ?? 0) +
+              calculation['virginDeductionKg']!;
+          laborDeductions[grindingField] =
+              (laborDeductions[grindingField] ?? 0) +
+              calculation['grindingDeductionKg']!;
+          runnerCredits[grindingField] =
+              (runnerCredits[grindingField] ?? 0) +
+              calculation['runnerRecoveredKg']!;
+        }
+
         final history = <dynamic>[];
 
         final existingHistory = existing['receivingHistory'];
@@ -671,6 +910,14 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                 'cavityNumber': item['cavityNumber'],
 
                 'quantity': item['orderedQuantity'],
+                'receivedProductWeightKg': item['receivedProductWeightKg'],
+                'estimatedGranulesUsedKg': item['estimatedGranulesUsedKg'],
+                'runnerRecoveredKg': item['runnerRecoveredKg'],
+                'virginRatio': item['virginRatio'],
+                'grindingRatio': item['grindingRatio'],
+                'virginConsumedKg': item['virginConsumedKg'],
+                'grindingConsumedKg': item['grindingConsumedKg'],
+                'totalWastageKg': item['totalWastageKg'],
               };
             }).toList();
 
@@ -680,6 +927,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'receivedByUid': currentUser.uid,
 
           'weight': weight > 0 ? weight : null,
+          'estimatedGranulesUsedKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['estimatedGranulesUsedKg']),
+          ),
+          'runnerRecoveredKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['runnerRecoveredKg']),
+          ),
+          'totalWastageKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['totalWastageKg']),
+          ),
 
           'remarks': _remarksController.text.trim(),
 
@@ -698,6 +957,90 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
         generatedDrummingOrderNumber =
             'DRUM-${nextDrummingNumber.toString().padLeft(5, '0')}';
+
+        final updatedLaborBalance = <String, dynamic>{
+          'laborId': moldingLaborId,
+          'laborName': _stringValue(existing['supplierName']),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'lastMoldingOrderId': widget.orderId,
+          'lastMoldingOrderNumber': _stringValue(existing['orderNumber']),
+          'lastUpdatedByUid': currentUser.uid,
+        };
+
+        // Process every material field that has a deduction or runner credit.
+        final balanceFields = <String>{
+          ...laborDeductions.keys,
+          ...runnerCredits.keys,
+        };
+
+        var hasNegativeBalance = !laborBalanceSnapshot.exists;
+
+        for (final field in balanceFields) {
+          final currentBalance = _toDouble(balanceData[field]);
+          final consumed = laborDeductions[field] ?? 0.0;
+          final runnerCredit = runnerCredits[field] ?? 0.0;
+
+          // Deduct material consumed and credit recovered runner
+          // directly to the molding supplier's grinding balance.
+          final updatedBalance =
+              currentBalance - consumed + runnerCredit;
+
+          updatedLaborBalance[field] = updatedBalance;
+
+          if (updatedBalance < -0.000001) {
+            hasNegativeBalance = true;
+          }
+        }
+
+        updatedLaborBalance['requiresReconciliation'] = hasNegativeBalance;
+
+        transaction.set(
+          laborBalanceRef,
+          updatedLaborBalance,
+          SetOptions(merge: true),
+        );
+
+        for (final receiptItem in receiptItems) {
+          final groupKey = _stringValue(receiptItem['sourceMoldingItemKey']);
+          final granuleTransactionRef = granuleTransactionRefs[groupKey];
+          if (granuleTransactionRef == null) continue;
+          transaction.set(granuleTransactionRef, {
+            'transactionType': 'Molding Consumption and Runner Recovery',
+            'status': 'Posted',
+            'companyId': _companyId,
+            'laborId': moldingLaborId,
+            'laborName': _stringValue(existing['supplierName']),
+            'moldingOrderId': widget.orderId,
+            'moldingOrderNumber': _stringValue(existing['orderNumber']),
+            'drummingOrderId': drummingOrderRef.id,
+            'materialType': _materialType(receiptItem),
+            'componentType': receiptItem['componentType'],
+            'productId': receiptItem['productId'],
+            'productName': receiptItem['productName'],
+            'sourceMoldingItemKey': groupKey,
+            ...receiptItem.entries
+                .where(
+                  (entry) => [
+                    'receivedProductWeightKg',
+                    'estimatedGranulesUsedKg',
+                    'runnerRecoveredKg',
+                    'virginRatio',
+                    'grindingRatio',
+                    'virginConsumedKg',
+                    'grindingConsumedKg',
+                    'virginDeductionKg',
+                    'grindingDeductionKg',
+                    'totalWastageKg',
+                  ].contains(entry.key),
+                )
+                .fold<Map<String, dynamic>>(
+                  <String, dynamic>{},
+                  (map, entry) => map..[entry.key] = entry.value,
+                ),
+            'createdAt': FieldValue.serverTimestamp(),
+            'createdByUid': currentUser.uid,
+          });
+        }
 
         transaction.set(drummingCounterRef, {
           'lastNumber': nextDrummingNumber,
@@ -768,6 +1111,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'moldingReceiptAt': FieldValue.serverTimestamp(),
 
           'moldingReceiptWeight': weight > 0 ? weight : null,
+          'estimatedGranulesUsedKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['estimatedGranulesUsedKg']),
+          ),
+          'runnerRecoveredKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['runnerRecoveredKg']),
+          ),
+          'totalWastageKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['totalWastageKg']),
+          ),
 
           'moldingReceiptTotalBags': totalBags > 0 ? totalBags : null,
 
@@ -806,6 +1161,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'lastReceivedByUid': currentUser.uid,
 
           'lastReceivedWeight': weight > 0 ? weight : null,
+          'lastEstimatedGranulesUsedKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['estimatedGranulesUsedKg']),
+          ),
+          'lastRunnerRecoveredKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['runnerRecoveredKg']),
+          ),
+          'lastTotalWastageKg': receiptItems.fold<double>(
+            0,
+            (sum, item) => sum + _toDouble(item['totalWastageKg']),
+          ),
 
           'lastReceivedTotalBags': totalBags > 0 ? totalBags : null,
 
@@ -826,6 +1193,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+      print('Error receiving molding goods: $e');
 
       _showMessage(
         'Unable to receive molding goods: ${e.toString().replaceFirst('Exception: ', '')}',
@@ -907,6 +1275,55 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     );
   }
 
+  Widget _buildGranulePreview(Map<String, dynamic> item, String key) {
+    final productWeight = _enteredWeight(key);
+    if (productWeight <= 0) return const SizedBox.shrink();
+    final ratios = _ratioFractions(item, fallback: _order);
+    if (ratios == null) return const SizedBox.shrink();
+    final calculation = _granuleCalculation(productWeight, ratios);
+    String kg(dynamic value) => '${_toDouble(value).toStringAsFixed(3)} kg';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F5FF),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFDDE3FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Estimated Granule Calculation',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF3F51B5),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Total granules used: ${kg(calculation['estimatedGranulesUsedKg'])}',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Runner credited to Grinding: ${kg(calculation['runnerRecoveredKg'])}',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Virgin deduction: ${kg(calculation['virginDeductionKg'])} (includes 3% wastage)',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Grinding deduction: ${kg(calculation['grindingDeductionKg'])} (includes 3% wastage)',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFocusCard(Map<String, dynamic> item) {
     final key = _groupKey(item);
 
@@ -935,13 +1352,44 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
       remainingText: '$remaining pieces',
 
-      child: _numberField(
-        label: 'Receive Now (Pieces)',
-
-        controller: _controllerFor(key),
-
-        helper:
-            'Extra pieces are allowed when production exceeds the planned quantity',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _numberField(
+            label: 'Receive Now (Pieces)',
+            controller: _controllerFor(key),
+            helper:
+                'Extra pieces are allowed when production exceeds the planned quantity',
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: _weightControllerFor(key),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            style: GoogleFonts.poppins(fontSize: 13),
+            decoration: InputDecoration(
+              labelText: 'Received Product Weight',
+              helperText:
+                  'Actual weight for this variant; used to calculate granule consumption',
+              suffixText: 'kg',
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(9),
+                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(9),
+                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+              ),
+            ),
+          ),
+          _buildGranulePreview(item, key),
+        ],
       ),
     );
   }
@@ -1286,44 +1734,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                     ),
                   ),
                 ],
-
-                const SizedBox(height: 14),
-
-                _label('Weight'),
-
-                const SizedBox(height: 6),
-
-                TextFormField(
-                  controller: _weightController,
-
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-
-                  style: GoogleFonts.poppins(fontSize: 13),
-
-                  decoration: InputDecoration(
-                    hintText: 'Enter received weight',
-
-                    suffixText: 'kg',
-
-                    filled: true,
-
-                    fillColor: const Color(0xFFF9FAFB),
-
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-
-                      vertical: 12,
-                    ),
-
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(9),
-
-                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
-                  ),
-                ),
 
                 const SizedBox(height: 12),
 

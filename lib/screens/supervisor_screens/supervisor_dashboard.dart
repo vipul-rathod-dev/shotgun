@@ -83,7 +83,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
       DashboardItem(
         icon: Icons.inventory_2_rounded,
         title: 'Manage Inventory',
-        route: '/supervisor/view-inventory',
+        route: '/supervisor/manage-inventory',
       ),
       DashboardItem(
         icon: Icons.badge_outlined,
