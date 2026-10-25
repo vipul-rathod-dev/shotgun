@@ -360,67 +360,80 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         return '';
     }
   }
-
+  
   // Map<String, double> _granuleCalculation(
   //   double productWeight,
+  //   int shotCount,
   //   Map<String, double> ratios,
   // ) {
-  //   const productYield = 0.70;
-  //   const runnerRate = 0.30;
-  //   const wastageRate = 0.03;
-  //   final totalWastage = productWeight * wastageRate;
-  //   final grossProductWeight = productWeight + totalWastage;
-  //   final estimatedInput = grossProductWeight / productYield;
-  //   print('Estimated Input: $estimatedInput');
-  //   final virginConsumed = estimatedInput * ratios['virgin']!;
-  //   print('Virgin Consumed: $virginConsumed');
-  //   final grindingConsumed = estimatedInput * ratios['grinding']!;
-  //   print('Grinding Consumed: $grindingConsumed');
+  //   const runnerWeightPerShotKg = 0.004; // 4 grams = 0.004 kg
+
+  //   // Runner weight is based on the number of molding shots.
+  //   final runnerRecovered = shotCount * runnerWeightPerShotKg;
+
+  //   // Total granules used = received product weight + runner weight.
+  //   final totalGranulesUsed = productWeight + runnerRecovered;
+
+  //   // Granule mixing ratio: 10 kg Virgin + 3 kg Grinding = 13 kg
+  //   const virginRatio = 10 / 13;
+  //   const grindingRatio = 3 / 13;
+
+  //   final virginConsumed = totalGranulesUsed * virginRatio;
+  //   final grindingConsumed = totalGranulesUsed * grindingRatio;
+
   //   return {
-  //     'receivedProductWeightKg': grossProductWeight,
-  //     'estimatedGranulesUsedKg': estimatedInput,
-  //     'runnerRecoveredKg': estimatedInput * runnerRate,
-  //     'virginRatio': ratios['virginRatioValue']!,
-  //     'grindingRatio': ratios['grindingRatioValue']!,
+  //     'receivedProductWeightKg': productWeight,
+  //     'moldingShots': shotCount.toDouble(),
+  //     'runnerWeightPerShotKg': runnerWeightPerShotKg,
+  //     'estimatedGranulesUsedKg': totalGranulesUsed,
+  //     'runnerRecoveredKg': runnerRecovered,
+  //     'virginRatio': virginRatio * 100,       // 76.9231%
+  //     'grindingRatio': grindingRatio * 100,    // 23.0769%
   //     'virginConsumedKg': virginConsumed,
   //     'grindingConsumedKg': grindingConsumed,
   //     'virginDeductionKg': virginConsumed,
   //     'grindingDeductionKg': grindingConsumed,
-  //     'totalWastageKg': totalWastage,
+  //     'totalWastageKg': 0.0,
   //   };
   // }
 
-  
+
   Map<String, double> _granuleCalculation(
     double productWeight,
+    int shotCount,
     Map<String, double> ratios,
   ) {
-    const wastageRate = 0.03;
-    const runnerRate = 0.30;
+    const runnerWeightPerShotKg = 0.004; // 4 grams per shot
+    const wastageRate = 0.03; // 3% wastage
 
-    // Step 1: Add 3% wastage to the actual product weight.
-    final totalWastage = productWeight * wastageRate;
-    final productWeightWithWastage = productWeight + totalWastage;
+    // Step 1: Calculate runner from molding shots.
+    final runnerRecovered = shotCount * runnerWeightPerShotKg;
 
-    // Step 2: Runner is 30% of the actual product weight.
-    final runnerRecovered = productWeight * runnerRate;
+    // Step 2: Add product weight and runner weight.
+    final granulesBeforeWastage = productWeight + runnerRecovered;
 
-    // Step 3: Total granules consumed include product, wastage and runner.
-    final totalGranulesUsed =
-        productWeightWithWastage + runnerRecovered;
+    // Step 3: Calculate 3% wastage on total granules used.
+    final totalWastage = granulesBeforeWastage * wastageRate;
 
-    final virginConsumed =
-        totalGranulesUsed * ratios['virgin']!;
-    final grindingConsumed =
-        totalGranulesUsed * ratios['grinding']!;
+    // Step 4: Include wastage in total granules consumed.
+    final totalGranulesUsed = granulesBeforeWastage + totalWastage;
+
+    // Step 5: Apply the 10:3 Virgin-to-Grinding ratio.
+    const virginRatio = 10 / 13;
+    const grindingRatio = 3 / 13;
+
+    final virginConsumed = totalGranulesUsed * virginRatio;
+    final grindingConsumed = totalGranulesUsed * grindingRatio;
 
     return {
       'receivedProductWeightKg': productWeight,
-      'totalProductWeightWithWastageKg': productWeightWithWastage,
+      'moldingShots': shotCount.toDouble(),
+      'runnerWeightPerShotKg': runnerWeightPerShotKg,
+      'granulesBeforeWastageKg': granulesBeforeWastage,
       'estimatedGranulesUsedKg': totalGranulesUsed,
       'runnerRecoveredKg': runnerRecovered,
-      'virginRatio': ratios['virginRatioValue']!,
-      'grindingRatio': ratios['grindingRatioValue']!,
+      'virginRatio': virginRatio * 100,
+      'grindingRatio': grindingRatio * 100,
       'virginConsumedKg': virginConsumed,
       'grindingConsumedKg': grindingConsumed,
       'virginDeductionKg': virginConsumed,
@@ -450,6 +463,52 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     return (pieceCount + cyclePieces - 1) ~/ cyclePieces;
   }
+
+  
+  int _calculateGroupShots(
+    Map<String, dynamic> item,
+    int totalQuantity,
+  ) {
+    if (totalQuantity <= 0) return 0;
+
+    if (_isTemple(item)) {
+      // Each cavity produces 2 pieces for the selected Temple side.
+      // 2 cavities = 4 pieces per shot.
+      // 3 cavities = 6 pieces per shot.
+      final cavityCount = _toInt(
+        item['cavityNumber'] ?? item['cavity'],
+      );
+
+      final effectiveCavityCount =
+          cavityCount > 0 ? cavityCount : 2;
+
+      final piecesPerShot = effectiveCavityCount * 2;
+
+      return (totalQuantity + piecesPerShot - 1) ~/
+          piecesPerShot;
+    }
+
+    // Keep the existing Focus calculation based on cavity count.
+    final moldId = _stringValue(item['moldProductId']);
+
+    final moldItems = _items().where((moldItem) {
+      return _stringValue(moldItem['moldProductId']) == moldId;
+    }).toList();
+
+    final cavities = moldItems
+        .map(
+          (moldItem) => _stringValue(
+            moldItem['cavityNumber'] ?? moldItem['cavity'],
+          ),
+        )
+        .where((cavity) => cavity.isNotEmpty)
+        .toSet();
+
+    final cavityCount = cavities.isEmpty ? 1 : cavities.length;
+
+    return (totalQuantity + cavityCount - 1) ~/ cavityCount;
+  }
+
 
   int _calculateShots(List<Map<String, dynamic>> items, String field) {
     final itemsByMold = <String, List<Map<String, dynamic>>>{};
@@ -602,11 +661,23 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         );
         return;
       }
+      
       weightByGroup[entry.key] = productWeight;
+
+      // Use the newly received quantity to calculate shots,
+      // rather than using the order's previously received quantity.
+
+      final shotCount = _calculateGroupShots(
+        item,
+        entry.value,
+      );
+
       calculationsByGroup[entry.key] = _granuleCalculation(
         productWeight,
+        shotCount,
         ratios,
       );
+
     }
 
     final weight = weightByGroup.values.fold<double>(
@@ -1280,7 +1351,18 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     if (productWeight <= 0) return const SizedBox.shrink();
     final ratios = _ratioFractions(item, fallback: _order);
     if (ratios == null) return const SizedBox.shrink();
-    final calculation = _granuleCalculation(productWeight, ratios);
+
+    final shotCount = _calculateGroupShots(
+      item,
+      _entered(key),
+    );
+
+    final calculation = _granuleCalculation(
+      productWeight,
+      shotCount,
+      ratios,
+    );
+
     String kg(dynamic value) => '${_toDouble(value).toStringAsFixed(3)} kg';
 
     return Container(
@@ -1303,22 +1385,41 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             ),
           ),
           const SizedBox(height: 5),
+          
+          Text(
+            'Molding shots: ${_toInt(calculation['moldingShots'])}',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Runner per shot: 4.000 g',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Total runner weight: ${kg(calculation['runnerRecoveredKg'])}',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Granules before wastage: '
+            '${kg(calculation['granulesBeforeWastageKg'])}',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            '3% Wastage: ${kg(calculation['totalWastageKg'])}',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
           Text(
             'Total granules used: ${kg(calculation['estimatedGranulesUsedKg'])}',
             style: GoogleFonts.poppins(fontSize: 11),
           ),
           Text(
-            'Runner credited to Grinding: ${kg(calculation['runnerRecoveredKg'])}',
+            'Virgin deduction: ${kg(calculation['virginDeductionKg'])}',
             style: GoogleFonts.poppins(fontSize: 11),
           ),
           Text(
-            'Virgin deduction: ${kg(calculation['virginDeductionKg'])} (includes 3% wastage)',
+            'Grinding deduction: ${kg(calculation['grindingDeductionKg'])}',
             style: GoogleFonts.poppins(fontSize: 11),
           ),
-          Text(
-            'Grinding deduction: ${kg(calculation['grindingDeductionKg'])} (includes 3% wastage)',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
+
         ],
       ),
     );
