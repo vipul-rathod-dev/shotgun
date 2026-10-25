@@ -47,6 +47,19 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   final TextEditingController _remarksController = TextEditingController();
 
+  // Editable defaults for the granule-consumption calculation.
+  final TextEditingController _runnerGramsController = TextEditingController(
+    text: '4',
+  );
+  final TextEditingController _wastagePercentController = TextEditingController(
+    text: '3',
+  );
+  final TextEditingController _virginRatioKgController = TextEditingController(
+    text: '10',
+  );
+  final TextEditingController _grindingRatioKgController =
+      TextEditingController(text: '3');
+
   final Map<String, TextEditingController> _receiveControllers = {};
 
   @override
@@ -69,6 +82,10 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     _bagsController.dispose();
 
     _remarksController.dispose();
+    _runnerGramsController.dispose();
+    _wastagePercentController.dispose();
+    _virginRatioKgController.dispose();
+    _grindingRatioKgController.dispose();
 
     super.dispose();
   }
@@ -97,9 +114,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
       final data = <String, dynamic>{...snapshot.data()!, 'id': snapshot.id};
 
-      // Load all suppliers whose role is Drumming.
+      // Load all suppliers whose role is Drumming.*
 
-      // Do NOT auto-select one, because there can be multiple Drumming suppliers.
+      // Do NOT auto-select one, because there can be multiple Drumming suppliers.*
 
       final supplierSnapshot =
           await _firestore
@@ -212,23 +229,31 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   String _groupKey(Map<String, dynamic> item) {
     final productId = _stringValue(item['productId']);
+
     final material = _materialType(item).toLowerCase();
+
     final component = _stringValue(item['componentType']).toLowerCase();
 
-    // Focus: one group per product + material.
+    // Focus: one group per product + material.*
+
     if (component == 'focus') {
       return 'focus|$productId|$material';
     }
 
-    // Temple: Left and Right are separate variants, so side is part
-    // of the grouping key.
+    // Temple: Left and Right are separate variants, so side is part*
+
+    // of the grouping key.*
+
     if (component == 'temple') {
       final side = _side(item);
+
       return 'temple|$productId|$material|$side';
     }
 
-    // Safe fallback for any future component types.
+    // Safe fallback for any future component types.*
+
     final side = _side(item);
+
     return '$component|$productId|$material|$side';
   }
 
@@ -249,16 +274,19 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     final ordered = group.fold<int>(
       0,
+
       (total, item) =>
           total + _toInt(item['orderedQuantity'] ?? item['quantity']),
     );
 
     final received = group.fold<int>(
       0,
+
       (total, item) => total + _toInt(item['receivedQuantity']),
     );
 
     merged['orderedQuantity'] = ordered;
+
     merged['receivedQuantity'] = received;
 
     return merged;
@@ -277,6 +305,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
   TextEditingController _weightControllerFor(String key) {
     return _weightControllers.putIfAbsent(
       key,
+
       () => TextEditingController(text: '0'),
     );
   }
@@ -286,13 +315,17 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   double? _ratioNumber(dynamic value) {
     if (value == null) return null;
+
     final text = value.toString().trim().replaceAll('%', '');
+
     if (text.isEmpty) return null;
+
     return double.tryParse(text);
   }
 
   Map<String, double>? _ratioFractions(
     Map<String, dynamic> item, {
+
     Map<String, dynamic>? fallback,
   }) {
     dynamic readRatio(List<String> keys) {
@@ -301,6 +334,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           return item[key];
         }
       }
+
       if (fallback != null) {
         for (final key in keys) {
           if (fallback[key] != null &&
@@ -309,30 +343,39 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           }
         }
       }
+
       return null;
     }
 
     var virgin = _ratioNumber(
       readRatio(['virginRatio', 'virginPercentage', 'virginPercent']),
     );
+
     var grinding = _ratioNumber(
       readRatio(['grindingRatio', 'grindingPercentage', 'grindingPercent']),
     );
 
     if (virgin == null && grinding == null) return null;
+
     if (virgin == null) {
       final currentGrinding = grinding;
+
       if (currentGrinding == null) return null;
+
       virgin =
           currentGrinding <= 1 ? 1 - currentGrinding : 100 - currentGrinding;
     }
+
     if (grinding == null) {
       final currentVirgin = virgin;
+
       grinding = currentVirgin <= 1 ? 1 - currentVirgin : 100 - currentVirgin;
     }
 
     final virginValue = virgin;
+
     final grindingValue = grinding;
+
     if (virginValue < 0 ||
         grindingValue < 0 ||
         virginValue + grindingValue <= 0) {
@@ -340,10 +383,14 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
 
     final total = virginValue + grindingValue;
+
     return {
       'virgin': virginValue / total,
+
       'grinding': grindingValue / total,
+
       'virginRatioValue': virginValue,
+
       'grindingRatioValue': grindingValue,
     };
   }
@@ -352,86 +399,55 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     switch (_materialType(item).toLowerCase()) {
       case 'black':
         return 'black';
+
       case 'clear':
         return 'clear';
+
       case 'pc':
         return 'pc';
+
       default:
         return '';
     }
   }
-  
-  // Map<String, double> _granuleCalculation(
-  //   double productWeight,
-  //   int shotCount,
-  //   Map<String, double> ratios,
-  // ) {
-  //   const runnerWeightPerShotKg = 0.004; // 4 grams = 0.004 kg
-
-  //   // Runner weight is based on the number of molding shots.
-  //   final runnerRecovered = shotCount * runnerWeightPerShotKg;
-
-  //   // Total granules used = received product weight + runner weight.
-  //   final totalGranulesUsed = productWeight + runnerRecovered;
-
-  //   // Granule mixing ratio: 10 kg Virgin + 3 kg Grinding = 13 kg
-  //   const virginRatio = 10 / 13;
-  //   const grindingRatio = 3 / 13;
-
-  //   final virginConsumed = totalGranulesUsed * virginRatio;
-  //   final grindingConsumed = totalGranulesUsed * grindingRatio;
-
-  //   return {
-  //     'receivedProductWeightKg': productWeight,
-  //     'moldingShots': shotCount.toDouble(),
-  //     'runnerWeightPerShotKg': runnerWeightPerShotKg,
-  //     'estimatedGranulesUsedKg': totalGranulesUsed,
-  //     'runnerRecoveredKg': runnerRecovered,
-  //     'virginRatio': virginRatio * 100,       // 76.9231%
-  //     'grindingRatio': grindingRatio * 100,    // 23.0769%
-  //     'virginConsumedKg': virginConsumed,
-  //     'grindingConsumedKg': grindingConsumed,
-  //     'virginDeductionKg': virginConsumed,
-  //     'grindingDeductionKg': grindingConsumed,
-  //     'totalWastageKg': 0.0,
-  //   };
-  // }
-
 
   Map<String, double> _granuleCalculation(
     double productWeight,
-    int shotCount,
     Map<String, double> ratios,
+    int shotCount,
   ) {
-    const runnerWeightPerShotKg = 0.004; // 4 grams per shot
-    const wastageRate = 0.03; // 3% wastage
+    final runnerWeightPerShotGrams = _toDouble(_runnerGramsController.text);
+    final runnerWeightPerShotKg = runnerWeightPerShotGrams / 1000;
+    final wastageRate = _toDouble(_wastagePercentController.text) / 100;
+    final virginKg = _toDouble(_virginRatioKgController.text);
+    final grindingKg = _toDouble(_grindingRatioKgController.text);
+    final totalRatioKg = virginKg + grindingKg;
+    final virginRatio = totalRatioKg > 0 ? virginKg / totalRatioKg : 0.0;
+    final grindingRatio = totalRatioKg > 0 ? grindingKg / totalRatioKg : 0.0;
 
-    // Step 1: Calculate runner from molding shots.
+    // Step 1: Add configured wastage to the actual received product weight.
+    final totalWastage = productWeight * wastageRate;
+    final productWeightWithWastage = productWeight + totalWastage;
+
+    // Step 2: Runner weight is configured in grams per molding shot.
+    // It is credited directly to the supplier ledger.
     final runnerRecovered = shotCount * runnerWeightPerShotKg;
 
-    // Step 2: Add product weight and runner weight.
-    final granulesBeforeWastage = productWeight + runnerRecovered;
-
-    // Step 3: Calculate 3% wastage on total granules used.
-    final totalWastage = granulesBeforeWastage * wastageRate;
-
-    // Step 4: Include wastage in total granules consumed.
-    final totalGranulesUsed = granulesBeforeWastage + totalWastage;
-
-    // Step 5: Apply the 10:3 Virgin-to-Grinding ratio.
-    const virginRatio = 10 / 13;
-    const grindingRatio = 3 / 13;
-
+    // Step 3: Total granules used = adjusted product weight + runner.
+    final totalGranulesUsed = productWeightWithWastage + runnerRecovered;
     final virginConsumed = totalGranulesUsed * virginRatio;
     final grindingConsumed = totalGranulesUsed * grindingRatio;
 
     return {
       'receivedProductWeightKg': productWeight,
-      'moldingShots': shotCount.toDouble(),
-      'runnerWeightPerShotKg': runnerWeightPerShotKg,
-      'granulesBeforeWastageKg': granulesBeforeWastage,
+      'productWeightWithWastageKg': productWeightWithWastage,
       'estimatedGranulesUsedKg': totalGranulesUsed,
       'runnerRecoveredKg': runnerRecovered,
+      'runnerWeightPerShotGrams': runnerWeightPerShotGrams,
+      'moldingShotsUsedForRunnerCalculation': shotCount as double,
+      'wastageRatePercent': wastageRate * 100,
+      'virginRatioKg': virginKg,
+      'grindingRatioKg': grindingKg,
       'virginRatio': virginRatio * 100,
       'grindingRatio': grindingRatio * 100,
       'virginConsumedKg': virginConsumed,
@@ -441,7 +457,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       'totalWastageKg': totalWastage,
     };
   }
-
 
   int _received(Map<String, dynamic> item) => _toInt(item['receivedQuantity']);
 
@@ -463,52 +478,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
     return (pieceCount + cyclePieces - 1) ~/ cyclePieces;
   }
-
-  
-  int _calculateGroupShots(
-    Map<String, dynamic> item,
-    int totalQuantity,
-  ) {
-    if (totalQuantity <= 0) return 0;
-
-    if (_isTemple(item)) {
-      // Each cavity produces 2 pieces for the selected Temple side.
-      // 2 cavities = 4 pieces per shot.
-      // 3 cavities = 6 pieces per shot.
-      final cavityCount = _toInt(
-        item['cavityNumber'] ?? item['cavity'],
-      );
-
-      final effectiveCavityCount =
-          cavityCount > 0 ? cavityCount : 2;
-
-      final piecesPerShot = effectiveCavityCount * 2;
-
-      return (totalQuantity + piecesPerShot - 1) ~/
-          piecesPerShot;
-    }
-
-    // Keep the existing Focus calculation based on cavity count.
-    final moldId = _stringValue(item['moldProductId']);
-
-    final moldItems = _items().where((moldItem) {
-      return _stringValue(moldItem['moldProductId']) == moldId;
-    }).toList();
-
-    final cavities = moldItems
-        .map(
-          (moldItem) => _stringValue(
-            moldItem['cavityNumber'] ?? moldItem['cavity'],
-          ),
-        )
-        .where((cavity) => cavity.isNotEmpty)
-        .toSet();
-
-    final cavityCount = cavities.isEmpty ? 1 : cavities.length;
-
-    return (totalQuantity + cavityCount - 1) ~/ cavityCount;
-  }
-
 
   int _calculateShots(List<Map<String, dynamic>> items, String field) {
     final itemsByMold = <String, List<Map<String, dynamic>>>{};
@@ -542,9 +511,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           final material = _stringValue(item['variantType']);
 
-          // Temple Left/Right are two physical inventory records for the same
+          // Temple Left/Right are two physical inventory records for the same*
 
-          // molding production. Take the larger side instead of adding them.
+          // molding production. Take the larger side instead of adding them.*
 
           final key =
               component == 'temple'
@@ -569,7 +538,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         );
       }
 
-      // Selected cavities are produced simultaneously in one molding cycle.
+      // Selected cavities are produced simultaneously in one molding cycle.*
 
       if (cavityShots.isNotEmpty) {
         total += cavityShots.reduce((a, b) => a > b ? a : b);
@@ -586,6 +555,33 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       return;
     }
 
+    final runnerGrams = double.tryParse(_runnerGramsController.text.trim());
+    final wastagePercent = double.tryParse(
+      _wastagePercentController.text.trim(),
+    );
+    final virginKg = double.tryParse(_virginRatioKgController.text.trim());
+    final grindingKg = double.tryParse(_grindingRatioKgController.text.trim());
+
+    if (runnerGrams == null ||
+        !runnerGrams.isFinite ||
+        runnerGrams < 0 ||
+        wastagePercent == null ||
+        wastagePercent < 0 ||
+        wastagePercent > 100 ||
+        virginKg == null ||
+        !virginKg.isFinite ||
+        virginKg < 0 ||
+        grindingKg == null ||
+        !grindingKg.isFinite ||
+        grindingKg < 0 ||
+        virginKg + grindingKg <= 0) {
+      _showMessage(
+        'Enter valid calculation settings. Virgin and Grinding kg values must total more than zero and wastage must be between 0 and 100%.',
+        error: true,
+      );
+      return;
+    }
+
     final items = _items();
 
     if (items.isEmpty) {
@@ -595,6 +591,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
 
     final changes = <String, int>{};
+
     final groupedItems = _groupItems(items);
 
     for (final entry in groupedItems.entries) {
@@ -602,10 +599,12 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
       if (entered < 0) {
         _showMessage('Received quantity cannot be negative.', error: true);
+
         return;
       }
 
       if (entered == 0) continue;
+
       changes[entry.key] = entered;
     }
 
@@ -633,57 +632,65 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     }
 
     final weightByGroup = <String, double>{};
+
     final calculationsByGroup = <String, Map<String, double>>{};
+
     for (final entry in changes.entries) {
       final productWeight = _enteredWeight(entry.key);
+
       if (productWeight <= 0) {
         _showMessage(
           'Enter a received weight greater than 0 kg for every variant with received pieces.',
+
           error: true,
         );
+
         return;
       }
+
       final group = groupedItems[entry.key];
+
       if (group == null || group.isEmpty) continue;
+
       final item = group.first;
+
       final ratios = _ratioFractions(item, fallback: _order);
+
       if (ratios == null) {
         _showMessage(
           'Virgin and Grinding ratios are missing or invalid for ${_stringValue(item['productName']).isEmpty ? _stringValue(item['modelName']) : _stringValue(item['productName'])}. Please update the molding order ratios first.',
+
           error: true,
         );
+
         return;
       }
+
       if (_materialFieldPrefix(item).isEmpty) {
         _showMessage(
           'Unknown material type for a received variant.',
+
           error: true,
         );
+
         return;
       }
-      
+
       weightByGroup[entry.key] = productWeight;
-
-      // Use the newly received quantity to calculate shots,
-      // rather than using the order's previously received quantity.
-
-      final shotCount = _calculateGroupShots(
-        item,
-        entry.value,
-      );
 
       calculationsByGroup[entry.key] = _granuleCalculation(
         productWeight,
-        shotCount,
         ratios,
+        _shotsFromPieces(_entered(entry.key), item['piecesPerCycle']),
       );
-
     }
 
     final weight = weightByGroup.values.fold<double>(
       0,
+
       (sum, value) => sum + value,
     );
+
     final totalBags = _toInt(_bagsController.text);
 
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -712,16 +719,20 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           .doc('drumming_order_counter');
 
       final moldingLaborId = _stringValue(_order?['supplierId']);
+
       if (moldingLaborId.isEmpty) {
         throw Exception(
           'The molding order has no molding supplier/labor assigned, so granule balances cannot be updated.',
         );
       }
+
       final laborBalanceRef = companyRef
           .collection('labor_granules_balances')
           .doc(moldingLaborId);
+
       final granuleTransactionRefs =
           <String, DocumentReference<Map<String, dynamic>>>{};
+
       for (final key in changes.keys) {
         granuleTransactionRefs[key] =
             companyRef.collection('granule_transactions').doc();
@@ -733,6 +744,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         final snapshot = await transaction.get(orderRef);
 
         final counterSnapshot = await transaction.get(drummingCounterRef);
+
         final laborBalanceSnapshot = await transaction.get(laborBalanceRef);
 
         if (!snapshot.exists) {
@@ -748,16 +760,22 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         }
 
         final updatedItems = <Map<String, dynamic>>[];
+
         final remainingByGroup = <String, int>{...changes};
+
         final allocationByGroup = <String, List<int>>{};
 
         for (final raw in existingRawItems) {
           if (raw is! Map) continue;
 
           final item = Map<String, dynamic>.from(raw);
+
           final groupKey = _groupKey(item);
+
           final oldReceived = _toInt(item['receivedQuantity']);
+
           final ordered = _toInt(item['orderedQuantity'] ?? item['quantity']);
+
           final plannedRemaining = (ordered - oldReceived).clamp(0, ordered);
 
           var additional = remainingByGroup[groupKey] ?? 0;
@@ -766,9 +784,11 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
               additional > plannedRemaining ? plannedRemaining : additional;
 
           additional -= plannedAllocation;
+
           remainingByGroup[groupKey] = additional;
 
           item['receivedQuantity'] = oldReceived + plannedAllocation;
+
           updatedItems.add(item);
 
           allocationByGroup
@@ -776,14 +796,19 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
               .add(plannedAllocation);
         }
 
-        // Extra production is allowed. If the entered grouped quantity is
-        // greater than the total pending quantity, put the extra on the
-        // first matching row of that group.
+        // Extra production is allowed. If the entered grouped quantity is*
+
+        // greater than the total pending quantity, put the extra on the*
+
+        // first matching row of that group.*
+
         for (final entry in remainingByGroup.entries) {
           var extra = entry.value;
+
           if (extra <= 0) continue;
 
           final groupKey = entry.key;
+
           final allocations = allocationByGroup[groupKey] ?? <int>[];
 
           for (var i = 0; i < updatedItems.length && extra > 0; i++) {
@@ -792,8 +817,10 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             updatedItems[i]['receivedQuantity'] =
                 _toInt(updatedItems[i]['receivedQuantity']) + extra;
 
-            // The first item belonging to this group receives any extra
-            // production beyond the planned quantity.
+            // The first item belonging to this group receives any extra*
+
+            // production beyond the planned quantity.*
+
             if (allocations.isNotEmpty) {
               allocations[0] += extra;
             }
@@ -802,9 +829,9 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           }
         }
 
-        // Keep the nested mold blocks synchronized because the existing
+        // Keep the nested mold blocks synchronized because the existing*
 
-        // Create Molding Order page stores the same item records there too.
+        // Create Molding Order page stores the same item records there too.*
 
         final updatedMolds = <Map<String, dynamic>>[];
 
@@ -817,6 +844,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             if (rawMold is! Map) continue;
 
             final mold = Map<String, dynamic>.from(rawMold);
+
             final rawMoldItems = mold['items'];
 
             if (rawMoldItems is List) {
@@ -825,9 +853,12 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                     if (rawItem is! Map) return rawItem;
 
                     final item = Map<String, dynamic>.from(rawItem);
+
                     final groupKey = _groupKey(item);
+
                     final allocations =
                         allocationByGroup[groupKey] ?? const <int>[];
+
                     final offset = nestedAllocationOffsets[groupKey] ?? 0;
 
                     final additional =
@@ -853,11 +884,13 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
               mold['receivedPieces'] = typed.fold<int>(
                 0,
+
                 (total, item) => total + _toInt(item['receivedQuantity']),
               );
 
               mold['receivedShots'] = _calculateShots(
                 typed,
+
                 'receivedQuantity',
               );
             }
@@ -885,12 +918,16 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         final status = allItemsComplete ? 'Received' : 'Partially Received';
 
         final receiptItemsByGroup = <String, Map<String, dynamic>>{};
+
         final receiptAllocationOffsets = <String, int>{};
 
         for (final item in updatedItems) {
           final groupKey = _groupKey(item);
+
           final allocations = allocationByGroup[groupKey] ?? const <int>[];
+
           final offset = receiptAllocationOffsets[groupKey] ?? 0;
+
           final additional =
               offset < allocations.length ? allocations[offset] : 0;
 
@@ -903,8 +940,11 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           if (existingReceipt == null) {
             receiptItemsByGroup[groupKey] = {
               ...item,
+
               'orderedQuantity': additional,
+
               'receivedQuantity': 0,
+
               'sourceMoldingItemKey': groupKey,
             };
           } else {
@@ -922,32 +962,43 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         }
 
         final laborDeductions = <String, double>{};
-        final runnerCredits = <String, double>{};
-        final balanceData = laborBalanceSnapshot.data() ?? <String, dynamic>{};
 
+        final runnerCredits = <String, double>{};
+
+        final balanceData = laborBalanceSnapshot.data() ?? <String, dynamic>{};
         for (final receiptItem in receiptItems) {
           final groupKey = _stringValue(receiptItem['sourceMoldingItemKey']);
+
           final calculation = calculationsByGroup[groupKey];
+
           if (calculation == null) {
             throw Exception(
               'Granule calculation is missing for a received variant.',
             );
           }
+
           receiptItem.addAll(calculation);
+
           receiptItem['sourceMoldingItemKey'] = groupKey;
 
           final prefix = _materialFieldPrefix(receiptItem);
+
           if (prefix.isEmpty) {
             throw Exception('Unknown material type for a received variant.');
           }
+
           final virginField = '${prefix}VirginKg';
+
           final grindingField = '${prefix}GrindingKg';
+
           laborDeductions[virginField] =
               (laborDeductions[virginField] ?? 0) +
               calculation['virginDeductionKg']!;
+
           laborDeductions[grindingField] =
               (laborDeductions[grindingField] ?? 0) +
               calculation['grindingDeductionKg']!;
+
           runnerCredits[grindingField] =
               (runnerCredits[grindingField] ?? 0) +
               calculation['runnerRecoveredKg']!;
@@ -981,13 +1032,24 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
                 'cavityNumber': item['cavityNumber'],
 
                 'quantity': item['orderedQuantity'],
+
                 'receivedProductWeightKg': item['receivedProductWeightKg'],
+
+                'productWeightWithWastageKg':
+                    item['productWeightWithWastageKg'],
+
                 'estimatedGranulesUsedKg': item['estimatedGranulesUsedKg'],
+
                 'runnerRecoveredKg': item['runnerRecoveredKg'],
+
                 'virginRatio': item['virginRatio'],
+
                 'grindingRatio': item['grindingRatio'],
+
                 'virginConsumedKg': item['virginConsumedKg'],
+
                 'grindingConsumedKg': item['grindingConsumedKg'],
+
                 'totalWastageKg': item['totalWastageKg'],
               };
             }).toList();
@@ -998,19 +1060,31 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'receivedByUid': currentUser.uid,
 
           'weight': weight > 0 ? weight : null,
+
           'estimatedGranulesUsedKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['estimatedGranulesUsedKg']),
           ),
+
           'runnerRecoveredKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['runnerRecoveredKg']),
           ),
+
           'totalWastageKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['totalWastageKg']),
           ),
 
+          'granuleCalculationSettings': {
+            'runnerWeightPerShotGrams': _toDouble(_runnerGramsController.text),
+            'wastagePercent': _toDouble(_wastagePercentController.text),
+            'virginRatioKg': _toDouble(_virginRatioKgController.text),
+            'grindingRatioKg': _toDouble(_grindingRatioKgController.text),
+          },
           'remarks': _remarksController.text.trim(),
 
           'items': historyItems,
@@ -1031,40 +1105,46 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
         final updatedLaborBalance = <String, dynamic>{
           'laborId': moldingLaborId,
-          'laborName': _stringValue(existing['supplierName']),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'lastMoldingOrderId': widget.orderId,
-          'lastMoldingOrderNumber': _stringValue(existing['orderNumber']),
-          'lastUpdatedByUid': currentUser.uid,
-        };
 
-        // Process every material field that has a deduction or runner credit.
-        final balanceFields = <String>{
-          ...laborDeductions.keys,
-          ...runnerCredits.keys,
+          'laborName': _stringValue(existing['supplierName']),
+
+          'updatedAt': FieldValue.serverTimestamp(),
+
+          'lastMoldingOrderId': widget.orderId,
+
+          'lastMoldingOrderNumber': _stringValue(existing['orderNumber']),
+
+          'lastUpdatedByUid': currentUser.uid,
         };
 
         var hasNegativeBalance = !laborBalanceSnapshot.exists;
 
-        for (final field in balanceFields) {
-          final currentBalance = _toDouble(balanceData[field]);
-          final consumed = laborDeductions[field] ?? 0.0;
-          final runnerCredit = runnerCredits[field] ?? 0.0;
+        // Deduct estimated Virgin and Grinding consumed during molding.
+        for (final entry in laborDeductions.entries) {
+          final current = _toDouble(balanceData[entry.key]);
+          updatedLaborBalance[entry.key] = current - entry.value;
+        }
 
-          // Deduct material consumed and credit recovered runner
-          // directly to the molding supplier's grinding balance.
-          final updatedBalance =
-              currentBalance - consumed + runnerCredit;
+        // Recovered runners stay with the molding supplier until physically
+        // returned to the factory, so credit Grinding back to the supplier ledger.
+        // Do not update factory inventory during this receiving step.
+        for (final entry in runnerCredits.entries) {
+          final balanceAfterConsumption =
+              updatedLaborBalance.containsKey(entry.key)
+                  ? _toDouble(updatedLaborBalance[entry.key])
+                  : _toDouble(balanceData[entry.key]);
+          updatedLaborBalance[entry.key] =
+              balanceAfterConsumption + entry.value;
+        }
 
-          updatedLaborBalance[field] = updatedBalance;
-
-          if (updatedBalance < -0.000001) {
+        // Check the final net balances after applying runner recovery credits.
+        for (final key in {...laborDeductions.keys, ...runnerCredits.keys}) {
+          if (_toDouble(updatedLaborBalance[key]) < -0.000001) {
             hasNegativeBalance = true;
           }
         }
-
         updatedLaborBalance['requiresReconciliation'] = hasNegativeBalance;
-
+        updatedLaborBalance['lastRunnerRecoveryOrderId'] = widget.orderId;
         transaction.set(
           laborBalanceRef,
           updatedLaborBalance,
@@ -1073,42 +1153,81 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
         for (final receiptItem in receiptItems) {
           final groupKey = _stringValue(receiptItem['sourceMoldingItemKey']);
+
           final granuleTransactionRef = granuleTransactionRefs[groupKey];
+
           if (granuleTransactionRef == null) continue;
+
           transaction.set(granuleTransactionRef, {
             'transactionType': 'Molding Consumption and Runner Recovery',
+
+            'runnerRecoveryCreditedToMoldingSupplierLedger': true,
+
+            'runnerRecoveryReturnedToFactory': false,
+
             'status': 'Posted',
+
             'companyId': _companyId,
+
             'laborId': moldingLaborId,
+
             'laborName': _stringValue(existing['supplierName']),
+
             'moldingOrderId': widget.orderId,
+
             'moldingOrderNumber': _stringValue(existing['orderNumber']),
+
             'drummingOrderId': drummingOrderRef.id,
+
             'materialType': _materialType(receiptItem),
+
             'componentType': receiptItem['componentType'],
+
             'productId': receiptItem['productId'],
+
             'productName': receiptItem['productName'],
+
             'sourceMoldingItemKey': groupKey,
+
             ...receiptItem.entries
                 .where(
                   (entry) => [
                     'receivedProductWeightKg',
+
+                    'productWeightWithWastageKg',
+
                     'estimatedGranulesUsedKg',
+
                     'runnerRecoveredKg',
+
                     'virginRatio',
+
                     'grindingRatio',
+
                     'virginConsumedKg',
+
                     'grindingConsumedKg',
+
                     'virginDeductionKg',
+
                     'grindingDeductionKg',
+
                     'totalWastageKg',
+                    'runnerWeightPerShotGrams',
+                    'moldingShotsUsedForRunnerCalculation',
+                    'wastageRatePercent',
+                    'virginRatioKg',
+                    'grindingRatioKg',
                   ].contains(entry.key),
                 )
                 .fold<Map<String, dynamic>>(
                   <String, dynamic>{},
+
                   (map, entry) => map..[entry.key] = entry.value,
                 ),
+
             'createdAt': FieldValue.serverTimestamp(),
+
             'createdByUid': currentUser.uid,
           });
         }
@@ -1177,21 +1296,34 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           'moldingSupplierName': existing['supplierName'],
 
+          'granuleCalculationSettings': {
+            'runnerWeightPerShotGrams': _toDouble(_runnerGramsController.text),
+            'wastagePercent': _toDouble(_wastagePercentController.text),
+            'virginRatioKg': _toDouble(_virginRatioKgController.text),
+            'grindingRatioKg': _toDouble(_grindingRatioKgController.text),
+          },
+
           'moldingReceiptId': drummingOrderRef.id,
 
           'moldingReceiptAt': FieldValue.serverTimestamp(),
 
           'moldingReceiptWeight': weight > 0 ? weight : null,
+
           'estimatedGranulesUsedKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['estimatedGranulesUsedKg']),
           ),
+
           'runnerRecoveredKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['runnerRecoveredKg']),
           ),
+
           'totalWastageKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['totalWastageKg']),
           ),
 
@@ -1232,16 +1364,22 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
           'lastReceivedByUid': currentUser.uid,
 
           'lastReceivedWeight': weight > 0 ? weight : null,
+
           'lastEstimatedGranulesUsedKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['estimatedGranulesUsedKg']),
           ),
+
           'lastRunnerRecoveredKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['runnerRecoveredKg']),
           ),
+
           'lastTotalWastageKg': receiptItems.fold<double>(
             0,
+
             (sum, item) => sum + _toDouble(item['totalWastageKg']),
           ),
 
@@ -1264,6 +1402,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
+
       print('Error receiving molding goods: $e');
 
       _showMessage(
@@ -1348,78 +1487,85 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
   Widget _buildGranulePreview(Map<String, dynamic> item, String key) {
     final productWeight = _enteredWeight(key);
-    if (productWeight <= 0) return const SizedBox.shrink();
-    final ratios = _ratioFractions(item, fallback: _order);
-    if (ratios == null) return const SizedBox.shrink();
 
-    final shotCount = _calculateGroupShots(
-      item,
-      _entered(key),
-    );
+    if (productWeight <= 0) return const SizedBox.shrink();
+
+    final ratios = _ratioFractions(item, fallback: _order);
+
+    if (ratios == null) return const SizedBox.shrink();
 
     final calculation = _granuleCalculation(
       productWeight,
-      shotCount,
       ratios,
+      _shotsFromPieces(_entered(key), item['piecesPerCycle']),
     );
 
     String kg(dynamic value) => '${_toDouble(value).toStringAsFixed(3)} kg';
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
+
       padding: const EdgeInsets.all(10),
+
       decoration: BoxDecoration(
         color: const Color(0xFFF3F5FF),
+
         borderRadius: BorderRadius.circular(9),
+
         border: Border.all(color: const Color(0xFFDDE3FF)),
       ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+
         children: [
           Text(
             'Estimated Granule Calculation',
+
             style: GoogleFonts.poppins(
               fontSize: 11,
+
               fontWeight: FontWeight.w600,
+
               color: const Color(0xFF3F51B5),
             ),
           ),
+
           const SizedBox(height: 5),
-          
+
           Text(
-            'Molding shots: ${_toInt(calculation['moldingShots'])}',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            'Runner per shot: 4.000 g',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            'Total runner weight: ${kg(calculation['runnerRecoveredKg'])}',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            'Granules before wastage: '
-            '${kg(calculation['granulesBeforeWastageKg'])}',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            '3% Wastage: ${kg(calculation['totalWastageKg'])}',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            'Total granules used: ${kg(calculation['estimatedGranulesUsedKg'])}',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            'Virgin deduction: ${kg(calculation['virginDeductionKg'])}',
-            style: GoogleFonts.poppins(fontSize: 11),
-          ),
-          Text(
-            'Grinding deduction: ${kg(calculation['grindingDeductionKg'])}',
+            'Product weight + ${calculation['wastageRatePercent']}% wastage: ${kg(calculation['productWeightWithWastageKg'])}',
+
             style: GoogleFonts.poppins(fontSize: 11),
           ),
 
+          Text(
+            'Total granules used (adjusted product + runner): ${kg(calculation['estimatedGranulesUsedKg'])}',
+
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+
+          Text(
+            'Runner credited to Grinding (${_toDouble(calculation['runnerWeightPerShotGrams']).toStringAsFixed(2)} g/shot × ${_toInt(calculation['moldingShotsUsedForRunnerCalculation'])} shots): ${kg(calculation['runnerRecoveredKg'])}',
+
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+          Text(
+            'Virgin : Grinding reference quantity: ${calculation['virginRatioKg']} kg : ${calculation['grindingRatioKg']} kg',
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+
+          Text(
+            'Virgin deduction: ${kg(calculation['virginDeductionKg'])} (includes ${calculation['wastageRatePercent']}% wastage)',
+
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
+
+          Text(
+            'Grinding deduction: ${kg(calculation['grindingDeductionKg'])} (includes ${calculation['wastageRatePercent']}% wastage)',
+
+            style: GoogleFonts.poppins(fontSize: 11),
+          ),
         ],
       ),
     );
@@ -1442,8 +1588,10 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
       subtitle: [
         _materialType(item),
+
         if (_isTemple(item) && _side(item).isNotEmpty)
           'Side: ${_side(item).toUpperCase()}',
+
         'Cavity ${_stringValue(item['cavityNumber'] ?? item['cavity'])}',
       ].join(' • '),
 
@@ -1455,40 +1603,60 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+
         children: [
           _numberField(
             label: 'Receive Now (Pieces)',
+
             controller: _controllerFor(key),
+
             helper:
                 'Extra pieces are allowed when production exceeds the planned quantity',
           ),
+
           const SizedBox(height: 10),
+
           TextFormField(
             controller: _weightControllerFor(key),
+
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+
             onChanged: (_) => setState(() {}),
+
             style: GoogleFonts.poppins(fontSize: 13),
+
             decoration: InputDecoration(
               labelText: 'Received Product Weight',
+
               helperText:
                   'Actual weight for this variant; used to calculate granule consumption',
+
               suffixText: 'kg',
+
               filled: true,
+
               fillColor: const Color(0xFFF9FAFB),
+
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
+
                 vertical: 12,
               ),
+
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(9),
+
                 borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
               ),
+
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(9),
+
                 borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
               ),
             ),
           ),
+
           _buildGranulePreview(item, key),
         ],
       ),
@@ -1603,15 +1771,129 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     );
   }
 
+  Widget _buildCalculationSettingsCard() {
+    Widget field({
+      required String label,
+      required TextEditingController controller,
+      required String helper,
+    }) {
+      return TextFormField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onChanged: (_) => setState(() {}),
+        style: GoogleFonts.poppins(fontSize: 13),
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: helper,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(9),
+            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(9),
+            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Granule Calculation Settings',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF343741),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Change these defaults before receiving. The preview and saved ledger calculations use the same values.',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 520;
+              final width =
+                  wide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  SizedBox(
+                    width: width,
+                    child: field(
+                      label: 'Runner weight per shot (grams)',
+                      controller: _runnerGramsController,
+                      helper: 'Default: 4 grams per molding shot',
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: field(
+                      label: 'Wastage (%)',
+                      controller: _wastagePercentController,
+                      helper: 'Default: 3%',
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: field(
+                      label: 'Virgin granules (kg)',
+                      controller: _virginRatioKgController,
+                      helper: 'Default: 10 kg (reference mixing quantity)',
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: field(
+                      label: 'Grinding granules (kg)',
+                      controller: _grindingRatioKgController,
+                      helper: 'Default: 3 kg (reference mixing quantity)',
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBody() {
     final items = _items();
 
     final focusItems = items.where(_isFocus).toList();
+
     final templeItems = items.where(_isTemple).toList();
 
-    // Focus  -> productId + material
-    // Temple -> productId + material + side
+    // Focus  -> productId + material*
+
+    // Temple -> productId + material + side*
+
     final focusGroups = _groupItems(focusItems);
+
     final templeGroups = _groupItems(templeItems);
 
     final orderedShots = _calculateShots(items, 'orderedQuantity');
@@ -1627,6 +1909,8 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
 
         children: [
+          _buildCalculationSettingsCard(),
+
           Container(
             padding: const EdgeInsets.all(14),
 
