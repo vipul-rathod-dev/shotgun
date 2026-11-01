@@ -444,7 +444,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       'estimatedGranulesUsedKg': totalGranulesUsed,
       'runnerRecoveredKg': runnerRecovered,
       'runnerWeightPerShotGrams': runnerWeightPerShotGrams,
-      'moldingShotsUsedForRunnerCalculation': shotCount as double,
+      'moldingShotsUsedForRunnerCalculation': shotCount.toDouble(),
       'wastageRatePercent': wastageRate * 100,
       'virginRatioKg': virginKg,
       'grindingRatioKg': grindingKg,
@@ -1486,6 +1486,20 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
   }
 
   Widget _buildGranulePreview(Map<String, dynamic> item, String key) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        _weightControllerFor(key),
+        _controllerFor(key),
+        _runnerGramsController,
+        _wastagePercentController,
+        _virginRatioKgController,
+        _grindingRatioKgController,
+      ]),
+      builder: (context, _) => _buildGranulePreviewContent(item, key),
+    );
+  }
+
+  Widget _buildGranulePreviewContent(Map<String, dynamic> item, String key) {
     final productWeight = _enteredWeight(key);
 
     if (productWeight <= 0) return const SizedBox.shrink();
@@ -1620,8 +1634,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
             controller: _weightControllerFor(key),
 
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-
-            onChanged: (_) => setState(() {}),
 
             style: GoogleFonts.poppins(fontSize: 13),
 
@@ -1780,7 +1792,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
       return TextFormField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        onChanged: (_) => setState(() {}),
         style: GoogleFonts.poppins(fontSize: 13),
         decoration: InputDecoration(
           labelText: label,
