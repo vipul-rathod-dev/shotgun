@@ -166,6 +166,8 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
   bool isSaving = false;
 
+  DateTime _selectedOrderDate = DateTime.now();
+
   // Edit-mode state.*
 
   String? _editingOrderNumber;
@@ -506,6 +508,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
         for (final entry in moldEntries) entry.dispose();
         moldEntries = loadedMolds;
         _existingOrderData = Map<String, dynamic>.from(data);
+        _selectedOrderDate = _parseOrderDate(data['orderDate']);
         _editingOrderNumber = _getOrderNumber(data);
         _editingOrderStatus = status.isEmpty ? 'Ordered' : status;
         selectedSupplierId = supplierId.isEmpty ? null : supplierId;
@@ -1156,6 +1159,38 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  DateTime _parseOrderDate(dynamic value) {
+    if (value is Timestamp) return _dateOnly(value.toDate());
+    if (value is DateTime) return _dateOnly(value);
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return _dateOnly(parsed);
+    }
+    return _dateOnly(DateTime.now());
+  }
+
+  String _formatOrderDate(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day/$month/${value.year}';
+  }
+
+  Future<void> _selectOrderDate() async {
+    final today = _dateOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedOrderDate.isAfter(today) ? today : _selectedOrderDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: 'Select molding order date',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _selectedOrderDate = _dateOnly(picked));
+  }
+
   String _decimalValue(dynamic value, {double fallback = 0}) {
     final parsed = double.tryParse(value?.toString() ?? '');
     if (parsed == null || !parsed.isFinite) {
@@ -1644,6 +1679,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
       );
 
       final payload = <String, dynamic>{
+        'orderDate': Timestamp.fromDate(_selectedOrderDate),
         'process': 'Molding',
         'supplierId': selectedSupplierId,
         'supplierName': selectedSupplier ?? '',
@@ -1737,8 +1773,7 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
           'receivedPieces': 0,
           'status': 'Ordered',
           'createdByUid': currentUser.uid,
-          'createdByName': currentUser.displayName ?? '',
-          'orderDate': FieldValue.serverTimestamp(),
+          'createdByName': currentUser.email ?? '',
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
@@ -1892,11 +1927,44 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
 
       icon: Icons.receipt_long_outlined,
 
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 600;
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: _selectOrderDate,
+            borderRadius: BorderRadius.circular(10),
+            child: InputDecorator(
+              decoration: _inputDecoration(
+                label: 'Order Date',
+                hint: 'Select order date',
+                icon: Icons.calendar_today_outlined,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatOrderDate(_selectedOrderDate),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: const Color(0xFF343741),
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.edit_calendar_outlined,
+                    size: 19,
+                    color: Color(0xFF6B7280),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontal = constraints.maxWidth >= 600;
 
-          final fields = [
+              final fields = [
             Expanded(
               child: _buildReadOnlyField(
                 label: 'Order Number',
@@ -1953,7 +2021,9 @@ class _CreateMoldingOrderPageState extends State<CreateMoldingOrderPage> {
                   ),
                 ],
               );
-        },
+            },
+          ),
+        ],
       ),
     );
   }

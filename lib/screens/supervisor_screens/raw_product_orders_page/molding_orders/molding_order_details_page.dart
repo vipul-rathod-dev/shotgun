@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'create_molding_order_page.dart';
 
@@ -916,6 +917,19 @@ class MoldingOrderDetailsPage extends StatelessWidget {
                     const SizedBox(height: 12),
 
                     _buildAllItemsSection(isMobile: isMobile),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Supplier Material Transactions',
+                      subtitle:
+                          'Material consumed, runner credited and supplier balance after this order',
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildSupplierMaterialTransactions(isMobile: isMobile),
 
                     const SizedBox(height: 24),
 
@@ -2563,6 +2577,662 @@ class MoldingOrderDetailsPage extends StatelessWidget {
           ...displayItems.map((item) => _buildDesktopItemRow(item)),
         ],
       ),
+    );
+  }
+
+  // ============================================================
+  // SUPPLIER MATERIAL TRANSACTIONS
+  // ============================================================
+  Future<String?> _loadCompanyId() async {
+    final fromOrder = _stringValue(order['companyId']);
+    if (fromOrder.isNotEmpty) return fromOrder;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('cachedCompanyId');
+  }
+
+  Map<String, double> _numberMap(dynamic value) {
+    if (value is! Map) return <String, double>{};
+    return value.map<String, double>(
+      (key, amount) => MapEntry(key.toString(), _toDouble(amount)),
+    );
+  }
+
+  String _materialLabel(String field) {
+    final value = field.toLowerCase();
+    final material =
+        value.startsWith('black')
+            ? 'Black'
+            : value.startsWith('clear')
+            ? 'Clear'
+            : value.startsWith('pc')
+            ? 'PC'
+            : 'Other';
+    final type =
+        value.contains('virgin')
+            ? 'Virgin'
+            : value.contains('grinding')
+            ? 'Grinding'
+            : '';
+    return type.isEmpty ? material : '$material $type';
+  }
+
+  Widget _buildSupplierMaterialTransactions({required bool isMobile}) {
+    final orderId = _stringValue(order['id']);
+    final supplierId = _stringValue(order['supplierId']);
+
+    if (orderId.isEmpty || supplierId.isEmpty) {
+      return _buildEmptyCard(
+        'Supplier transaction details are unavailable. The order ID or molding supplier ID is missing.',
+      );
+    }
+
+    return FutureBuilder<String?>(
+      future: _loadCompanyId(),
+      builder: (context, companySnapshot) {
+        if (companySnapshot.connectionState == ConnectionState.waiting) {
+          return _buildWhiteCard(
+            child: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(18),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        }
+
+        final companyId = companySnapshot.data;
+        if (companyId == null || companyId.trim().isEmpty) {
+          return _buildEmptyCard(
+            'Company information is not available. Please sign in again.',
+          );
+        }
+
+        final transactionQuery = FirebaseFirestore.instance
+            .collection('companies')
+            .doc(companyId)
+            .collection('labor_granules_balances')
+            .doc(supplierId)
+            .collection('transactions')
+            .where('moldingOrderId', isEqualTo: orderId);
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: transactionQuery.snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _buildEmptyCard(
+                'Unable to load supplier transactions: ${snapshot.error}',
+              );
+            }
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return _buildWhiteCard(
+                child: const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              );
+            }
+
+            final transactions =
+                snapshot.data?.docs
+                    .map(
+                      (doc) => <String, dynamic>{'id': doc.id, ...doc.data()},
+                    )
+                    .toList() ??
+                <Map<String, dynamic>>[];
+
+            transactions.sort((a, b) {
+              final first = _toDateTime(a['receivedAt'] ?? a['createdAt']);
+              final second = _toDateTime(b['receivedAt'] ?? b['createdAt']);
+              if (first == null && second == null) return 0;
+              if (first == null) return -1;
+              if (second == null) return 1;
+              return first.compareTo(second);
+            });
+
+            if (transactions.isEmpty) {
+              return _buildEmptyCard(
+                'No supplier material transactions have been recorded for this molding order yet.',
+              );
+            }
+
+            final opening = <String, double>{};
+            final closing = <String, double>{};
+            final deductions = <String, double>{};
+            final runnerCredits = <String, double>{};
+            double totalReceivedWeight = 0;
+            double totalGranulesUsed = 0;
+            double totalRunner = 0;
+            double totalWastage = 0;
+
+            for (final receipt in transactions) {
+              final receiptOpening = _numberMap(receipt['openingBalance']);
+              final receiptClosing = _numberMap(receipt['closingBalance']);
+              final receiptDeductions = _numberMap(
+                receipt['virginAndGrindingDeductions'],
+              );
+              final receiptCredits = _numberMap(receipt['runnerCredits']);
+
+              for (final entry in receiptOpening.entries) {
+                opening.putIfAbsent(entry.key, () => entry.value);
+              }
+              closing.addAll(receiptClosing);
+              for (final entry in receiptDeductions.entries) {
+                deductions[entry.key] =
+                    (deductions[entry.key] ?? 0) + entry.value;
+              }
+              for (final entry in receiptCredits.entries) {
+                runnerCredits[entry.key] =
+                    (runnerCredits[entry.key] ?? 0) + entry.value;
+              }
+              totalReceivedWeight += _toDouble(
+                receipt['receivedProductWeightKg'],
+              );
+              totalGranulesUsed += _toDouble(
+                receipt['estimatedGranulesUsedKg'],
+              );
+              totalRunner += _toDouble(receipt['runnerRecoveredKg']);
+              totalWastage += _toDouble(receipt['totalWastageKg']);
+            }
+
+            final fields =
+                <String>{
+                    ...opening.keys,
+                    ...closing.keys,
+                    ...deductions.keys,
+                    ...runnerCredits.keys,
+                  }.toList()
+                  ..sort((a, b) {
+                    const order = [
+                      'BlackVirginKg',
+                      'BlackGrindingKg',
+                      'ClearVirginKg',
+                      'ClearGrindingKg',
+                      'PCVirginKg',
+                      'PCGrindingKg',
+                    ];
+                    final ai = order.indexOf(a);
+                    final bi = order.indexOf(b);
+                    return (ai < 0 ? 999 : ai).compareTo(bi < 0 ? 999 : bi);
+                  });
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildWhiteCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Order Receipt Summary',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF343741),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _transactionMetric(
+                            'Receipts',
+                            '${transactions.length}',
+                          ),
+                          _transactionMetric(
+                            'Received Weight',
+                            '${_decimal(totalReceivedWeight)} kg',
+                          ),
+                          _transactionMetric(
+                            'Granules Used',
+                            '${_decimal(totalGranulesUsed)} kg',
+                          ),
+                          _transactionMetric(
+                            'Runner Credit',
+                            '${_decimal(totalRunner)} kg',
+                          ),
+                          _transactionMetric(
+                            'Wastage',
+                            '${_decimal(totalWastage)} kg',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Supplier Material Balance After This Order',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF343741),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildSupplierBalanceTable(
+                        fields: fields,
+                        opening: opening,
+                        deductions: deductions,
+                        credits: runnerCredits,
+                        closing: closing,
+                        isMobile: isMobile,
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        'Balances shown are the saved supplier-ledger snapshots after the receipts belonging to this order.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...transactions.asMap().entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _buildReceiptTransactionCard(
+                      receipt: entry.value,
+                      index: entry.key + 1,
+                    ),
+                  );
+                }),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _transactionMetric(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FC),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 9,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF343741),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupplierBalanceTable({
+    required List<String> fields,
+    required Map<String, double> opening,
+    required Map<String, double> deductions,
+    required Map<String, double> credits,
+    required Map<String, double> closing,
+    required bool isMobile,
+  }) {
+    if (fields.isEmpty)
+      return _buildEmptyCard(
+        'No material balance values were saved for this order.',
+      );
+
+    final rows =
+        fields.map((field) {
+          return DataRow(
+            cells: [
+              DataCell(
+                Text(
+                  _materialLabel(field),
+                  style: GoogleFonts.poppins(fontSize: 10),
+                ),
+              ),
+              DataCell(
+                Text(
+                  _decimal(opening[field] ?? 0),
+                  style: GoogleFonts.poppins(fontSize: 10),
+                ),
+              ),
+              DataCell(
+                Text(
+                  _decimal(deductions[field] ?? 0),
+                  style: GoogleFonts.poppins(fontSize: 10),
+                ),
+              ),
+              DataCell(
+                Text(
+                  _decimal(credits[field] ?? 0),
+                  style: GoogleFonts.poppins(fontSize: 10),
+                ),
+              ),
+              DataCell(
+                Text(
+                  _decimal(closing[field] ?? 0),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowHeight: 38,
+        dataRowMinHeight: 38,
+        dataRowMaxHeight: 48,
+        horizontalMargin: 8,
+        columnSpacing: isMobile ? 16 : 24,
+        columns:
+            [
+                  'Material',
+                  'Opening kg',
+                  'Consumed kg',
+                  'Runner + kg',
+                  'Closing kg',
+                ]
+                .map(
+                  (label) => DataColumn(
+                    label: Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+        rows: rows,
+      ),
+    );
+  }
+
+  Widget _buildReceiptTransactionCard({
+    required Map<String, dynamic> receipt,
+    required int index,
+  }) {
+    final receiptNumber = _stringValue(
+      receipt['receiptNumber'] ?? receipt['drummingOrderNumber'],
+    );
+    final drummingSupplier = _stringValue(receipt['drummingSupplierName']);
+    final receivedAt = receipt['receivedAt'] ?? receipt['createdAt'];
+    final items =
+        receipt['items'] is List
+            ? (receipt['items'] as List)
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList()
+            : <Map<String, dynamic>>[];
+    final opening = _numberMap(receipt['openingBalance']);
+    final closing = _numberMap(receipt['closingBalance']);
+    final deductions = _numberMap(receipt['virginAndGrindingDeductions']);
+    final credits = _numberMap(receipt['runnerCredits']);
+    final ledgerFields =
+        <String>{
+            ...opening.keys,
+            ...deductions.keys,
+            ...credits.keys,
+            ...closing.keys,
+          }.toList()
+          ..sort();
+
+    return _buildWhiteCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Receipt $index${receiptNumber.isEmpty ? '' : ' • $receiptNumber'}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF343741),
+                  ),
+                ),
+              ),
+              _smallBadge(
+                _stringValue(receipt['status']).isEmpty
+                    ? 'Posted'
+                    : _stringValue(receipt['status']),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 16,
+            runSpacing: 5,
+            children: [
+              Text(
+                'Received: ${_formatDateTime(receivedAt)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+              Text(
+                'Weight: ${_decimal(receipt['receivedProductWeightKg'])} kg',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+              Text(
+                'Bags: ${_toInt(receipt['totalBags'])}',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+          if (drummingSupplier.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Drumming Supplier: $drummingSupplier',
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          ],
+          if (_stringValue(receipt['remarks']).isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Remarks: ${_stringValue(receipt['remarks'])}',
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            'Received Variants & Calculations',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (items.isEmpty)
+            Text(
+              'No item-level receipt details saved.',
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: const Color(0xFF9CA3AF),
+              ),
+            )
+          else
+            ...items.map((item) {
+              final name =
+                  _stringValue(item['productName']).isEmpty
+                      ? '-'
+                      : _stringValue(item['productName']);
+              final material = _stringValue(
+                item['materialType'] ?? item['variantType'],
+              );
+              final side = _stringValue(item['side']);
+              final title = [
+                name,
+                material,
+                side,
+              ].where((part) => part.isNotEmpty).join(' • ');
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 7),
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 13,
+                      runSpacing: 4,
+                      children: [
+                        _receiptValue('Qty', _decimal(item['quantity'])),
+                        _receiptValue(
+                          'Product wt.',
+                          '${_decimal(item['receivedProductWeightKg'])} kg',
+                        ),
+                        _receiptValue(
+                          'Granules',
+                          '${_decimal(item['estimatedGranulesUsedKg'])} kg',
+                        ),
+                        _receiptValue(
+                          'Virgin',
+                          '${_decimal(item['virginConsumedKg'])} kg',
+                        ),
+                        _receiptValue(
+                          'Grinding',
+                          '${_decimal(item['grindingConsumedKg'])} kg',
+                        ),
+                        _receiptValue(
+                          'Runner',
+                          '${_decimal(item['runnerRecoveredKg'])} kg',
+                        ),
+                        _receiptValue(
+                          'Wastage',
+                          '${_decimal(item['totalWastageKg'])} kg',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+          const SizedBox(height: 6),
+          Text(
+            'Supplier Ledger Movement',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...ledgerFields.map((field) {
+            final open = opening[field] ?? 0;
+            final used = deductions[field] ?? 0;
+            final credited = credits[field] ?? 0;
+            final close = closing[field] ?? (open - used + credited);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: 520,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          _materialLabel(field),
+                          style: GoogleFonts.poppins(fontSize: 10),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Open ${_decimal(open)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '-${_decimal(used)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            color: const Color(0xFFC62828),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '+${_decimal(credited)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            color: const Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_decimal(close)} kg',
+                          textAlign: TextAlign.end,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _receiptValue(String label, String value) {
+    return Text(
+      '$label: $value',
+      style: GoogleFonts.poppins(fontSize: 9, color: const Color(0xFF6B7280)),
     );
   }
 
