@@ -37,6 +37,8 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
   final _remarksController = TextEditingController();
 
+  DateTime _receivedDate = DateTime.now();
+
   String? _companyId;
 
   Map<String, dynamic>? _order;
@@ -197,7 +199,9 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
   String _variantKey(Map<String, dynamic> item) {
     final productId = _productId(item);
+
     final material = _materialType(item).trim().toLowerCase();
+
     final side = _side(item).trim().toLowerCase();
 
     if (productId.isNotEmpty) {
@@ -205,6 +209,7 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
     }
 
     final productCode = _stringValue(item['productCode']).toLowerCase();
+
     final productName = _productName(item).toLowerCase();
 
     return 'fallback:$productCode|name:$productName|material:$material|side:$side';
@@ -251,6 +256,7 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
       }
 
       final rawItems = data['items'];
+
       final grouped = <String, Map<String, dynamic>>{};
 
       if (rawItems is List) {
@@ -258,23 +264,30 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
           if (raw is! Map) continue;
 
           final item = Map<String, dynamic>.from(raw);
+
           final key = _variantKey(item);
 
           if (grouped.containsKey(key)) {
             final existing = grouped[key]!;
+
             existing['orderedQuantity'] =
                 _toInt(existing['orderedQuantity']) + _ordered(item);
+
             existing['receivedQuantity'] =
                 _toInt(existing['receivedQuantity']) + _received(item);
           } else {
             if (_productId(item).isEmpty) {
-              // Do not silently create inventory against an unknown product.
+              // Do not silently create inventory against an unknown product.*
+
               item['_inventoryError'] = 'Missing productId';
             }
 
             item['orderedQuantity'] = _ordered(item);
+
             item['receivedQuantity'] = _received(item);
+
             item['_receivedNow'] = 0;
+
             grouped[key] = item;
           }
         }
@@ -333,10 +346,9 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
     final item = _items[index];
 
-    final pending = _pending(item);
-
     setState(() {
-      item['_receivedNow'] = parsed.clamp(0, pending);
+      // Allow over-receiving if the molding quantity was counted incorrectly.
+      item['_receivedNow'] = parsed < 0 ? 0 : parsed;
     });
   }
 
@@ -368,6 +380,22 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
     );
   }
 
+  Future<void> _selectReceivedDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _receivedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: 'Select received date',
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        _receivedDate = DateTime(selected.year, selected.month, selected.day);
+      });
+    }
+  }
+
   Future<void> _saveReceiving() async {
     if (_isSaving || _companyId == null || _order == null) return;
 
@@ -378,6 +406,7 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
     if (totalPieces <= 0) {
       _showMessage(
         'Enter received quantity for at least one variant.',
+
         error: true,
       );
 
@@ -410,6 +439,7 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
     if (user == null) {
       _showMessage(
         'Your session has expired. Please log in again.',
+
         error: true,
       );
 
@@ -448,9 +478,12 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
         final pendingProductReads = <Map<String, dynamic>>[];
 
-        // Group the latest order rows by the same product/variant so duplicate
-        // rows such as TH02 + Black + Left are treated as one receiving line.
+        // Group the latest order rows by the same product/variant so duplicate*
+
+        // rows such as TH02 + Black + Left are treated as one receiving line.*
+
         final latestGroups = <String, List<Map<String, dynamic>>>{};
+
         for (final candidate in latestItems) {
           latestGroups
               .putIfAbsent(_variantKey(candidate), () => [])
@@ -459,10 +492,13 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
         for (final selectedItem in _items) {
           final additional = _toInt(selectedItem['_receivedNow']);
+
           if (additional <= 0) continue;
 
           final productId = _productId(selectedItem);
+
           final key = _variantKey(selectedItem);
+
           final matchingItems = latestGroups[key] ?? [];
 
           if (matchingItems.isEmpty) {
@@ -471,26 +507,18 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
             );
           }
 
-          final totalPending = matchingItems.fold<int>(
-            0,
-            (total, candidate) => total + _pending(candidate),
-          );
-
-          if (additional > totalPending) {
-            throw Exception(
-              '${_productName(selectedItem)} has only $totalPending pieces pending.',
-            );
-          }
-
           pendingProductReads.add({
             'selectedItem': selectedItem,
+
             'matchingItems': matchingItems,
+
             'additional': additional,
+
             'productRef': companyRef.collection('products').doc(productId),
           });
         }
 
-        // Read every affected inventory product before issuing any writes.*
+        // Read every affected inventory product before issuing any writes.
 
         for (final entry in pendingProductReads) {
           final productSnapshot = await transaction.get(
@@ -508,14 +536,20 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
               productSnapshot.data() as Map<String, dynamic>? ?? {};
         }
 
-        // Update inventory once per unique product/variant, then distribute
-        // the received quantity across duplicate order rows.
+        // Update inventory once per unique product/variant, then distribute*
+
+        // the received quantity across duplicate order rows.*
+
         for (final entry in pendingProductReads) {
           final selectedItem = entry['selectedItem'] as Map<String, dynamic>;
+
           final matchingItems =
               (entry['matchingItems'] as List).cast<Map<String, dynamic>>();
+
           final additional = entry['additional'] as int;
+
           final productRef = entry['productRef'] as DocumentReference;
+
           final productData = entry['productData'] as Map<String, dynamic>;
 
           final currentStock = _toInt(productData['stock']);
@@ -530,31 +564,53 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
           transaction.update(productRef, {
             'stock': newStock,
+
             'lastReceivedQuantity': additional,
+
             'lastReceivedAt': FieldValue.serverTimestamp(),
+
+            'lastReceivedDate': Timestamp.fromDate(_receivedDate),
+
             'lastReceivedFrom': 'Drumming',
+
             'lastReceivedOrderId': widget.orderId,
+
             'lastReceivedOrderNumber': latestOrder['orderNumber'],
+
             'inventoryUpdatedAt': FieldValue.serverTimestamp(),
           });
 
           updates.add({
             'productId': _productId(selectedItem),
+
             'productName': _productName(selectedItem),
+
             'productCode': _stringValue(selectedItem['productCode']),
+
             'componentType': _stringValue(
               selectedItem['componentType'] ?? selectedItem['component'],
             ),
+
             'materialType': _materialType(selectedItem),
+
             'side': _side(selectedItem).isEmpty ? null : _side(selectedItem),
+
             'quantity': additional,
+
             'previousStock': currentStock,
+
             'newStock': newStock,
           });
 
-          // The UI contains one combined receiving field, but Firestore keeps
-          // all original rows. Allocate the combined quantity across those
-          // duplicate rows without exceeding each row's pending quantity.
+          // The UI contains one combined receiving field, but Firestore keeps*
+
+          // all original rows. Allocate the combined quantity across those*
+
+          // duplicate rows without exceeding each row's pending quantity.*
+
+          // Allocate against pending quantities first. If actual received
+          // quantity exceeds the ordered quantity, record the excess on the
+          // final matching row instead of blocking the receipt.
           var remaining = additional;
           for (final latestItem in matchingItems) {
             if (remaining <= 0) break;
@@ -563,15 +619,13 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
             if (rowPending <= 0) continue;
 
             final allocation = remaining > rowPending ? rowPending : remaining;
-
             latestItem['receivedQuantity'] = _received(latestItem) + allocation;
             remaining -= allocation;
           }
 
           if (remaining > 0) {
-            throw Exception(
-              'Unable to distribute received quantity for ${_productName(selectedItem)}.',
-            );
+            final lastItem = matchingItems.last;
+            lastItem['receivedQuantity'] = _received(lastItem) + remaining;
           }
         }
 
@@ -598,6 +652,8 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
 
         history.add({
           'receivedAt': Timestamp.now(),
+
+          'receivedDate': Timestamp.fromDate(_receivedDate),
 
           'receivedByUid': user.uid,
 
@@ -628,6 +684,8 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
           'status': status,
 
           'lastReceivedAt': FieldValue.serverTimestamp(),
+
+          'lastReceivedDate': Timestamp.fromDate(_receivedDate),
 
           'lastReceivedByUid': user.uid,
 
@@ -921,6 +979,30 @@ class _ReceiveDrummingGoodsPageState extends State<ReceiveDrummingGoodsPage> {
           ),
 
           const SizedBox(height: 16),
+
+          InkWell(
+            onTap: _isSaving ? null : _selectReceivedDate,
+            borderRadius: BorderRadius.circular(10),
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Received Date',
+                prefixIcon: const Icon(Icons.calendar_today_outlined),
+                filled: true,
+                fillColor: const Color(0xFFF9FAFB),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: Text(_formatDate(_receivedDate))),
+                  const Icon(Icons.edit_calendar_outlined, size: 18),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 14),
 
           if (isMobile)
             Column(

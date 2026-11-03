@@ -31,6 +31,11 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
   late TabController _tabController;
 
+  int _lastPersistedTabIndex = 0;
+
+  String get _selectedTabPreferenceKey =>
+      'rawProductOrdersSelectedTab_${_companyId ?? 'default'}';
+
   // Separate search for each tab.*
 
   final TextEditingController _moldingSearchController =
@@ -68,6 +73,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     super.initState();
 
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabControllerChanged);
 
     _moldingSearchController.addListener(() {
       setState(() {
@@ -88,12 +94,39 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     final prefs = await SharedPreferences.getInstance();
 
     final companyId = prefs.getString('cachedCompanyId');
+    final preferenceKey =
+        'rawProductOrdersSelectedTab_${companyId ?? 'default'}';
+    final savedTabIndex = prefs.getInt(preferenceKey) ?? 0;
+    final restoredTabIndex = savedTabIndex.clamp(0, 1).toInt();
 
     if (!mounted) return;
+
+    // Restore the last selected tab before displaying the loaded page.
+    _tabController.index = restoredTabIndex;
+    _lastPersistedTabIndex = restoredTabIndex;
 
     setState(() {
       _companyId = companyId;
     });
+  }
+
+  void _handleTabControllerChanged() {
+    final selectedIndex = _tabController.index;
+
+    if (selectedIndex == _lastPersistedTabIndex) return;
+
+    _lastPersistedTabIndex = selectedIndex;
+
+    if (mounted) {
+      setState(() {});
+    }
+
+    _saveSelectedTab(selectedIndex);
+  }
+
+  Future<void> _saveSelectedTab(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_selectedTabPreferenceKey, index);
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>>? get _moldingOrdersStream {
@@ -131,6 +164,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabControllerChanged);
     _tabController.dispose();
 
     _moldingSearchController.dispose();
@@ -212,7 +246,11 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             child: TabBar(
               controller: _tabController,
 
-              onTap: (_) {
+              onTap: (index) {
+                if (_lastPersistedTabIndex != index) {
+                  _lastPersistedTabIndex = index;
+                  _saveSelectedTab(index);
+                }
                 setState(() {});
               },
 
@@ -1826,6 +1864,7 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
     final status = order['status']?.toString() ?? 'Pending';
     final supplier = order['supplierName']?.toString() ?? '-';
     final source = order['sourceMoldingOrderNumber']?.toString() ?? '-';
+    final orderDate = _getOrderDate(order);
     final orderedPieces = _toInt(order['orderedPieces']);
     final receivedPieces = _toInt(order['receivedPieces']);
     final pendingPieces = (orderedPieces - receivedPieces).clamp(
@@ -1870,6 +1909,14 @@ class _RawProductOrdersPageState extends State<RawProductOrdersPage>
             ],
           ),
           const SizedBox(height: 12),
+          _buildOrderInfoRow(
+            Icons.calendar_today_outlined,
+            'Order Placed',
+            orderDate.millisecondsSinceEpoch == 0
+                ? '-'
+                : _formatDate(orderDate),
+          ),
+          const SizedBox(height: 8),
           _buildOrderInfoRow(
             Icons.person_outline,
             'Drumming Supplier',

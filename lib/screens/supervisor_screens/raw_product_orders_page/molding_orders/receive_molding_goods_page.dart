@@ -507,18 +507,6 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
     return (_ordered(item) - _received(item)).clamp(0, _ordered(item));
   }
 
-  int _shotsFromPieces(dynamic pieces, dynamic piecesPerCycle) {
-    final pieceCount = _toInt(pieces);
-
-    if (pieceCount <= 0) return 0;
-
-    final cyclePieces = _toInt(piecesPerCycle);
-
-    if (cyclePieces <= 0) return pieceCount;
-
-    return (pieceCount + cyclePieces - 1) ~/ cyclePieces;
-  }
-
   int _calculateShots(List<Map<String, dynamic>> items, String field) {
     final itemsByMold = <String, List<Map<String, dynamic>>>{};
     for (final item in items) {
@@ -1911,7 +1899,7 @@ class _ReceiveMoldingGoodsPageState extends State<ReceiveMoldingGoodsPage> {
 
           'createdByUid': currentUser.uid,
 
-          'createdByName': currentUser.displayName ?? '',
+          'createdByName': currentUser.email ?? '',
 
           'supplierId': _selectedDrummingSupplierId,
 
