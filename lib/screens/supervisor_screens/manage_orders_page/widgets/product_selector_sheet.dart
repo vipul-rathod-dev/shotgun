@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:shotgun/widgets/custom_textfield.dart';
 
 class ProductSelectorSheet extends StatefulWidget {
@@ -16,20 +19,25 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   final TextEditingController _searchController = TextEditingController();
 
   List<QueryDocumentSnapshot> _products = [];
+
   List<QueryDocumentSnapshot> _filteredProducts = [];
 
   // Selected product IDs
+
   final Set<String> _selectedProductIds = {};
 
   // Quantity controllers for each selected product
+
   final Map<String, TextEditingController> _quantityControllers = {};
 
   // Price controllers for each selected product
+
   final Map<String, TextEditingController> _priceControllers = {};
 
   @override
   void initState() {
     super.initState();
+
     _loadCompanyAndProducts();
   }
 
@@ -49,7 +57,9 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   }
 
   // ---------------------------------------------------------------------------
+
   // LOAD COMPANY + PRODUCTS
+
   // ---------------------------------------------------------------------------
 
   Future<void> _loadCompanyAndProducts() async {
@@ -68,53 +78,57 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
         _companyId = companyId;
       });
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('companies')
-          .doc(companyId)
-          .collection('products')
-          .orderBy('name')
-          .get();
+      final snapshot =
+          await FirebaseFirestore.instance
+              .collection('companies')
+              .doc(companyId)
+              .collection('products')
+              .orderBy('name')
+              .get();
 
       if (!mounted) return;
 
       setState(() {
         _products = snapshot.docs;
+
         _filteredProducts = snapshot.docs;
       });
     } catch (e) {
       debugPrint('Failed to load products: $e');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error loading products'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Error loading products')));
       }
     }
   }
 
   // ---------------------------------------------------------------------------
+
   // SEARCH
+
   // ---------------------------------------------------------------------------
 
   void _updateSearch(String query) {
     final lowerQuery = query.toLowerCase().trim();
 
     setState(() {
-      _filteredProducts = _products.where((product) {
-        final data = product.data() as Map<String, dynamic>;
+      _filteredProducts =
+          _products.where((product) {
+            final data = product.data() as Map<String, dynamic>;
 
-        final name =
-            (data['displayName'] ?? '').toString().toLowerCase();
+            final name = (data['displayName'] ?? '').toString().toLowerCase();
 
-        return name.contains(lowerQuery);
-      }).toList();
+            return name.contains(lowerQuery);
+          }).toList();
     });
   }
 
   // ---------------------------------------------------------------------------
+
   // SELECT / UNSELECT PRODUCT
+
   // ---------------------------------------------------------------------------
 
   void _toggleProduct(QueryDocumentSnapshot product) {
@@ -125,48 +139,54 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
     setState(() {
       if (_selectedProductIds.contains(productId)) {
         // ---------------------------------------------------------------
+
         // UNSELECT
+
         // ---------------------------------------------------------------
 
         _selectedProductIds.remove(productId);
 
         _quantityControllers[productId]?.dispose();
+
         _priceControllers[productId]?.dispose();
 
         _quantityControllers.remove(productId);
+
         _priceControllers.remove(productId);
       } else {
         // ---------------------------------------------------------------
+
         // SELECT
+
         // ---------------------------------------------------------------
 
         _selectedProductIds.add(productId);
 
-        final quantityController = TextEditingController(
-          text: '1',
-        );
+        final quantityController = TextEditingController(text: '1');
 
         final priceController = TextEditingController(
           text: data['price']?.toString() ?? '',
         );
 
         _quantityControllers[productId] = quantityController;
+
         _priceControllers[productId] = priceController;
       }
     });
   }
 
   // ---------------------------------------------------------------------------
+
   // VALIDATE + RETURN SELECTED PRODUCTS
+
   // ---------------------------------------------------------------------------
 
   void _submitSelection() {
     if (_selectedProductIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select at least one product'),
-        ),
+        const SnackBar(content: Text('Select at least one product')),
       );
+
       return;
     }
 
@@ -181,17 +201,18 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
 
       final data = product.data() as Map<String, dynamic>;
 
-      final quantityText =
-          _quantityControllers[productId]?.text.trim() ?? '';
+      final quantityText = _quantityControllers[productId]?.text.trim() ?? '';
 
-      final priceText =
-          _priceControllers[productId]?.text.trim() ?? '';
+      final priceText = _priceControllers[productId]?.text.trim() ?? '';
 
       final quantity = int.tryParse(quantityText);
+
       final price = double.tryParse(priceText);
 
       // ---------------------------------------------------------------
+
       // QUANTITY VALIDATION
+
       // ---------------------------------------------------------------
 
       if (quantity == null || quantity <= 0) {
@@ -202,11 +223,14 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
             ),
           ),
         );
+
         return;
       }
 
       // ---------------------------------------------------------------
+
       // PRICE VALIDATION
+
       // ---------------------------------------------------------------
 
       if (price == null || price <= 0) {
@@ -217,14 +241,25 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
             ),
           ),
         );
+
         return;
       }
 
       selectedProducts.add({
         'productId': productId,
+
         'productName': data['displayName'] ?? 'Unnamed',
+
         'modelGender': data['modelGender'] ?? 'Unknown',
+
+        // Copy the linked raw model metadata from the Finished product document.
+        'rawFocusModelId': data['rawFocusModelId'],
+        'rawFocusModelName': data['rawFocusModelName'],
+        'rawTempleModelId': data['rawTempleModelId'],
+        'rawTempleModelName': data['rawTempleModelName'],
+
         'quantity': quantity,
+
         'price': price,
       });
     }
@@ -237,12 +272,12 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   }
 
   // ---------------------------------------------------------------------------
+
   // PRODUCT CARD
+
   // ---------------------------------------------------------------------------
 
-  Widget _buildProductItem(
-    QueryDocumentSnapshot product,
-  ) {
+  Widget _buildProductItem(QueryDocumentSnapshot product) {
     final data = product.data() as Map<String, dynamic>;
 
     final productId = product.id;
@@ -259,46 +294,46 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+
       elevation: isSelected ? 2 : 0,
+
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 4,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+
         child: Column(
           children: [
             CheckboxListTile(
               value: isSelected,
+
               onChanged: (_) {
                 _toggleProduct(product);
               },
+
               controlAffinity: ListTileControlAffinity.leading,
+
               title: Text(
                 name.toString(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              subtitle: Text(
-                '$modelGender • ₹$price • Stock: $stock',
-              ),
+
+              subtitle: Text('$modelGender • ₹$price • Stock: $stock'),
             ),
 
             if (isSelected)
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  12,
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+
                 child: Row(
                   children: [
                     Expanded(
                       child: CustomTextField(
                         label: 'Quantity',
+
                         icon: Icons.numbers,
+
                         controller: _quantityControllers[productId]!,
+
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -308,10 +343,12 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
                     Expanded(
                       child: CustomTextField(
                         label: 'Price',
+
                         icon: Icons.currency_rupee,
+
                         controller: _priceControllers[productId]!,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
+
+                        keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                       ),
@@ -326,119 +363,131 @@ class _ProductSelectorSheetState extends State<ProductSelectorSheet> {
   }
 
   // ---------------------------------------------------------------------------
+
   // BUILD
+
   // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding =
-        MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
     if (_companyId == null) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     return DraggableScrollableSheet(
       expand: false,
+
       initialChildSize: 0.7,
+
       minChildSize: 0.4,
+
       maxChildSize: 0.95,
+
       builder: (_, scrollController) {
         return Container(
           padding: EdgeInsets.only(
             left: 16,
+
             right: 16,
+
             top: 20,
+
             bottom: bottomPadding + 20,
           ),
+
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(16),
-            ),
+
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
+
           child: Column(
             children: [
               const Text(
                 'Select Products',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 12),
 
               // -----------------------------------------------------------
-              // SEARCH
-              // -----------------------------------------------------------
 
+              // SEARCH
+
+              // -----------------------------------------------------------
               CustomTextField(
                 label: 'Search Products',
+
                 icon: Icons.search,
+
                 controller: _searchController,
+
                 onChanged: _updateSearch,
               ),
 
               const SizedBox(height: 12),
 
               // -----------------------------------------------------------
-              // SELECTED COUNT
-              // -----------------------------------------------------------
 
+              // SELECTED COUNT
+
+              // -----------------------------------------------------------
               Align(
                 alignment: Alignment.centerLeft,
+
                 child: Text(
                   '${_selectedProductIds.length} product${_selectedProductIds.length == 1 ? '' : 's'} selected',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
+
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
 
               const SizedBox(height: 8),
 
               // -----------------------------------------------------------
-              // PRODUCT LIST
-              // -----------------------------------------------------------
 
+              // PRODUCT LIST
+
+              // -----------------------------------------------------------
               Expanded(
-                child: _filteredProducts.isEmpty
-                    ? const Center(
-                        child: Text('No products found'),
-                      )
-                    : ListView.builder(
-                        controller: scrollController,
-                        itemCount: _filteredProducts.length,
-                        itemBuilder: (context, index) {
-                          return _buildProductItem(
-                            _filteredProducts[index],
-                          );
-                        },
-                      ),
+                child:
+                    _filteredProducts.isEmpty
+                        ? const Center(child: Text('No products found'))
+                        : ListView.builder(
+                          controller: scrollController,
+
+                          itemCount: _filteredProducts.length,
+
+                          itemBuilder: (context, index) {
+                            return _buildProductItem(_filteredProducts[index]);
+                          },
+                        ),
               ),
 
               const SizedBox(height: 12),
 
               // -----------------------------------------------------------
-              // CONFIRM
-              // -----------------------------------------------------------
 
+              // CONFIRM
+
+              // -----------------------------------------------------------
               ElevatedButton.icon(
                 icon: const Icon(Icons.check),
+
                 label: Text(
                   _selectedProductIds.isEmpty
                       ? 'Add Products'
                       : 'Add ${_selectedProductIds.length} Product${_selectedProductIds.length == 1 ? '' : 's'}',
                 ),
+
                 onPressed: _submitSelection,
+
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(
-                    double.infinity,
-                    48,
-                  ),
+                  minimumSize: const Size(double.infinity, 48),
+
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
