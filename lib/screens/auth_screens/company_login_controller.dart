@@ -72,7 +72,7 @@ class CompanyLoginController extends ChangeNotifier {
       final companySnapshot = await FirebaseFirestore.instance
           .collection('companies')
           .where(
-            'name',
+            'companyId',
             isEqualTo: companyController.text.trim(),
           )
           .limit(1)
