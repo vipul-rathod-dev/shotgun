@@ -150,7 +150,7 @@ class RoleResolver extends StatelessWidget {
         );
       }
 
-      if (role != 'staff' && role != 'supervisor') {
+      if (role != 'staff' && role != 'supervisor' && role != 'manager') {
         throw Exception(
           'Invalid company role.',
         );

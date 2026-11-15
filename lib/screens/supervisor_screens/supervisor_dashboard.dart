@@ -51,14 +51,24 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
 
     final List<DashboardItem> dashboardItems = const [
       DashboardItem(
-        icon: Icons.inventory_2_rounded,
-        title: 'Manage Tasks',
-        route: '/supervisor/tasks',
+        icon: Icons.inventory_2_outlined,
+        title: 'Raw Product Orders',
+        route: '/supervisor/raw-product-orders',
+      ),
+      DashboardItem(
+        icon: Icons.bar_chart,
+        title: 'Manage Orders',
+        route: '/supervisor/orders',
       ),
       DashboardItem(
         icon: Icons.production_quantity_limits,
         title: 'Manage Products',
         route: '/supervisor/products',
+      ),
+      DashboardItem(
+        icon: Icons.inventory_2_rounded,
+        title: 'Manage Tasks',
+        route: '/supervisor/tasks',
       ),
       DashboardItem(
         icon: Icons.person_outline,
@@ -71,11 +81,6 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
         route: '/supervisor/suppliers',
       ),
       DashboardItem(
-        icon: Icons.bar_chart,
-        title: 'Manage Orders',
-        route: '/supervisor/orders',
-      ),
-      DashboardItem(
         icon: Icons.palette_outlined,
         title: 'Color Templates',
         route: '/supervisor/color-templates',
@@ -85,15 +90,15 @@ class _SupervisorDashboardState extends State<SupervisorDashboard>
         title: 'Manage Inventory',
         route: '/supervisor/manage-inventory',
       ),
+      // DashboardItem(
+      //   icon: Icons.badge_outlined,
+      //   title: 'Manage Staff',
+      //   route: '/supervisor/view-staff',
+      // ),
       DashboardItem(
         icon: Icons.badge_outlined,
-        title: 'Manage Staff',
-        route: '/supervisor/view-staff',
-      ),
-      DashboardItem(
-        icon: Icons.inventory_2_outlined,
-        title: 'Raw Product Orders',
-        route: '/supervisor/raw-product-orders',
+        title: 'Manage Users',
+        route: '/supervisor/view-users',
       ),
     ];
 

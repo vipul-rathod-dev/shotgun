@@ -73,29 +73,23 @@ class RoleGuard extends StatelessWidget {
   Future<String?> _resolveRole(String uid) async {
     final firestore = FirebaseFirestore.instance;
 
-    // --------------------------------------------------
     // ADMIN
-    // --------------------------------------------------
     if (requiredRole == 'admin') {
       final adminDoc = await firestore
           .collection('users')
           .doc(uid)
           .get();
 
-      if (!adminDoc.exists) {
-        return null;
-      }
+      if (!adminDoc.exists) return null;
 
-      final role = adminDoc.data()?['role'];
-
-      return role as String?;
+      return adminDoc.data()?['role']
+          ?.toString()
+          .trim()
+          .toLowerCase();
     }
 
-    // --------------------------------------------------
     // COMPANY USER
-    // --------------------------------------------------
     final prefs = await SharedPreferences.getInstance();
-
     final companyId = prefs.getString('cachedCompanyId');
 
     if (companyId == null || companyId.isEmpty) {
@@ -110,12 +104,11 @@ class RoleGuard extends StatelessWidget {
         .doc(uid)
         .get();
 
-    if (!userDoc.exists) {
-      return null;
-    }
+    if (!userDoc.exists) return null;
 
-    final role = userDoc.data()?['role'];
-
-    return role as String?;
+    return userDoc.data()?['role']
+        ?.toString()
+        .trim()
+        .toLowerCase();
   }
 }

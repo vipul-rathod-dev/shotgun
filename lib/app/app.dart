@@ -6,9 +6,11 @@ import 'package:shotgun/screens/staff_screens/assigned_task_page/assigned_task_p
 import 'package:shotgun/screens/staff_screens/execute_process_page/execute_process_page.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_focus_color.dart';
 import 'package:shotgun/screens/supervisor_screens/add_colors_fab/add_temple_color.dart';
+import 'package:shotgun/screens/supervisor_screens/manage-users/add_users_page.dart';
+import 'package:shotgun/screens/supervisor_screens/manage-users/view_users_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_customers_page/customers_list_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_customers_page/add_customers_page.dart';
-import 'package:shotgun/screens/supervisor_screens/manage_staff/add_staff_page.dart';
+// import 'package:shotgun/screens/supervisor_screens/manage_staff/add_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_orders_page/manage_orders.dart';
 import 'package:shotgun/screens/staff_screens/order_details/order_details_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_products_page/manage_products_page.dart';
@@ -20,7 +22,7 @@ import 'package:shotgun/screens/staff_screens/process_page/quality_check_page.da
 import 'package:shotgun/screens/staff_screens/process_page/raw_process_page.dart';
 import 'package:shotgun/screens/staff_screens/process_page/shipping_process_page.dart';
 import 'package:shotgun/screens/staff_screens/track_orders/track_orders_page.dart';
-import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.dart';
+// import 'package:shotgun/screens/supervisor_screens/manage_staff/view_staff_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_supervisor_tasks/manage_supervisor_tasks.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_suppliers_page/suppliers_page.dart';
 import 'package:shotgun/screens/supervisor_screens/manage_inventory_page/manage_inventory_page.dart';
@@ -109,9 +111,17 @@ final Map<String, WidgetBuilder> _secureRoutes = {
         requiredRole: 'supervisor',
         child: ManageInventoryPage(),
       ),
-  '/supervisor/view-staff':
+  // '/supervisor/view-staff':
+  //     (_) =>
+  //         const RoleGuard(requiredRole: 'supervisor', child: ViewStaffPage()),
+  '/supervisor/view-users':
       (_) =>
-          const RoleGuard(requiredRole: 'supervisor', child: ViewStaffPage()),
+          const RoleGuard(requiredRole: 'supervisor', child: ViewUsersPage()),
+  '/supervisor/add-user': (_) => const RoleGuard(
+    requiredRole: 'supervisor',
+    child: AddUsersPage(),
+  ),
+  
   
   '/supervisor/raw-product-orders':
       (_) =>
@@ -123,13 +133,13 @@ final Map<String, WidgetBuilder> _secureRoutes = {
       child: CreateMoldingOrderPage(),
     ),
 
-  '/supervisor/add-staff': (context) {
-    final companyId = ModalRoute.of(context)!.settings.arguments as String;
-    return RoleGuard(
-      requiredRole: 'supervisor',
-      child: AddStaffPage(companyId: companyId),
-    );
-  },
+  // '/supervisor/add-staff': (context) {
+  //   final companyId = ModalRoute.of(context)!.settings.arguments as String;
+  //   return RoleGuard(
+  //     requiredRole: 'supervisor',
+  //     child: AddStaffPage(companyId: companyId),
+  //   );
+  // },
 
   // FAB
   '/supervisor/add-focus-color':
