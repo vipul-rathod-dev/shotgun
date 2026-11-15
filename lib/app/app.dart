@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shotgun/app/app_navigation.dart';
 import 'package:shotgun/screens/admin_screens/create_company_page.dart';
 import 'package:shotgun/screens/admin_screens/view_companies_page.dart';
 import 'package:shotgun/screens/staff_screens/assigned_task_page/assigned_task_page.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'Shotgun App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),

@@ -22,14 +22,18 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  LoginMode _loginMode = LoginMode.company; // default
+  LoginMode _loginMode = LoginMode.company;
 
   void _switchToAdmin() {
-    setState(() => _loginMode = LoginMode.admin);
+    setState(() {
+      _loginMode = LoginMode.admin;
+    });
   }
 
   void _switchToCompany() {
-    setState(() => _loginMode = LoginMode.company);
+    setState(() {
+      _loginMode = LoginMode.company;
+    });
   }
 
   @override
@@ -37,21 +41,38 @@ class _AuthGateState extends State<AuthGate> {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Loading
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
           );
         }
 
-        // ❌ Not logged in → show correct login page
-        if (!snapshot.hasData) {
-          return _loginMode == LoginMode.admin
-              ? LoginPage(onSwitchToCompany: _switchToCompany)
-              : CompanyLoginPage(onSwitchToAdmin: _switchToAdmin);
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Text(
+                'Authentication error: ${snapshot.error}',
+              ),
+            ),
+          );
         }
 
-        // ✅ Logged in → resolve role
+        final user = snapshot.data;
+
+        if (user == null) {
+          if (_loginMode == LoginMode.admin) {
+            return LoginPage(
+              onSwitchToCompany: _switchToCompany,
+            );
+          }
+
+          return CompanyLoginPage(
+            onSwitchToAdmin: _switchToAdmin,
+          );
+        }
+
         return const RoleResolver();
       },
     );
