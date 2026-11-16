@@ -111,35 +111,29 @@ final Map<String, WidgetBuilder> _secureRoutes = {
         requiredRole: 'supervisor',
         child: ManageInventoryPage(),
       ),
-  // '/supervisor/view-staff':
-  //     (_) =>
-  //         const RoleGuard(requiredRole: 'supervisor', child: ViewStaffPage()),
-  '/supervisor/view-users':
-      (_) =>
-          const RoleGuard(requiredRole: 'supervisor', child: ViewUsersPage()),
-  '/supervisor/add-user': (_) => const RoleGuard(
-    requiredRole: 'supervisor',
-    child: AddUsersPage(),
-  ),
-  
-  
-  '/supervisor/raw-product-orders':
-      (_) =>
-          const RoleGuard(requiredRole: 'supervisor', child: RawProductOrdersPage()),
-  
-  '/supervisor/create-molding-order':
-    (_) => const RoleGuard(
-      requiredRole: 'supervisor',
-      child: CreateMoldingOrderPage(),
-    ),
 
-  // '/supervisor/add-staff': (context) {
-  //   final companyId = ModalRoute.of(context)!.settings.arguments as String;
-  //   return RoleGuard(
-  //     requiredRole: 'supervisor',
-  //     child: AddStaffPage(companyId: companyId),
-  //   );
-  // },
+  '/supervisor/view-users':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor', 
+        child: ViewUsersPage()
+      ),
+  '/supervisor/add-user':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor', 
+        child: AddUsersPage()
+      ),
+
+  '/supervisor/raw-product-orders':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: RawProductOrdersPage(),
+      ),
+
+  '/supervisor/create-molding-order':
+      (_) => const RoleGuard(
+        requiredRole: 'supervisor',
+        child: CreateMoldingOrderPage(),
+      ),
 
   // FAB
   '/supervisor/add-focus-color':
@@ -151,41 +145,74 @@ final Map<String, WidgetBuilder> _secureRoutes = {
   '/supervisor/execute-order':
       (_) => const RoleGuard(requiredRole: 'supervisor', child: ExecuteOrder()),
 
+  // Manager Role routes
+  '/manager/raw-product-orders':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: RawProductOrdersPage(),
+      ),
+  '/manager/orders':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: ManageOrdersPage(),
+      ),
+  '/manager/products':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: ManageProductPage(),
+      ),
+  '/manager/tasks':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: SupervisorTasksPage(),
+      ),
+  '/manager/customers':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: CustomersListPage(),
+      ),
+  '/manager/add-customer':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: AddCustomersPage(),
+      ),
+  '/manager/suppliers':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: ManageSuppliersPage(),
+      ),
+  '/manager/color-templates':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: ColorTemplatesPage(),
+      ),
+  '/manager/manage-inventory':
+      (_) => const RoleGuard(
+        requiredRole: 'manager',
+        child: ManageInventoryPage(),
+      ),
+  // Manager Role routes
+
   '/orders': (_) => const TrackOrdersPage(),
   '/order-details': (_) => const OrderDetailsPage(),
 
   // STAFF
   '/staff/process':
-      (_) => const RoleGuard(
-        requiredRole: 'staff',
-        child: ExecuteProcessPage(),
-      ),
+      (_) =>
+          const RoleGuard(requiredRole: 'staff', child: ExecuteProcessPage()),
   '/staff/tasks':
-      (_) => const RoleGuard(
-        requiredRole: 'staff',
-        child: AssignedTaskPage(),
-      ),
+      (_) => const RoleGuard(requiredRole: 'staff', child: AssignedTaskPage()),
   '/staff/rawProcess':
-      (_) =>
-          const RoleGuard(requiredRole: 'staff', child: RawProcessPage()),
+      (_) => const RoleGuard(requiredRole: 'staff', child: RawProcessPage()),
   '/staff/colorProcess':
-      (_) => const RoleGuard(
-        requiredRole: 'staff',
-        child: ColorProcessPage(),
-      ),
+      (_) => const RoleGuard(requiredRole: 'staff', child: ColorProcessPage()),
   '/staff/qualityCheck':
-      (_) => const RoleGuard(
-        requiredRole: 'staff',
-        child: QualityCheckPage(),
-      ),
+      (_) => const RoleGuard(requiredRole: 'staff', child: QualityCheckPage()),
   '/staff/fittingProcess':
-      (_) => const RoleGuard(
-        requiredRole: 'staff',
-        child: FittingProcessPage(),
-      ),
-  '/staff/demoProcess':
       (_) =>
-          const RoleGuard(requiredRole: 'staff', child: DemoProcessPage()),
+          const RoleGuard(requiredRole: 'staff', child: FittingProcessPage()),
+  '/staff/demoProcess':
+      (_) => const RoleGuard(requiredRole: 'staff', child: DemoProcessPage()),
   '/staff/packing':
       (_) => const RoleGuard(requiredRole: 'staff', child: PackingPage()),
   '/staff/shipping':

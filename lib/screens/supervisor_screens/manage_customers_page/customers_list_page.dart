@@ -52,7 +52,9 @@ class _CustomersListPageState extends State<CustomersListPage> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: Text("No customers data found."),
+                  );
                 }
 
                 final docs = snapshot.data!.docs;

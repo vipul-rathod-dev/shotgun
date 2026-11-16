@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shotgun/screens/manager_screens/manager_dashboard.dart';
 
 import '../admin_screens/admin_page.dart';
 import 'company_login_page.dart';
@@ -254,6 +255,9 @@ class RoleResolver extends StatelessWidget {
 
           case 'supervisor':
             return const SupervisorDashboard();
+
+          case 'manager':
+            return const ManagerDashboard();
 
           case 'staff':
             return const StaffDashboard();

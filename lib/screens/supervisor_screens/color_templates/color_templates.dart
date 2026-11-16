@@ -139,7 +139,14 @@ class _ColorTemplatesPageState extends State<ColorTemplatesPage> {
       body: StreamBuilder<QuerySnapshot>(
         stream: ref.orderBy("createdAt", descending: true).snapshots(),
         builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snap.hasData) { 
+            return const Center(
+              child: Text(
+                "No color templates added yet",
+                style: TextStyle(fontSize: 16),
+              ),
+            );
+          }
 
           final docs = snap.data!.docs;
 
